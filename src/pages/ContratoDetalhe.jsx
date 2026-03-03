@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import ItemForm from "@/components/contratos/ItemForm";
+import ItemForm from "@/components/contratos/ItemForm.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
