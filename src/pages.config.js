@@ -51,6 +51,7 @@ import Dashboard from './pages/Dashboard';
 import Contratos from './pages/Contratos';
 import ContratoDetalhe from './pages/ContratoDetalhe';
 import Lancamentos from './pages/Lancamentos';
+import Orcamento from './pages/Orcamento';
 import __Layout from './Layout.jsx';
 
 
@@ -59,6 +60,7 @@ export const PAGES = {
     "Contratos": Contratos,
     "ContratoDetalhe": ContratoDetalhe,
     "Lancamentos": Lancamentos,
+    "Orcamento": Orcamento,
 }
 
 export const pagesConfig = {
