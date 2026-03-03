@@ -49,12 +49,14 @@
  */
 import Dashboard from './pages/Dashboard';
 import Contratos from './pages/Contratos';
+import ContratoDetalhe from './pages/ContratoDetalhe';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "Dashboard": Dashboard,
     "Contratos": Contratos,
+    "ContratoDetalhe": ContratoDetalhe,
 }
 
 export const pagesConfig = {
