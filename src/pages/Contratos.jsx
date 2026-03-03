@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Plus, Search, Eye, Pencil, Trash2, FileText, CalendarDays } from "lucide-react";
-import ContratoForm from "@/components/contratos/ContratoForm";
+import ContratoForm from "@/components/contratos/ContratoForm.jsx";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
