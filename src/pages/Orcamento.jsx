@@ -253,6 +253,41 @@ export default function Orcamento() {
         </Card>
       )}
 
+      {/* Detalhamento por Contrato */}
+      {orcamentoSel && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <CardTitle className="text-sm text-[#1a2e4a] flex items-center gap-2">
+                <LayoutList className="w-4 h-4" /> Detalhamento por Item de Contrato
+              </CardTitle>
+              <Select value={contratoSel} onValueChange={setContratoSel}>
+                <SelectTrigger className="w-72">
+                  <SelectValue placeholder="Selecione o contrato..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {contratos.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.numero} — {c.contratada?.trim()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {contratoSel ? (
+              <DetalhamentoOrcamentoContrato
+                contrato={contratos.find(c => c.id === contratoSel)}
+                ano={parseInt(anoSel)}
+                totalOrcado={orcamentoSel.valor_dotacao_atual}
+                canEdit={canEdit}
+              />
+            ) : (
+              <div className="text-sm text-gray-400 text-center py-4">Selecione um contrato para ver o detalhamento.</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Histórico */}
       {orcamentoSel && historicoSel.length > 0 && (
         <Card>
