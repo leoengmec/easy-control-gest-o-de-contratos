@@ -151,10 +151,9 @@ export default function Lancamentos() {
                 <th className="text-left p-3 font-medium text-gray-500">Mês/Ano</th>
                 <th className="text-left p-3 font-medium text-gray-500">Contrato</th>
                 <th className="text-left p-3 font-medium text-gray-500">Item</th>
-                <th className="text-left p-3 font-medium text-gray-500">Tipo</th>
                 <th className="text-left p-3 font-medium text-gray-500">Status</th>
                 <th className="text-right p-3 font-medium text-gray-500">Valor</th>
-                <th className="text-left p-3 font-medium text-gray-500">NF/Empenho</th>
+                <th className="text-left p-3 font-medium text-gray-500">NF / OS / SEI</th>
                 {canEdit && <th className="p-3"></th>}
               </tr>
             </thead>
