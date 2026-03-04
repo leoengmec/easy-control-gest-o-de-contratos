@@ -13,6 +13,7 @@ import ItemForm from "@/components/contratos/ItemForm.jsx";
 import AditivoForm from "@/components/contratos/AditivoForm.jsx";
 import ItensAgrupados from "@/components/contratos/ItensAgrupados.jsx";
 import EmpenhoForm from "@/components/contratos/EmpenhoForm.jsx";
+import TabelaResumoContrato from "@/components/contratos/TabelaResumoContrato.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
