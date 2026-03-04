@@ -165,17 +165,19 @@ export default function Lancamentos() {
                   <tr key={l.id} className="border-b hover:bg-gray-50">
                     <td className="p-3 font-medium">{mesesNomes[(l.mes || 1) - 1]}/{l.ano}</td>
                     <td className="p-3 text-xs text-gray-600">{contrato?.numero || "—"}</td>
-                    <td className="p-3 text-xs text-gray-600">{item?.nome || "—"}</td>
+                    <td className="p-3 text-xs text-gray-600">{l.item_label || item?.nome || "—"}</td>
                     <td className="p-3">
-                      <Badge variant="outline" className={`text-xs ${tipoColors[l.tipo]}`}>{l.tipo}</Badge>
-                    </td>
-                    <td className="p-3">
-                      <Badge className={`text-xs ${statusColors[l.status]}`}>
-                        {l.status === "aprovado_nao_pago" ? "Aprovado/Não pago" : l.status}
+                      <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
+                        {l.status || "—"}
                       </Badge>
                     </td>
                     <td className="p-3 text-right font-semibold">{fmt(l.valor)}</td>
-                    <td className="p-3 text-xs text-gray-500">{l.numero_nf || l.numero_empenho || "—"}</td>
+                    <td className="p-3 text-xs text-gray-500 space-y-0.5">
+                      {l.numero_nf && <div>NF: {l.numero_nf}</div>}
+                      {l.os_numero && <div>OS: {l.os_numero}</div>}
+                      {l.processo_pagamento_sei && <div>SEI: {l.processo_pagamento_sei}</div>}
+                      {!l.numero_nf && !l.os_numero && !l.processo_pagamento_sei && "—"}
+                    </td>
                     {canEdit && (
                       <td className="p-3">
                         <div className="flex gap-1 justify-end">
