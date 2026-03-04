@@ -72,9 +72,26 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#1a2e4a]">Dashboard</h1>
-        <p className="text-gray-500 text-sm">Gestão de contratos de manutenção · {anoAtual}</p>
+      <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-[#1a2e4a]">Dashboard</h1>
+          <p className="text-gray-500 text-sm">Gestão de contratos de manutenção · {anoAtual}</p>
+        </div>
+        <div className="sm:ml-4">
+          <Select value={contratoSelecionado} onValueChange={setContratoSelecionado}>
+            <SelectTrigger className="h-8 text-xs w-64">
+              <SelectValue placeholder="Todos os contratos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos os contratos</SelectItem>
+              {contratos.filter(c => c.status === "ativo").map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.numero} · {c.contratada?.substring(0, 25)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
