@@ -50,7 +50,6 @@ export default function GraficoContrato({ contrato, lancamentos, empenhos, valor
   const [itensOrcados, setItensOrcados] = useState([]);
   const [abaGrafico, setAbaGrafico] = useState("mensal");
   const [itemSelecionado, setItemSelecionado] = useState("todos");
-  const [granularidade, setGranularidade] = useState("mes"); // mes | ano
 
   const anoAtual = new Date().getFullYear();
 
@@ -64,24 +63,34 @@ export default function GraficoContrato({ contrato, lancamentos, empenhos, valor
     });
   }, [contrato.id]);
 
+  // Opções do filtro: categorias salvas em OrcamentoContratualItemAnual + fallback para itens do contrato
+  const opcoesSelect = itensOrcados.length > 0
+    ? itensOrcados.map(io => ({ id: io.item_label, label: io.item_label }))
+    : itens.map(i => ({ id: i.id, label: i.nome }));
+
   // Filtra lançamentos pelo item selecionado
   const lancsFiltrados = itemSelecionado === "todos"
     ? lancamentos
-    : lancamentos.filter(l =>
-        l.item_contrato_id === itemSelecionado ||
-        l.item_label === itens.find(i => i.id === itemSelecionado)?.nome
-      );
+    : lancamentos.filter(l => {
+        // Tenta por item_label (categoria padronizada) ou item_contrato_id
+        if (l.item_label === itemSelecionado) return true;
+        if (l.item_contrato_id === itemSelecionado) return true;
+        // Para MOR Natal/Mossoró, agrupa lançamentos cujo item_label contenha o texto
+        if (itemSelecionado.startsWith("MOR") && l.item_label?.includes(itemSelecionado)) return true;
+        return false;
+      });
 
   // Valor máximo do item (para ReferenceLine)
   const valorMaxItem = (() => {
     if (itemSelecionado === "todos") {
       return valorFinanceiroNufip > 0 ? valorFinanceiroNufip : valorOrcado;
     }
-    const orcadoItem = itensOrcados.find(io =>
-      io.item_contrato_id === itemSelecionado ||
-      io.item_label === itens.find(i => i.id === itemSelecionado)?.nome
-    );
+    // Busca no orçamento salvo por item_label
+    const orcadoItem = itensOrcados.find(io => io.item_label === itemSelecionado);
     if (orcadoItem) return orcadoItem.valor_orcado;
+    // Fallback: busca pelo id do item
+    const orcadoById = itensOrcados.find(io => io.item_contrato_id === itemSelecionado);
+    if (orcadoById) return orcadoById.valor_orcado;
     const itemData = itens.find(i => i.id === itemSelecionado);
     return itemData?.valor_total_contratado || 0;
   })();
