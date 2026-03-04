@@ -83,9 +83,74 @@ const CAT_CORES = {
   "Materiais": "#10b981",
 };
 
+// ── Helpers para classificar itens de contrato ───────────────────────────────
+const MOR_NATAL_KEYS = ["natal", "artífice natal", "auxiliar natal", "administrativo natal", "engenheiro"];
+const MOR_MOSSORO_KEYS = ["mossoró", "mossoro"];
+
+function isMorMossoro(nome) { return MOR_MOSSORO_KEYS.some(k => nome.toLowerCase().includes(k)); }
+function isMorNatal(nome) { return MOR_NATAL_KEYS.some(k => nome.toLowerCase().includes(k)) && !isMorMossoro(nome); }
+function isMaterial(nome) { return ["material", "fornecimento de material"].some(k => nome.toLowerCase().includes(k)); }
+function isDeslPreventivo(nome) { return nome.toLowerCase().includes("deslocamento preventivo"); }
+function isDeslCorretivo(nome) { return nome.toLowerCase().includes("deslocamento corretivo"); }
+function isLocacao(nome) { return nome.toLowerCase().includes("locação") || nome.toLowerCase().includes("locacao"); }
+function isEventual(nome) { return nome.toLowerCase().includes("eventual"); }
+
+function calcularValorAnual(item) {
+  if (item.periodicidade === "mensal") return (item.valor_unitario || 0) * (item.quantidade_contratada || 1) * 12;
+  return item.valor_total_contratado || 0;
+}
+
+// Dado os itens do contrato e o total orçado, calcula o orçado por categoria (igual ao DetalhamentoOrcamentoContrato)
+function calcularOrcadoPorCategoria(itens, totalOrcado) {
+  const morNatalItens = itens.filter(i => isMorNatal(i.nome) && !isMaterial(i.nome));
+  const morMossoroItens = itens.filter(i => isMorMossoro(i.nome) && !isMaterial(i.nome));
+  const deslPrevItens = itens.filter(i => isDeslPreventivo(i.nome));
+  const materialItens = itens.filter(i => isMaterial(i.nome));
+
+  const fixedIds = new Set([
+    ...morNatalItens.map(i => i.id),
+    ...morMossoroItens.map(i => i.id),
+    ...deslPrevItens.map(i => i.id),
+    ...materialItens.map(i => i.id),
+  ]);
+  const demaisItens = itens.filter(i => !fixedIds.has(i.id));
+
+  const valMorNatal = morNatalItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+  const valMorMossoro = morMossoroItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+  const valDeslPrev = deslPrevItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+  const valMaterial = materialItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+
+  const totalFixo = valMorNatal + valMorMossoro + valDeslPrev;
+  const restante = totalOrcado - totalFixo - valMaterial;
+  const totalDemaisContratado = demaisItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+
+  const result = {
+    "MOR Natal": valMorNatal,
+    "MOR Mossoró": valMorMossoro,
+    "Deslocamento Preventivo": valDeslPrev,
+    "Fornecimento de Materiais": valMaterial,
+    "Deslocamento Corretivo": 0,
+    "Locações": 0,
+    "Serviços eventuais": 0,
+  };
+
+  demaisItens.forEach(item => {
+    const valAnual = calcularValorAnual(item);
+    const prop = totalDemaisContratado > 0 ? valAnual / totalDemaisContratado : 0;
+    const valOrcado = restante > 0 ? prop * restante : 0;
+    if (isDeslCorretivo(item.nome)) result["Deslocamento Corretivo"] += valOrcado;
+    else if (isLocacao(item.nome)) result["Locações"] += valOrcado;
+    else if (isEventual(item.nome)) result["Serviços eventuais"] += valOrcado;
+    // demais não mapeados são ignorados
+  });
+
+  return result;
+}
+
 export default function GraficoDashboardConsolidado({ contratos, lancamentos, empenhos, orcamentosContratuais, contratoSelecionado = "todos" }) {
   const [orcamentosAnuais, setOrcamentosAnuais] = useState([]);
   const [orcamentosItens, setOrcamentosItens] = useState([]);
+  const [itensContrato, setItensContrato] = useState([]);
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
   const [agrupamento, setAgrupamento] = useState("grupo"); // "individual" | "grupo"
 
@@ -93,9 +158,11 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     Promise.all([
       base44.entities.OrcamentoAnual.list(),
       base44.entities.OrcamentoContratualItemAnual.list(),
-    ]).then(([oa, oi]) => {
+      base44.entities.ItemContrato.list(),
+    ]).then(([oa, oi, ic]) => {
       setOrcamentosAnuais(oa);
       setOrcamentosItens(oi);
+      setItensContrato(ic);
     });
   }, []);
 
