@@ -54,13 +54,49 @@ const PieTooltip = ({ active, payload }) => {
   );
 };
 
-export default function GraficoDashboardConsolidado({ contratos, lancamentos, empenhos, orcamentosContratuais }) {
+const CATEGORIAS = [
+  "Deslocamento Corretivo",
+  "Deslocamento Preventivo",
+  "Locações",
+  "MOR Natal",
+  "MOR Mossoró",
+  "Serviços eventuais",
+  "Fornecimento de Materiais",
+];
+
+const GRUPOS = {
+  "MOR": ["MOR Natal", "MOR Mossoró"],
+  "Serviços": ["Deslocamento Corretivo", "Deslocamento Preventivo", "Locações", "Serviços eventuais"],
+  "Materiais": ["Fornecimento de Materiais"],
+};
+
+const CAT_CORES = {
+  "Deslocamento Corretivo": "#3b82f6",
+  "Deslocamento Preventivo": "#6366f1",
+  "Locações": "#8b5cf6",
+  "MOR Natal": "#f59e0b",
+  "MOR Mossoró": "#f97316",
+  "Serviços eventuais": "#ec4899",
+  "Fornecimento de Materiais": "#10b981",
+  "MOR": "#f59e0b",
+  "Serviços": "#3b82f6",
+  "Materiais": "#10b981",
+};
+
+export default function GraficoDashboardConsolidado({ contratos, lancamentos, empenhos, orcamentosContratuais, contratoSelecionado = "todos" }) {
   const [orcamentosAnuais, setOrcamentosAnuais] = useState([]);
+  const [orcamentosItens, setOrcamentosItens] = useState([]);
   const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
-  const [contratoFiltro, setContratoFiltro] = useState("todos");
+  const [agrupamento, setAgrupamento] = useState("grupo"); // "individual" | "grupo"
 
   useEffect(() => {
-    base44.entities.OrcamentoAnual.list().then(setOrcamentosAnuais);
+    Promise.all([
+      base44.entities.OrcamentoAnual.list(),
+      base44.entities.OrcamentoContratualItemAnual.list(),
+    ]).then(([oa, oi]) => {
+      setOrcamentosAnuais(oa);
+      setOrcamentosItens(oi);
+    });
   }, []);
 
   // 1. Distribuição por Status (Pizza)
