@@ -30,7 +30,7 @@ export default function Lancamentos() {
   const anoAtual = new Date().getFullYear();
   const [filtroAno, setFiltroAno] = useState(String(anoAtual));
   const [filtroContrato, setFiltroContrato] = useState("todos");
-  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
