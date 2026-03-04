@@ -16,6 +16,17 @@ const fmtK = (v) => {
 
 const MESES_LABELS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
+// Categorias padronizadas para o filtro (igual ao dashboard consolidado)
+const CATEGORIAS_LABEL = [
+  "MOR Natal",
+  "MOR Mossoró",
+  "Deslocamento Preventivo",
+  "Deslocamento Corretivo",
+  "Locações",
+  "Serviços eventuais",
+  "Fornecimento de Material",
+];
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
