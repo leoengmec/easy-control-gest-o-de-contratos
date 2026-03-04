@@ -73,16 +73,18 @@ export default function ContratoDetalhe() {
   }, [contratoId]);
 
   const loadAll = async () => {
-    const [c, i, l, a] = await Promise.all([
+    const [c, i, l, a, e] = await Promise.all([
       base44.entities.Contrato.filter({ id: contratoId }),
       base44.entities.ItemContrato.filter({ contrato_id: contratoId }),
       base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoId }),
-      base44.entities.Aditivo.filter({ contrato_id: contratoId })
+      base44.entities.Aditivo.filter({ contrato_id: contratoId }),
+      base44.entities.NotaEmpenho.filter({ contrato_id: contratoId })
     ]);
     setContrato(c[0]);
     setItens(i);
     setLancamentos(l);
     setAditivos(a.sort((x, y) => new Date(x.data_assinatura) - new Date(y.data_assinatura)));
+    setEmpenhos(e.sort((x, y) => y.ano - x.ano));
     setLoading(false);
   };
 
