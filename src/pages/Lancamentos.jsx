@@ -66,7 +66,7 @@ export default function Lancamentos() {
 
   const canEdit = user?.role === "admin" || user?.role === "gestor" || user?.role === "fiscal";
 
-  const filtered = lancamentos.filter(l => filtroTipo === "todos" || l.tipo === filtroTipo);
+  const filtered = lancamentos.filter(l => filtroStatus === "todos" || l.status === filtroStatus);
 
   const totalFiltrado = filtered.reduce((s, l) => s + (l.valor || 0), 0);
 
