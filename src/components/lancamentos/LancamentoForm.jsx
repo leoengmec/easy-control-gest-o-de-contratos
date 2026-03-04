@@ -266,11 +266,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               </Select>
             </div>
           </div>
-
-          {/* VALOR */}
-          <div className="space-y-1">
-            <Label>Valor Total (R$) *</Label>
-            <Input type="number" step="0.01" min="0" value={valor} onChange={e => setValor(e.target.value)} required />
           </div>
 
           {/* ITENS / CATEGORIAS */}
