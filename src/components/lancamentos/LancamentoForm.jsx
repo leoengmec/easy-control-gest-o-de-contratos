@@ -174,6 +174,57 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     });
   };
 
+  // Categorias que NÃO são MOR (OS se aplica apenas a essas)
+  const isMorCategoria = (label) => label === "MOR Natal" || label === "MOR Mossoró";
+
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setExtractingPdf(true);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url,
+        json_schema: {
+          type: "object",
+          properties: {
+            numero_nf:  { type: "string",  description: "Número da nota fiscal" },
+            data_nf:    { type: "string",  description: "Data de emissão da nota fiscal no formato YYYY-MM-DD" },
+            valor_total: { type: "number", description: "Valor total da nota fiscal" },
+            os_numero:  { type: "string",  description: "Número da Ordem de Serviço (OS)" },
+            os_data:    { type: "string",  description: "Data da Ordem de Serviço no formato YYYY-MM-DD" },
+          }
+        }
+      });
+
+      if (result.status === "success" && result.output) {
+        const data = result.output;
+
+        // Preenche OS apenas para itens não-MOR
+        if (data.os_numero) setOsNumero(data.os_numero);
+        if (data.os_data)   setOsData(data.os_data);
+
+        // Preenche NF nos itens não-MOR selecionados
+        if (data.numero_nf || data.data_nf || data.valor_total) {
+          setItensLancamento(prev => prev.map(entry => {
+            if (isMorCategoria(entry.item_label)) return entry; // MOR não recebe OS
+            return {
+              ...entry,
+              numero_nf: data.numero_nf  || entry.numero_nf,
+              data_nf:   data.data_nf    || entry.data_nf,
+              valor:     data.valor_total != null ? data.valor_total : entry.valor,
+            };
+          }));
+        }
+      } else {
+        alert("Não foi possível extrair dados do PDF. Verifique se o arquivo é uma nota fiscal válida.");
+      }
+    } finally {
+      setExtractingPdf(false);
+      e.target.value = "";
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!lancamento && itensLancamento.length === 0) { alert("Selecione ao menos um item."); return; }
