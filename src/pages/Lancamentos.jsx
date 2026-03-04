@@ -111,13 +111,11 @@ export default function Lancamentos() {
             {contratos.map(c => <SelectItem key={c.id} value={c.id}>{c.numero} – {c.contratada}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Todos os status" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos os tipos</SelectItem>
-            <SelectItem value="pagamento">Pagamento</SelectItem>
-            <SelectItem value="provisao">Provisão</SelectItem>
-            <SelectItem value="empenho">Empenho</SelectItem>
+            <SelectItem value="todos">Todos os status</SelectItem>
+            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
       </div>
