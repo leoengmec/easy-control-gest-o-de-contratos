@@ -107,6 +107,10 @@ export default function ContratoCard({ contrato, lancamentos, empenhos, orcament
             <div className="text-xs text-gray-500 font-medium mb-2">Saldo do Ano ({anoAtual})</div>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
+                <span className="text-gray-500">{valorFinanceiroNufip > 0 ? "Financeiro NUFIP:" : "Orçado JFRN:"}</span>
+                <span className="font-semibold text-blue-700">{baseReferenciaAno > 0 ? fmt(baseReferenciaAno) : <span className="text-gray-400">Não informado</span>}</span>
+              </div>
+              <div className="flex justify-between">
                 <span className="text-gray-500">Pago:</span>
                 <span className="font-semibold text-green-600">{fmt(totalPagoAno)}</span>
               </div>
@@ -120,7 +124,7 @@ export default function ContratoCard({ contrato, lancamentos, empenhos, orcament
               </div>
               <div className="border-t pt-1 flex justify-between">
                 <span className="text-gray-600 font-medium">Saldo:</span>
-                <span className={`font-bold ${saldoAno < 0 ? "text-red-600" : "text-green-600"}`}>{fmt(saldoAno)}</span>
+                <span className={`font-bold ${saldoAno < 0 ? "text-red-600" : "text-green-600"}`}>{baseReferenciaAno > 0 ? fmt(saldoAno) : <span className="text-gray-400">—</span>}</span>
               </div>
             </div>
           </div>
