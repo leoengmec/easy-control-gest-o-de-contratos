@@ -286,6 +286,80 @@ export default function ContratoDetalhe() {
           )}
         </TabsContent>
 
+        {/* ABA: EMPENHOS */}
+        <TabsContent value="empenhos" className="space-y-4 mt-4">
+          {(showEmpenhoForm || editingEmpenho) ? (
+            <EmpenhoForm
+              empenho={editingEmpenho}
+              contratoId={contratoId}
+              onSave={() => { setShowEmpenhoForm(false); setEditingEmpenho(null); loadAll(); }}
+              onCancel={() => { setShowEmpenhoForm(false); setEditingEmpenho(null); }}
+            />
+          ) : (
+            <>
+              {canEdit && (
+                <Button onClick={() => setShowEmpenhoForm(true)} size="sm" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
+                  <Plus className="w-4 h-4 mr-1" /> Novo Empenho
+                </Button>
+              )}
+              {empenhos.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">Nenhum empenho cadastrado</div>
+              ) : (
+                <div className="space-y-3">
+                  {empenhos.map(emp => (
+                    <Card key={emp.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              <span className="font-bold text-[#1a2e4a]">{emp.numero_empenho}</span>
+                              <Badge variant="outline" className="text-xs">{emp.ano}</Badge>
+                              <Badge variant="outline" className={`text-xs ${emp.natureza_despesa === "339039_servico" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-green-50 text-green-700 border-green-200"}`}>
+                                {NATUREZA_LABELS[emp.natureza_despesa]}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                              {emp.ptres && (
+                                <div>
+                                  <div className="text-xs text-gray-400">PTRES</div>
+                                  <div className="font-medium text-[#1a2e4a]">{emp.ptres}</div>
+                                </div>
+                              )}
+                              {emp.valor_total > 0 && (
+                                <div>
+                                  <div className="text-xs text-gray-400">Valor Total</div>
+                                  <div className="font-medium text-[#1a2e4a]">{fmt(emp.valor_total)}</div>
+                                </div>
+                              )}
+                              {emp.data_inclusao && (
+                                <div>
+                                  <div className="text-xs text-gray-400">Data de Inclusão</div>
+                                  <div className="font-medium text-[#1a2e4a]">{format(parseISO(emp.data_inclusao), "dd/MM/yyyy")}</div>
+                                </div>
+                              )}
+                            </div>
+                            {emp.observacoes && <p className="text-xs text-gray-500 mt-2">{emp.observacoes}</p>}
+                          </div>
+                          {canEdit && (
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditingEmpenho(emp)}>
+                                <Pencil className="w-3 h-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDeleteEmpenho(emp.id)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
+
         {/* ABA: FISCALIZAÇÃO */}
         <TabsContent value="fiscalizacao" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
