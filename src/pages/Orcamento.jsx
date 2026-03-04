@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, History, TrendingUp, TrendingDown, Minus, PiggyBank, LayoutList } from "lucide-react";
+import AlertasOrcamento from "@/components/orcamento/AlertasOrcamento";
 import { format } from "date-fns";
 import DetalhamentoOrcamentoContrato from "@/components/orcamento/DetalhamentoOrcamentoContrato";
 
