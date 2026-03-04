@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
 import ContratoCard from "@/components/dashboard/ContratoCard";
 import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState("ativo");
   const [filtroBusca, setFiltroBusca] = useState("");
+  const [contratoSelecionado, setContratoSelecionado] = useState("todos");
 
   const anoAtual = new Date().getFullYear();
 
