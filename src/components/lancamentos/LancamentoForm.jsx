@@ -147,6 +147,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         nota_empenho_id: cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
         numero_nf:       "",
         data_nf:         hoje,
+        valor:           "",
       }];
     });
   };
