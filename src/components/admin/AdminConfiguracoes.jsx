@@ -2,47 +2,120 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Settings, MapPin, Tag, Plus, X } from "lucide-react";
+import { Settings, MapPin, Tag, Plus, X, Pencil, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
-const LOCAIS_PADRAO = ["Natal", "Mossoró", "Assú", "Caicó", "Pau dos Ferros", "Ceará Mirim"];
-const CATEGORIAS_PADRAO = [
-  "Deslocamento Corretivo",
-  "Deslocamento Preventivo",
-  "Locações",
-  "MOR Natal",
-  "MOR Mossoró",
-  "Serviços eventuais",
-  "Fornecimento de Materiais",
-];
+const CONFIG_KEY = "admin_configuracoes";
 
-const STATUS_LANCAMENTO_PADRAO = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
+const DEFAULTS = {
+  locais: ["Natal", "Mossoró", "Assú", "Caicó", "Pau dos Ferros", "Ceará Mirim"],
+  categorias: [
+    "Deslocamento Corretivo",
+    "Deslocamento Preventivo",
+    "Locações",
+    "MOR Natal",
+    "MOR Mossoró",
+    "Serviços eventuais",
+    "Fornecimento de Materiais",
+  ],
+  status: ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"],
+};
 
-function InfoSection({ icon: Icon, title, desc, items, color }) {
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    return raw ? JSON.parse(raw) : { ...DEFAULTS };
+  } catch {
+    return { ...DEFAULTS };
+  }
+}
+
+function saveConfig(config) {
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+}
+
+function EditableList({ icon: Icon, title, desc, color, items, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [list, setList] = useState(items);
+  const [newItem, setNewItem] = useState("");
+
+  const handleAdd = () => {
+    const trimmed = newItem.trim();
+    if (trimmed && !list.includes(trimmed)) {
+      setList([...list, trimmed]);
+      setNewItem("");
+    }
+  };
+
+  const handleRemove = (item) => setList(list.filter(i => i !== item));
+
+  const handleSave = () => {
+    onSave(list);
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setList(items);
+    setEditing(false);
+    setNewItem("");
+  };
+
   return (
     <Card>
       <CardContent className="pt-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
-            <Icon className="w-4 h-4" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[#1a2e4a]">{title}</p>
+              <p className="text-xs text-gray-400">{desc}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-[#1a2e4a]">{title}</p>
-            <p className="text-xs text-gray-400">{desc}</p>
-          </div>
+          {!editing && (
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1" onClick={() => setEditing(true)}>
+              <Pencil className="w-3 h-3" /> Editar
+            </Button>
+          )}
         </div>
+
         <div className="flex flex-wrap gap-2">
-          {items.map(item => (
-            <Badge key={item} variant="outline" className="text-xs bg-gray-50">
+          {list.map(item => (
+            <Badge key={item} variant="outline" className="text-xs bg-gray-50 gap-1">
               {item}
+              {editing && (
+                <button onClick={() => handleRemove(item)} className="ml-1 text-red-400 hover:text-red-600">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </Badge>
           ))}
         </div>
-        <p className="text-xs text-gray-400 italic">
-          Para alterar estes valores, é necessário editar o código-fonte do sistema.
-        </p>
+
+        {editing && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newItem}
+                onChange={e => setNewItem(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleAdd()}
+                placeholder="Novo item..."
+                className="border rounded px-3 py-1.5 text-sm flex-1 outline-none focus:ring-1 focus:ring-blue-400"
+              />
+              <Button size="sm" variant="outline" className="text-xs h-8 gap-1" onClick={handleAdd}>
+                <Plus className="w-3 h-3" /> Adicionar
+              </Button>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button size="sm" variant="outline" className="text-xs" onClick={handleCancel}>Cancelar</Button>
+              <Button size="sm" className="text-xs bg-[#1a2e4a] text-white hover:bg-[#2a4a7a] gap-1" onClick={handleSave}>
+                <Check className="w-3 h-3" /> Salvar
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -96,6 +169,14 @@ function ContratosResumo() {
 }
 
 export default function AdminConfiguracoes() {
+  const [config, setConfig] = useState(loadConfig);
+
+  const handleSave = (key) => (newList) => {
+    const updated = { ...config, [key]: newList };
+    setConfig(updated);
+    saveConfig(updated);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -105,28 +186,31 @@ export default function AdminConfiguracoes() {
 
       <ContratosResumo />
 
-      <InfoSection
+      <EditableList
         icon={MapPin}
         title="Locais de Prestação de Serviço"
         desc="Locais disponíveis para seleção nos lançamentos e notas fiscais"
-        items={LOCAIS_PADRAO}
         color="bg-orange-100 text-orange-700"
+        items={config.locais}
+        onSave={handleSave("locais")}
       />
 
-      <InfoSection
+      <EditableList
         icon={Tag}
         title="Categorias de Lançamento"
         desc="Categorias disponíveis ao criar um lançamento financeiro"
-        items={CATEGORIAS_PADRAO}
         color="bg-indigo-100 text-indigo-700"
+        items={config.categorias}
+        onSave={handleSave("categorias")}
       />
 
-      <InfoSection
+      <EditableList
         icon={Settings}
         title="Status de Lançamentos"
         desc="Status disponíveis para os lançamentos financeiros"
-        items={STATUS_LANCAMENTO_PADRAO}
         color="bg-teal-100 text-teal-700"
+        items={config.status}
+        onSave={handleSave("status")}
       />
     </div>
   );
