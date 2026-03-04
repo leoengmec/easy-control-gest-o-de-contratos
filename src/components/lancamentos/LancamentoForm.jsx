@@ -9,32 +9,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
 
-// Mapeamento de categorias para itens reais do contrato
 const CATEGORIAS = [
-  { value: "Deslocamento Corretivo", label: "Deslocamento Corretivo", tipo: "categoria" },
-  { value: "Deslocamento Preventivo", label: "Deslocamento Preventivo", tipo: "categoria" },
-  { value: "Fornecimento de Materiais", label: "Fornecimento de Materiais", tipo: "categoria" },
-  { value: "Locações", label: "Locações", tipo: "categoria" },
-  { value: "MOR Mossoró", label: "MOR Mossoró", tipo: "grupo" },
-  { value: "MOR Natal", label: "MOR Natal", tipo: "grupo" },
-  { value: "Serviços eventuais", label: "Serviços eventuais", tipo: "categoria" },
+  { value: "Deslocamento Corretivo",  label: "Deslocamento Corretivo",  tipo: "servico" },
+  { value: "Deslocamento Preventivo", label: "Deslocamento Preventivo", tipo: "servico" },
+  { value: "Locações",                label: "Locações",                tipo: "servico" },
+  { value: "MOR Natal",               label: "MOR Natal",               tipo: "servico" },
+  { value: "MOR Mossoró",             label: "MOR Mossoró",             tipo: "servico" },
+  { value: "Serviços eventuais",      label: "Serviços eventuais",      tipo: "servico" },
+  { value: "Fornecimento de Materiais", label: "Fornecimento de Materiais", tipo: "material" },
 ];
 
-// Substrings que identificam itens pertencentes aos grupos
-const MOR_NATAL_MATCH = ["ARTÍFICE DE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE CIVIL NATAL","ARTÍFICE CIVIL NATAL","ENGENHEIRO DE CAMPO NATAL"];
+const MOR_NATAL_MATCH   = ["ARTÍFICE DE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE CIVIL NATAL","ARTÍFICE CIVIL NATAL","ENGENHEIRO DE CAMPO NATAL"];
 const MOR_MOSSORO_MATCH = ["ARTÍFICE ELÉTRICA MOSSORÓ","AUXILIAR DE ARTÍFICE ELÉTRICA MOSSORÓ","AUXILIAR DE ARTÍFICE CIVIL MOSSORÓ","ARTÍFICE CIVIL MOSSORÓ"];
 
 function getItensDoGrupo(categoria, itensContrato) {
-  const nomeUpper = (n) => (n || "").toUpperCase();
-  if (categoria === "MOR Natal") {
-    return itensContrato.filter(i => MOR_NATAL_MATCH.some(m => nomeUpper(i.nome).includes(m.toUpperCase())));
-  }
-  if (categoria === "MOR Mossoró") {
-    return itensContrato.filter(i => MOR_MOSSORO_MATCH.some(m => nomeUpper(i.nome).includes(m.toUpperCase())));
-  }
+  const up = (n) => (n || "").toUpperCase();
+  if (categoria === "MOR Natal")   return itensContrato.filter(i => MOR_NATAL_MATCH.some(m => up(i.nome).includes(m)));
+  if (categoria === "MOR Mossoró") return itensContrato.filter(i => MOR_MOSSORO_MATCH.some(m => up(i.nome).includes(m)));
   return [];
 }
 
@@ -43,85 +36,179 @@ const NATUREZA_LABELS = {
   "339030_material": "NE Material (339030)"
 };
 
+function ItemNFCard({ entry, index, empenhos, onChange }) {
+  return (
+    <div className="border rounded-lg p-4 bg-white space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="font-semibold text-sm text-[#1a2e4a]">{entry.item_label}</span>
+        {entry.nota_empenho_id && (() => {
+          const ne = empenhos.find(e => e.id === entry.nota_empenho_id);
+          return ne ? (
+            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+              {ne.numero_empenho}
+            </Badge>
+          ) : null;
+        })()}
+        {!entry.nota_empenho_id && (
+          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+            Sem empenho vinculado
+          </Badge>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Número da NF</Label>
+          <Input
+            value={entry.numero_nf}
+            onChange={e => onChange(index, "numero_nf", e.target.value)}
+            placeholder="Nº da NF"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Data da NF</Label>
+          <Input
+            type="date"
+            value={entry.data_nf}
+            onChange={e => onChange(index, "data_nf", e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel }) {
   const anoAtual = new Date().getFullYear();
-  const [form, setForm] = useState({
-    contrato_id: lancamento?.contrato_id || "",
-    item_label: lancamento?.item_label || "",
-    nota_empenho_id: lancamento?.nota_empenho_id || "",
-    ano: lancamento?.ano || anoAtual,
-    mes: lancamento?.mes || new Date().getMonth() + 1,
-    status: lancamento?.status || "Em instrução",
-    valor: lancamento?.valor || "",
-    numero_nf: lancamento?.numero_nf || "",
-    processo_pagamento_sei: lancamento?.processo_pagamento_sei || "",
-    ordem_bancaria: lancamento?.ordem_bancaria || "",
-    os_numero: lancamento?.os_numero || "",
-    os_data: lancamento?.os_data || "",
-    os_local: lancamento?.os_local || "",
-    data_lancamento: lancamento?.data_lancamento || new Date().toISOString().split("T")[0],
-    observacoes: lancamento?.observacoes || ""
+  const hoje = new Date().toISOString().split("T")[0];
+
+  const [contratoId,          setContratoId]          = useState(lancamento?.contrato_id || "");
+  const [ano,                 setAno]                 = useState(lancamento?.ano || anoAtual);
+  const [mes,                 setMes]                 = useState(lancamento?.mes || new Date().getMonth() + 1);
+  const [status,              setStatus]              = useState(lancamento?.status || "Em instrução");
+  const [valor,               setValor]               = useState(lancamento?.valor || "");
+  const [processoPagSei,      setProcessoPagSei]      = useState(lancamento?.processo_pagamento_sei || "");
+  const [ordemBancaria,       setOrdemBancaria]       = useState(lancamento?.ordem_bancaria || "");
+  const [osNumero,            setOsNumero]            = useState(lancamento?.os_numero || "");
+  const [osData,              setOsData]              = useState(lancamento?.os_data || "");
+  const [osLocal,             setOsLocal]             = useState(lancamento?.os_local || "");
+  const [dataLancamento,      setDataLancamento]      = useState(lancamento?.data_lancamento || hoje);
+  const [observacoes,         setObservacoes]         = useState(lancamento?.observacoes || "");
+
+  // Cada entrada: { item_label, nota_empenho_id, numero_nf, data_nf }
+  const [itensLancamento, setItensLancamento] = useState(() => {
+    if (lancamento) {
+      return [{
+        item_label:      lancamento.item_label || "",
+        nota_empenho_id: lancamento.nota_empenho_id || null,
+        numero_nf:       lancamento.numero_nf || "",
+        data_nf:         lancamento.data_nf || hoje,
+      }];
+    }
+    return [];
   });
 
-  const [selectedCategorias, setSelectedCategorias] = useState(
-    lancamento?.item_label ? [lancamento.item_label] : []
-  );
-  const [empenhos, setEmpenhos] = useState([]);
-  const [saving, setSaving] = useState(false);
+  const [empenhos,         setEmpenhos]         = useState([]);
+  const [serviceEmpenhoId, setServiceEmpenhoId] = useState(null);
+  const [materialEmpenhoId,setMaterialEmpenhoId]= useState(null);
+  const [saving,           setSaving]           = useState(false);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const itensContrato = itens.filter(i => i.contrato_id === form.contrato_id);
+  const itensContrato = itens.filter(i => i.contrato_id === contratoId);
   const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
 
-  // Carrega empenhos do contrato/ano selecionado
   useEffect(() => {
-    if (form.contrato_id && form.ano) {
-      base44.entities.NotaEmpenho.filter({ contrato_id: form.contrato_id, ano: parseInt(form.ano) })
-        .then(data => setEmpenhos(data))
-        .catch(() => setEmpenhos([]));
-    } else {
-      setEmpenhos([]);
-    }
-  }, [form.contrato_id, form.ano]);
+    if (!contratoId || !ano) { setEmpenhos([]); setServiceEmpenhoId(null); setMaterialEmpenhoId(null); return; }
+    base44.entities.NotaEmpenho.filter({ contrato_id: contratoId, ano: parseInt(ano) })
+      .then(data => {
+        setEmpenhos(data);
+        setServiceEmpenhoId(data.find(e => e.natureza_despesa === "339039_servico")?.id || null);
+        setMaterialEmpenhoId(data.find(e => e.natureza_despesa === "339030_material")?.id || null);
+      })
+      .catch(() => { setEmpenhos([]); setServiceEmpenhoId(null); setMaterialEmpenhoId(null); });
+  }, [contratoId, ano]);
 
-  const toggleCategoria = (val) => {
-    setSelectedCategorias(prev =>
-      prev.includes(val) ? prev.filter(c => c !== val) : [...prev, val]
-    );
+  // Atualiza automaticamente os empenho_ids dos itens quando empenhos mudam
+  useEffect(() => {
+    if (!empenhos.length) return;
+    setItensLancamento(prev => prev.map(entry => {
+      const cat = CATEGORIAS.find(c => c.value === entry.item_label);
+      const id  = cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId;
+      return { ...entry, nota_empenho_id: id };
+    }));
+  }, [serviceEmpenhoId, materialEmpenhoId]);
+
+  const toggleCategoria = (catValue) => {
+    const cat = CATEGORIAS.find(c => c.value === catValue);
+    setItensLancamento(prev => {
+      const exists = prev.some(e => e.item_label === catValue);
+      if (exists) return prev.filter(e => e.item_label !== catValue);
+      return [...prev, {
+        item_label:      catValue,
+        nota_empenho_id: cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
+        numero_nf:       "",
+        data_nf:         hoje,
+      }];
+    });
+  };
+
+  const updateItem = (index, field, value) => {
+    setItensLancamento(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!lancamento && itensLancamento.length === 0) { alert("Selecione ao menos um item."); return; }
     setSaving(true);
 
     const baseData = {
-      ...form,
-      ano: parseInt(form.ano),
-      mes: parseInt(form.mes),
-      valor: parseFloat(form.valor) || 0,
+      contrato_id:          contratoId,
+      ano:                  parseInt(ano),
+      mes:                  parseInt(mes),
+      status,
+      valor:                parseFloat(valor) || 0,
+      processo_pagamento_sei: processoPagSei,
+      ordem_bancaria:       ordemBancaria,
+      os_numero:            osNumero,
+      os_data:              osData,
+      os_local:             osLocal,
+      data_lancamento:      dataLancamento,
+      observacoes,
     };
 
     if (lancamento?.id) {
-      // Edição: salva com a categoria atual (primeiro selecionado ou o original)
-      const itemLabel = selectedCategorias[0] || form.item_label;
-      await base44.entities.LancamentoFinanceiro.update(lancamento.id, { ...baseData, item_label: itemLabel });
+      const entry = itensLancamento[0] || {};
+      await base44.entities.LancamentoFinanceiro.update(lancamento.id, {
+        ...baseData,
+        item_label:      entry.item_label,
+        nota_empenho_id: entry.nota_empenho_id,
+        numero_nf:       entry.numero_nf,
+        data_nf:         entry.data_nf,
+      });
     } else {
-      // Criação: cria um lançamento para cada categoria selecionada
-      const categoriasSalvar = selectedCategorias.length > 0 ? selectedCategorias : [form.item_label || ""];
-      for (const cat of categoriasSalvar) {
-        // Para grupos (MOR Natal/Mossoró), cria um lançamento por item real encontrado
-        const itenGrupo = getItensDoGrupo(cat, itensContrato);
-        if (itenGrupo.length > 0) {
-          for (const itemReal of itenGrupo) {
+      for (const entry of itensLancamento) {
+        const grupoItens = getItensDoGrupo(entry.item_label, itensContrato);
+        if (grupoItens.length > 0) {
+          for (const itemReal of grupoItens) {
             await base44.entities.LancamentoFinanceiro.create({
               ...baseData,
-              item_label: cat,
-              item_contrato_id: itemReal.id
+              item_label:      entry.item_label,
+              item_contrato_id: itemReal.id,
+              nota_empenho_id: entry.nota_empenho_id,
+              numero_nf:       entry.numero_nf,
+              data_nf:         entry.data_nf,
             });
           }
         } else {
-          await base44.entities.LancamentoFinanceiro.create({ ...baseData, item_label: cat });
+          await base44.entities.LancamentoFinanceiro.create({
+            ...baseData,
+            item_label:      entry.item_label,
+            nota_empenho_id: entry.nota_empenho_id,
+            numero_nf:       entry.numero_nf,
+            data_nf:         entry.data_nf,
+          });
         }
       }
     }
@@ -139,7 +226,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           {/* CONTRATO */}
           <div className="space-y-1">
             <Label>Contrato *</Label>
-            <Select value={form.contrato_id} onValueChange={v => { set("contrato_id", v); setSelectedCategorias([]); set("nota_empenho_id", ""); }}>
+            <Select value={contratoId} onValueChange={v => { setContratoId(v); setItensLancamento([]); }}>
               <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
               <SelectContent>
                 {contratos.map(c => <SelectItem key={c.id} value={c.id}>{c.numero} – {c.contratada}</SelectItem>)}
@@ -147,53 +234,20 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             </Select>
           </div>
 
-          {/* ITENS / CATEGORIAS (multi-seleção) */}
-          {form.contrato_id && (
-            <div className="space-y-2">
-              <Label>Item do Contrato {!lancamento && <span className="text-gray-400 text-xs">(selecione um ou mais)</span>}</Label>
-              {lancamento ? (
-                // Edição: select simples
-                <Select value={selectedCategorias[0] || ""} onValueChange={v => setSelectedCategorias([v])}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o item" /></SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                // Criação: checkboxes
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
-                  {CATEGORIAS.map(cat => (
-                    <div key={cat.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`cat-${cat.value}`}
-                        checked={selectedCategorias.includes(cat.value)}
-                        onCheckedChange={() => toggleCategoria(cat.value)}
-                      />
-                      <label htmlFor={`cat-${cat.value}`} className="text-sm cursor-pointer">
-                        {cat.label}
-                        {cat.tipo === "grupo" && <Badge variant="outline" className="ml-1 text-xs">grupo</Badge>}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* MÊS / ANO / STATUS */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label>Mês *</Label>
-              <Select value={String(form.mes)} onValueChange={v => set("mes", v)}>
+              <Select value={String(mes)} onValueChange={v => setMes(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {mesesNomes.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
+                  {mesesNomes.map((m, i) => <SelectItem key={i+1} value={String(i+1)}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
               <Label>Ano *</Label>
-              <Select value={String(form.ano)} onValueChange={v => set("ano", v)}>
+              <Select value={String(ano)} onValueChange={v => setAno(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
@@ -202,7 +256,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             </div>
             <div className="space-y-1">
               <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => set("status", v)}>
+              <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -211,39 +265,71 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             </div>
           </div>
 
-          {/* VALOR E NF */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>Valor (R$) *</Label>
-              <Input type="number" step="0.01" min="0" value={form.valor} onChange={e => set("valor", e.target.value)} required />
-            </div>
-            <div className="space-y-1">
-              <Label>Número da NF</Label>
-              <Input value={form.numero_nf} onChange={e => set("numero_nf", e.target.value)} placeholder="Nº da Nota Fiscal" />
-            </div>
+          {/* VALOR */}
+          <div className="space-y-1">
+            <Label>Valor Total (R$) *</Label>
+            <Input type="number" step="0.01" min="0" value={valor} onChange={e => setValor(e.target.value)} required />
           </div>
 
-          {/* NOTA DE EMPENHO */}
-          {form.contrato_id && (
-            <div className="space-y-1">
-              <Label>Nota de Empenho {form.ano && <span className="text-gray-400 text-xs">({form.ano})</span>}</Label>
-              {empenhos.length > 0 ? (
-                <Select value={form.nota_empenho_id} onValueChange={v => set("nota_empenho_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o empenho" /></SelectTrigger>
+          {/* ITENS / CATEGORIAS */}
+          {contratoId && (
+            <div className="space-y-2">
+              <Label>
+                Itens do Contrato
+                {!lancamento && <span className="text-gray-400 text-xs ml-1">(selecione um ou mais)</span>}
+              </Label>
+              {lancamento ? (
+                <Select
+                  value={itensLancamento[0]?.item_label || ""}
+                  onValueChange={v => {
+                    const cat = CATEGORIAS.find(c => c.value === v);
+                    setItensLancamento([{
+                      item_label:      v,
+                      nota_empenho_id: cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
+                      numero_nf:       itensLancamento[0]?.numero_nf || "",
+                      data_nf:         itensLancamento[0]?.data_nf || hoje,
+                    }]);
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o item" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={null}>Nenhum</SelectItem>
-                    {empenhos.map(e => (
-                      <SelectItem key={e.id} value={e.id}>
-                        {e.numero_empenho} – {NATUREZA_LABELS[e.natureza_despesa]} {e.valor_total ? `· R$ ${e.valor_total.toLocaleString("pt-BR")}` : ""}
-                      </SelectItem>
-                    ))}
+                    {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded border border-amber-200">
-                  Nenhum empenho cadastrado para {form.ano}. Cadastre em Menu → Contratos → aba Empenhos.
-                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
+                  {CATEGORIAS.map(cat => (
+                    <div key={cat.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`cat-${cat.value}`}
+                        checked={itensLancamento.some(e => e.item_label === cat.value)}
+                        onCheckedChange={() => toggleCategoria(cat.value)}
+                      />
+                      <label htmlFor={`cat-${cat.value}`} className="text-sm cursor-pointer leading-tight">
+                        {cat.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               )}
+            </div>
+          )}
+
+          {/* NF POR ITEM */}
+          {itensLancamento.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-[#1a2e4a]">
+                Notas Fiscais {itensLancamento.length > 1 && <span className="font-normal text-gray-400 text-xs">({itensLancamento.length} itens)</span>}
+              </Label>
+              {itensLancamento.map((entry, idx) => (
+                <ItemNFCard
+                  key={entry.item_label}
+                  entry={entry}
+                  index={idx}
+                  empenhos={empenhos}
+                  onChange={updateItem}
+                />
+              ))}
             </div>
           )}
 
@@ -251,29 +337,29 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Processo de Pagamento SEI</Label>
-              <Input value={form.processo_pagamento_sei} onChange={e => set("processo_pagamento_sei", e.target.value)} placeholder="Nº do processo SEI" />
+              <Input value={processoPagSei} onChange={e => setProcessoPagSei(e.target.value)} placeholder="Nº do processo SEI" />
             </div>
             <div className="space-y-1">
               <Label>Ordem Bancária</Label>
-              <Input value={form.ordem_bancaria} onChange={e => set("ordem_bancaria", e.target.value)} placeholder="Nº da ordem bancária" />
+              <Input value={ordemBancaria} onChange={e => setOrdemBancaria(e.target.value)} placeholder="Nº da ordem bancária" />
             </div>
           </div>
 
-          {/* INFORMAÇÕES DA OS */}
+          {/* OS */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-[#1a2e4a]">Informações da OS</Label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1">
                 <Label className="text-xs">Número da OS</Label>
-                <Input value={form.os_numero} onChange={e => set("os_numero", e.target.value)} placeholder="Nº da OS" />
+                <Input value={osNumero} onChange={e => setOsNumero(e.target.value)} placeholder="Nº da OS" />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Data da OS</Label>
-                <Input type="date" value={form.os_data} onChange={e => set("os_data", e.target.value)} />
+                <Input type="date" value={osData} onChange={e => setOsData(e.target.value)} />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Local de Prestação</Label>
-                <Input value={form.os_local} onChange={e => set("os_local", e.target.value)} placeholder="Local dos serviços" />
+                <Input value={osLocal} onChange={e => setOsLocal(e.target.value)} placeholder="Local dos serviços" />
               </div>
             </div>
           </div>
@@ -282,18 +368,22 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Data do Lançamento</Label>
-              <Input type="date" value={form.data_lancamento} onChange={e => set("data_lancamento", e.target.value)} />
+              <Input type="date" value={dataLancamento} onChange={e => setDataLancamento(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>Observações</Label>
-              <Input value={form.observacoes} onChange={e => set("observacoes", e.target.value)} placeholder="Observações..." />
+              <Input value={observacoes} onChange={e => setObservacoes(e.target.value)} placeholder="Observações..." />
             </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>Cancelar</Button>
-            <Button type="submit" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]" disabled={saving || !form.contrato_id}>
-              {saving ? "Salvando..." : lancamento ? "Salvar" : `Criar ${selectedCategorias.length > 1 ? selectedCategorias.length + " lançamentos" : "lançamento"}`}
+            <Button
+              type="submit"
+              className="bg-[#1a2e4a] hover:bg-[#2a4a7a]"
+              disabled={saving || !contratoId || itensLancamento.length === 0}
+            >
+              {saving ? "Salvando..." : lancamento ? "Salvar" : `Criar ${itensLancamento.length > 1 ? itensLancamento.length + " lançamentos" : "lançamento"}`}
             </Button>
           </div>
         </form>
