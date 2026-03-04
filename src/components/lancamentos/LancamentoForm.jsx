@@ -120,11 +120,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     return [];
   });
 
-  const [empenhos,         setEmpenhos]         = useState([]);
-  const [serviceEmpenhoId, setServiceEmpenhoId] = useState(null);
-  const [materialEmpenhoId,setMaterialEmpenhoId]= useState(null);
-  const [saving,           setSaving]           = useState(false);
-  const [extractingPdf,    setExtractingPdf]    = useState(false);
+  const [empenhos,              setEmpenhos]              = useState([]);
+  const [serviceEmpenhoId,      setServiceEmpenhoId]      = useState(null);
+  const [materialEmpenhoId,     setMaterialEmpenhoId]     = useState(null);
+  const [saving,                setSaving]                = useState(false);
+  const [extractingPdf,         setExtractingPdf]         = useState(false);
+  const [itensMaterialExtraidos,setItensMaterialExtraidos]= useState([]);
   const pdfInputRef = useRef(null);
 
   const itensContrato = itens.filter(i => i.contrato_id === contratoId);
