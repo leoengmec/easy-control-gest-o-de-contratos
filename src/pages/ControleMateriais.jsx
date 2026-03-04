@@ -21,6 +21,8 @@ export default function ControleMateriais() {
   const [filtroOS, setFiltroOS] = useState("");
   const [filtroNF, setFiltroNF] = useState("");
   const [filtroLocal, setFiltroLocal] = useState("todos");
+  const [filtroDataInicio, setFiltroDataInicio] = useState("");
+  const [filtroDataFim, setFiltroDataFim] = useState("");
 
   useEffect(() => {
     base44.entities.ItemMaterialNF.list("-created_date", 500)
