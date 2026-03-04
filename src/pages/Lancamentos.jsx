@@ -53,7 +53,7 @@ export default function Lancamentos() {
     setLoading(true);
     const filter = { ano: parseInt(filtroAno) };
     if (filtroContrato !== "todos") filter.contrato_id = filtroContrato;
-    const data = await base44.entities.LancamentoFinanceiro.filter(filter, "-data_lancamento");
+    const data = await base44.entities.LancamentoFinanceiro.filter(filter, "-created_date");
     setLancamentos(data);
     setLoading(false);
   };
