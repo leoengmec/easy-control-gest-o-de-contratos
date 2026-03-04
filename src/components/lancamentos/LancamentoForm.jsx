@@ -94,7 +94,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [dataLancamento,      setDataLancamento]      = useState(lancamento?.data_lancamento || hoje);
   const [observacoes,         setObservacoes]         = useState(lancamento?.observacoes || "");
 
-  // Cada entrada: { item_label, nota_empenho_id, numero_nf, data_nf }
+  // Cada entrada: { item_label, nota_empenho_id, numero_nf, data_nf, valor }
   const [itensLancamento, setItensLancamento] = useState(() => {
     if (lancamento) {
       return [{
@@ -102,6 +102,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         nota_empenho_id: lancamento.nota_empenho_id || null,
         numero_nf:       lancamento.numero_nf || "",
         data_nf:         lancamento.data_nf || hoje,
+        valor:           lancamento.valor || "",
       }];
     }
     return [];
