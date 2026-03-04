@@ -67,7 +67,7 @@ export default function Relatorios() {
   useEffect(() => {
     Promise.all([
       base44.entities.Contrato.list(),
-      base44.entities.LancamentoFinanceiro.list("-ano,-mes")
+      base44.entities.LancamentoFinanceiro.list("-ano")
     ]).then(([c, l]) => { setContratos(c); setLancamentos(l); });
   }, []);
 
