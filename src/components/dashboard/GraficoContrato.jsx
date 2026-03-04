@@ -115,30 +115,40 @@ export default function GraficoContrato({ contrato, lancamentos, empenhos, valor
   });
 
   // Dados por item (comparativo Contratado x Orçado x Realizado)
+  // Usa categorias salvas em OrcamentoContratualItemAnual como referência principal
   const dadosPorItem = (() => {
-    const labelsItens = [...new Set([
-      ...itens.map(i => ({ id: i.id, label: i.nome })),
-      ...itensOrcados.map(io => ({ id: io.item_contrato_id, label: io.item_label }))
-    ].map(x => x.label))];
-
-    return labelsItens.map(label => {
-      const item = itens.find(i => i.nome === label);
-      const orcadoItem = itensOrcados.find(io => io.item_label === label || io.item_contrato_id === item?.id);
+    if (itensOrcados.length > 0) {
+      // Usa as categorias do orçamento salvo (MOR Natal, MOR Mossoró, etc.)
+      return itensOrcados.map(io => {
+        const lancsItem = lancamentos.filter(l =>
+          l.ano === anoAtual && (l.item_label === io.item_label || l.item_contrato_id === io.item_contrato_id)
+        );
+        const pago = lancsItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+        const aprovisionado = lancsItem.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+        const orcadoAnual = io.valor_orcado || 0;
+        return {
+          name: io.item_label?.length > 22 ? io.item_label.substring(0, 22) + "…" : io.item_label,
+          nomeCompleto: io.item_label,
+          "Orçado (JFRN)": orcadoAnual,
+          Pago: pago,
+          Aprovisionado: aprovisionado,
+        };
+      });
+    }
+    // Fallback: usa os itens do contrato individualmente
+    return itens.map(item => {
       const lancsItem = lancamentos.filter(l =>
-        l.ano === anoAtual && (l.item_label === label || l.item_contrato_id === item?.id)
+        l.ano === anoAtual && (l.item_label === item.nome || l.item_contrato_id === item.id)
       );
       const pago = lancsItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
       const aprovisionado = lancsItem.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-      const contratadoAnual = item?.valor_total_contratado || 0;
-      const orcadoAnual = orcadoItem?.valor_orcado || 0;
       return {
-        name: label?.length > 22 ? label.substring(0, 22) + "…" : label,
-        nomeCompleto: label,
-        "Contratado (anual)": contratadoAnual,
-        "Orçado (JFRN)": orcadoAnual,
+        name: item.nome?.length > 22 ? item.nome.substring(0, 22) + "…" : item.nome,
+        nomeCompleto: item.nome,
+        "Contratado (anual)": item.valor_total_contratado || 0,
+        "Orçado (JFRN)": 0,
         Pago: pago,
         Aprovisionado: aprovisionado,
-        max: Math.max(contratadoAnual, orcadoAnual)
       };
     });
   })();
