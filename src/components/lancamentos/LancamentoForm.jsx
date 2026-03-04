@@ -220,7 +220,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         if (extrairOS) {
           if (data.os_numero) setOsNumero(data.os_numero);
           if (data.os_data)   setOsData(data.os_data);
-          // Se não extraiu, mantém o campo atual para preenchimento manual
         }
 
         // Preenche NF em TODOS os itens selecionados (incluindo MOR)
@@ -230,6 +229,24 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           data_nf:   data.data_nf     != null ? data.data_nf     : entry.data_nf,
           valor:     data.valor_total != null ? data.valor_total : entry.valor,
         })));
+
+        // Se for nota de material, salva os itens extraídos na entidade ItemMaterialNF
+        const isMaterial = itensLancamento.some(e => {
+          const cat = CATEGORIAS.find(c => c.value === e.item_label);
+          return cat?.tipo === "material";
+        });
+        if (isMaterial && data.itens_material && Array.isArray(data.itens_material)) {
+          // Salva os itens; o lancamento_financeiro_id será atualizado após o save
+          setItensMaterialExtraidos(data.itens_material.map(item => ({
+            ...item,
+            contrato_id: contratoId,
+            numero_nf: data.numero_nf || "",
+            data_nf: data.data_nf || "",
+            os_numero: osNumero,
+            os_local: osLocal,
+            valor_total_nota: data.valor_total || 0,
+          })));
+        }
 
       } else {
         alert("Não foi possível extrair dados do PDF. Verifique se o arquivo é uma nota fiscal válida.");

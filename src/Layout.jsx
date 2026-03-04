@@ -12,7 +12,8 @@ import {
   X,
   ChevronRight,
   LogOut,
-  Scale
+  Scale,
+  ShoppingCart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
