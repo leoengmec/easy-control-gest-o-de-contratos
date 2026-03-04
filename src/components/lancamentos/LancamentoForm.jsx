@@ -314,7 +314,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       });
     } else {
       for (const entry of itensLancamento) {
-        await base44.entities.LancamentoFinanceiro.create({
+        const created = await base44.entities.LancamentoFinanceiro.create({
           ...baseData,
           valor:           parseFloat(entry.valor) || 0,
           item_label:      entry.item_label,
@@ -322,6 +322,19 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           numero_nf:       entry.numero_nf,
           data_nf:         entry.data_nf,
         });
+
+        // Se for material e houver itens extraídos, salva na entidade ItemMaterialNF
+        const cat = CATEGORIAS.find(c => c.value === entry.item_label);
+        if (cat?.tipo === "material" && itensMaterialExtraidos.length > 0) {
+          for (const itemMat of itensMaterialExtraidos) {
+            await base44.entities.ItemMaterialNF.create({
+              ...itemMat,
+              lancamento_financeiro_id: created.id,
+              os_numero: osNumero,
+              os_local:  osLocal,
+            });
+          }
+        }
       }
     }
     onSave();
