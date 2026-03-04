@@ -162,6 +162,7 @@ export default function ContratoDetalhe() {
             <ItemForm
               item={editingItem}
               contratoId={contratoId}
+              prazoVigenciaMeses={contrato.prazo_vigencia_inicial_meses}
               onSave={() => { setShowItemForm(false); setEditingItem(null); loadAll(); }}
               onCancel={() => { setShowItemForm(false); setEditingItem(null); }}
             />
@@ -175,45 +176,7 @@ export default function ContratoDetalhe() {
               {itens.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-sm">Nenhum item cadastrado</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left p-3 font-medium text-gray-500">Nome</th>
-                        <th className="text-left p-3 font-medium text-gray-500">Unidade</th>
-                        <th className="text-left p-3 font-medium text-gray-500">Periodicidade</th>
-                        <th className="text-right p-3 font-medium text-gray-500">Qtd</th>
-                        <th className="text-right p-3 font-medium text-gray-500">Valor Unit.</th>
-                        <th className="text-right p-3 font-medium text-gray-500">Total Contratado</th>
-                        {canEdit && <th className="p-3"></th>}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {itens.map(item => (
-                        <tr key={item.id} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-medium text-[#1a2e4a]">{item.nome}</td>
-                          <td className="p-3 text-gray-600">{item.unidade || "—"}</td>
-                          <td className="p-3"><Badge variant="outline" className="text-xs capitalize">{item.periodicidade}</Badge></td>
-                          <td className="p-3 text-right">{item.quantidade_contratada || "—"}</td>
-                          <td className="p-3 text-right">{fmt(item.valor_unitario)}</td>
-                          <td className="p-3 text-right font-semibold">{fmt(item.valor_total_contratado || (item.valor_unitario * (item.quantidade_contratada || 1)))}</td>
-                          {canEdit && (
-                            <td className="p-3">
-                              <div className="flex gap-1 justify-end">
-                                <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditingItem(item)}>
-                                  <Pencil className="w-3 h-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDeleteItem(item.id)}>
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ItensAgrupados itens={itens} canEdit={canEdit} onEdit={setEditingItem} onDelete={handleDeleteItem} />
               )}
             </>
           )}
