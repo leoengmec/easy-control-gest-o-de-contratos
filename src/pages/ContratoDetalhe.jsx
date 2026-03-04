@@ -14,8 +14,6 @@ import AditivoForm from "@/components/contratos/AditivoForm.jsx";
 import ItensAgrupados from "@/components/contratos/ItensAgrupados.jsx";
 import EmpenhoForm from "@/components/contratos/EmpenhoForm.jsx";
 
-const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-
 const NATUREZA_LABELS = {
   "339039_servico": "339039 – Serviços (Manutenção)",
   "339030_material": "339030 – Material de Consumo"
