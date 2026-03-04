@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Shield, Users, Database, Settings, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import AdminUsuarios from "@/components/admin/AdminUsuarios";
-import AdminDados from "@/components/admin/AdminDados";
-import AdminConfiguracoes from "@/components/admin/AdminConfiguracoes";
+import AdminUsuarios from "@/components/admin/AdminUsuarios.jsx";
+import AdminDados from "@/components/admin/AdminDados.jsx";
+import AdminConfiguracoes from "@/components/admin/AdminConfiguracoes.jsx";
 
 const TABS = [
   { id: "usuarios",     label: "Usuários",         icon: Users,    desc: "Gerenciar usuários e permissões" },
