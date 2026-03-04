@@ -34,7 +34,15 @@ export default function ControleMateriais() {
     const osOk    = !filtroOS    || (item.os_numero || "").toLowerCase().includes(filtroOS.toLowerCase());
     const nfOk    = !filtroNF    || (item.numero_nf || "").toLowerCase().includes(filtroNF.toLowerCase());
     const localOk = filtroLocal === "todos" || item.os_local === filtroLocal;
-    return osOk && nfOk && localOk;
+    const dataOk  = (() => {
+      if (!filtroDataInicio && !filtroDataFim) return true;
+      const dataNF = item.data_nf;
+      if (!dataNF) return false;
+      if (filtroDataInicio && dataNF < filtroDataInicio) return false;
+      if (filtroDataFim   && dataNF > filtroDataFim)    return false;
+      return true;
+    })();
+    return osOk && nfOk && localOk && dataOk;
   });
 
   // Agrupar por número da NF
