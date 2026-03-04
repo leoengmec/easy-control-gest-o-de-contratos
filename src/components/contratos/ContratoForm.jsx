@@ -138,6 +138,7 @@ export default function ContratoForm({ contrato, onSave, onCancel }) {
     const data = {
       ...form,
       valor_global: parseFloat(form.valor_global) || 0,
+      valor_financeiro_disponivel_nufip: parseFloat(form.valor_financeiro_disponivel_nufip) || null,
       prazo_vigencia_inicial_meses: parseInt(form.prazo_vigencia_inicial_meses) || null,
       tempo_maximo_contrato_meses: parseInt(form.tempo_maximo_contrato_meses) || null
     };
