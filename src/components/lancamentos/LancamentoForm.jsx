@@ -124,6 +124,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [serviceEmpenhoId, setServiceEmpenhoId] = useState(null);
   const [materialEmpenhoId,setMaterialEmpenhoId]= useState(null);
   const [saving,           setSaving]           = useState(false);
+  const [extractingPdf,    setExtractingPdf]    = useState(false);
+  const pdfInputRef = useRef(null);
 
   const itensContrato = itens.filter(i => i.contrato_id === contratoId);
   const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
