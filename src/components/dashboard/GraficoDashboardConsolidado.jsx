@@ -313,6 +313,30 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
           </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
+          {/* Por Categoria */}
+          {abaGrafico === "categoria" && (
+            <div>
+              <div className="text-xs text-gray-500 mb-3">Orçado × Pago × Empenhado por Categoria · {anoSelecionado}</div>
+              {dadosPorCategoria.length > 0 ? (
+                <ResponsiveContainer width="100%" height={Math.max(220, dadosPorCategoria.length * 60)}>
+                  <BarChart data={dadosPorCategoria} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={agrupamento === "individual" ? 130 : 80} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="Orçado" fill="#3b82f6" radius={[0,3,3,0]} maxBarSize={14} />
+                    <Bar dataKey="Empenhado" fill="#f59e0b" radius={[0,3,3,0]} maxBarSize={14} />
+                    <Bar dataKey="Pago" fill="#22c55e" radius={[0,3,3,0]} maxBarSize={14} />
+                    <Bar dataKey="Aprovisionado" fill="#a78bfa" radius={[0,3,3,0]} maxBarSize={14} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-xs text-gray-400 text-center py-8">Sem dados para o período</div>
+              )}
+            </div>
+          )}
+
           {/* Mensal */}
           {abaGrafico === "mensal" && (
             <div>
