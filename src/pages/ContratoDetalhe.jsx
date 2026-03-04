@@ -489,6 +489,7 @@ export default function ContratoDetalhe() {
               <InfoField label="Contratada" value={contrato.contratada} />
               <InfoField label="CNPJ" value={contrato.cnpj} />
               <InfoField label="Valor Global" value={fmt(contrato.valor_global)} />
+              <InfoField label="Disponível NUFIP" value={contrato.valor_financeiro_disponivel_nufip != null ? fmt(contrato.valor_financeiro_disponivel_nufip) : null} />
               <InfoField label="Status" value={contrato.status} />
               {contrato.observacoes && (
                 <div className="sm:col-span-2">
