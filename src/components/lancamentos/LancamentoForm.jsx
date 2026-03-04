@@ -235,6 +235,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           </div>
 
           {/* MÊS / ANO / STATUS */}
+          <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
+            <p className="text-sm font-semibold text-[#1a2e4a]">Mês de Referência da Medição</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <Label>Mês *</Label>
