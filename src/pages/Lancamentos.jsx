@@ -192,7 +192,7 @@ export default function Lancamentos() {
                           <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditing(l)}>
                             <Pencil className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(l.id)}>
+                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(l)}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
