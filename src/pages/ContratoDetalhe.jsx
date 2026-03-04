@@ -151,6 +151,7 @@ export default function ContratoDetalhe() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: "Valor Global", value: fmt(contrato.valor_global), color: "border-l-blue-500" },
+          { label: "Disponível NUFIP", value: contrato.valor_financeiro_disponivel_nufip != null ? fmt(contrato.valor_financeiro_disponivel_nufip) : "—", color: "border-l-cyan-500" },
           { label: "Total Pago", value: fmt(totalPago), color: "border-l-green-500" },
           { label: "Provisionado", value: fmt(totalProvisao), color: "border-l-amber-500" },
           { label: "Empenhado", value: fmt(totalEmpenho), color: "border-l-purple-500" }

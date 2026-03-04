@@ -49,18 +49,18 @@
  */
 import ContratoDetalhe from './pages/ContratoDetalhe';
 import Contratos from './pages/Contratos';
+import Dashboard from './pages/Dashboard';
 import Lancamentos from './pages/Lancamentos';
 import Orcamento from './pages/Orcamento';
-import Dashboard from './pages/Dashboard';
 import __Layout from './Layout.jsx';
 
 
 export const PAGES = {
     "ContratoDetalhe": ContratoDetalhe,
     "Contratos": Contratos,
+    "Dashboard": Dashboard,
     "Lancamentos": Lancamentos,
     "Orcamento": Orcamento,
-    "Dashboard": Dashboard,
 }
 
 export const pagesConfig = {
