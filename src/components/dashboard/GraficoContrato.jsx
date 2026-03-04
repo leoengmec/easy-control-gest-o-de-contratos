@@ -182,16 +182,16 @@ export default function GraficoContrato({ contrato, lancamentos, empenhos, valor
             </Button>
           ))}
         </div>
-        {(abaGrafico === "mensal" || abaGrafico === "acumulado") && itens.length > 0 && (
+        {(abaGrafico === "mensal" || abaGrafico === "acumulado") && opcoesSelect.length > 0 && (
           <Select value={itemSelecionado} onValueChange={setItemSelecionado}>
-            <SelectTrigger className="h-7 text-xs w-48">
-              <SelectValue placeholder="Filtrar por item" />
+            <SelectTrigger className="h-7 text-xs w-52">
+              <SelectValue placeholder="Filtrar por categoria" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos os itens</SelectItem>
-              {itens.map(item => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.nome?.length > 30 ? item.nome.substring(0, 30) + "…" : item.nome}
+              {opcoesSelect.map(opt => (
+                <SelectItem key={opt.id} value={opt.id}>
+                  {opt.label?.length > 32 ? opt.label.substring(0, 32) + "…" : opt.label}
                 </SelectItem>
               ))}
             </SelectContent>
