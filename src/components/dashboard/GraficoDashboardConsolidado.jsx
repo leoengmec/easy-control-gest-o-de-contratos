@@ -180,13 +180,40 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     (contratoSelecionado === "todos" || o.contrato_id === contratoSelecionado)
   );
 
+  // Se não há detalhamento salvo, calcula a partir dos itens de contrato + orçamento total
+  const orcadoCategoriaCalculado = (() => {
+    // Agrupa itens por contrato (filtra se selecionado)
+    const itensFiltro = contratoSelecionado === "todos"
+      ? itensContrato
+      : itensContrato.filter(i => i.contrato_id === contratoSelecionado);
+
+    // Total orçado do ano para os contratos filtrados
+    const totalOrc = orcamentosContratuais
+      .filter(o => o.ano === anoSelecionado && (contratoSelecionado === "todos" || o.contrato_id === contratoSelecionado))
+      .reduce((s, o) => s + (o.valor_orcado || 0), 0);
+
+    if (itensFiltro.length === 0 || totalOrc === 0) return null;
+    return calcularOrcadoPorCategoria(itensFiltro, totalOrc);
+  })();
+
   // Helper: valor orçado para uma categoria (ou grupo)
+  // Usa os registros salvos se existirem, senão usa o cálculo dinâmico a partir dos itens do contrato
   const getOrcadoCategoria = (cat) => {
-    if (agrupamento === "grupo") {
-      const cats = GRUPOS[cat] || [cat];
-      return orcItensAno.filter(o => cats.some(c => o.item_label?.includes(c))).reduce((s, o) => s + (o.valor_orcado || 0), 0);
+    const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
+
+    if (orcItensAno.length > 0) {
+      // Há detalhamento salvo — usa ele
+      return orcItensAno
+        .filter(o => cats.some(c => o.item_label?.toLowerCase().includes(c.toLowerCase())))
+        .reduce((s, o) => s + (o.valor_orcado || 0), 0);
     }
-    return orcItensAno.filter(o => o.item_label?.includes(cat)).reduce((s, o) => s + (o.valor_orcado || 0), 0);
+
+    // Sem detalhamento salvo — usa cálculo dinâmico
+    if (orcadoCategoriaCalculado) {
+      return cats.reduce((s, c) => s + (orcadoCategoriaCalculado[c] || 0), 0);
+    }
+
+    return 0;
   };
 
   // Helper: valor pago para uma categoria (ou grupo)
