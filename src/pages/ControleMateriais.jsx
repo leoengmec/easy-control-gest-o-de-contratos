@@ -101,8 +101,8 @@ export default function ControleMateriais() {
 
       {/* Filtros */}
       <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+        <CardContent className="pt-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
             <div className="space-y-1">
               <Label className="text-xs">Número da OS</Label>
               <div className="relative">
@@ -137,12 +137,42 @@ export default function ControleMateriais() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1">
+              {/* Placeholder para alinhamento */}
+            </div>
           </div>
-          {(filtroOS || filtroNF || filtroLocal !== "todos") && (
-            <div className="mt-3 flex justify-end">
-              <Button variant="ghost" size="sm" onClick={limparFiltros} className="text-xs text-gray-500 gap-1">
-                <X className="w-3 h-3" /> Limpar filtros
-              </Button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end border-t pt-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Data de Emissão da NF — De</Label>
+              <Input
+                type="date"
+                value={filtroDataInicio}
+                onChange={e => setFiltroDataInicio(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Data de Emissão da NF — Até</Label>
+              <Input
+                type="date"
+                value={filtroDataFim}
+                onChange={e => setFiltroDataFim(e.target.value)}
+              />
+            </div>
+            <div className="lg:col-span-2 flex items-end justify-end">
+              {temFiltroAtivo && (
+                <Button variant="ghost" size="sm" onClick={limparFiltros} className="text-xs text-gray-500 gap-1">
+                  <X className="w-3 h-3" /> Limpar todos os filtros
+                </Button>
+              )}
+            </div>
+          </div>
+          {temFiltroAtivo && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {filtroOS && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">OS: {filtroOS}</Badge>}
+              {filtroNF && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">NF: {filtroNF}</Badge>}
+              {filtroLocal !== "todos" && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Local: {filtroLocal}</Badge>}
+              {filtroDataInicio && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">De: {new Date(filtroDataInicio + "T12:00:00").toLocaleDateString("pt-BR")}</Badge>}
+              {filtroDataFim && <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">Até: {new Date(filtroDataFim + "T12:00:00").toLocaleDateString("pt-BR")}</Badge>}
             </div>
           )}
         </CardContent>
