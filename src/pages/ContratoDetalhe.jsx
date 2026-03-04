@@ -100,6 +100,12 @@ export default function ContratoDetalhe() {
     loadAll();
   };
 
+  const handleDeleteEmpenho = async (id) => {
+    if (!confirm("Excluir este empenho?")) return;
+    await base44.entities.NotaEmpenho.delete(id);
+    loadAll();
+  };
+
   const canEdit = user?.role === "admin" || user?.role === "gestor" || user?.role === "fiscal";
 
   if (loading) return <div className="p-8 text-center text-gray-400">Carregando...</div>;
