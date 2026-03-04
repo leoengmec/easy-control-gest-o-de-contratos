@@ -188,11 +188,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         json_schema: {
           type: "object",
           properties: {
-            numero_nf:  { type: "string",  description: "Número da nota fiscal" },
-            data_nf:    { type: "string",  description: "Data de emissão da nota fiscal no formato YYYY-MM-DD" },
-            valor_total: { type: "number", description: "Valor total da nota fiscal" },
-            os_numero:  { type: "string",  description: "Número da Ordem de Serviço (OS)" },
-            os_data:    { type: "string",  description: "Data da Ordem de Serviço no formato YYYY-MM-DD" },
+            numero_nf:   { type: "string",  description: "Número da nota fiscal" },
+            data_nf:     { type: "string",  description: "Data de emissão da nota fiscal no formato YYYY-MM-DD" },
+            valor_total: { type: "number",  description: "Valor total da nota fiscal" },
+            os_numero:   { type: "string",  description: "Número da Ordem de Serviço (OS), encontrado no campo 'Descrição do Serviço' do PDF, no formato 'O.S XXX.YYYY' (ex: O.S 021.2025, O.S 025.2025). Extraia apenas o código numérico, ex: '021.2025'." },
+            os_data:     { type: "string",  description: "Data da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' do PDF junto ao número da OS, geralmente indicada como mês e ano em português (ex: NOVEMBRO 2025, OUTUBRO 2025). Retorne no formato YYYY-MM-DD usando o primeiro dia do mês mencionado." },
           }
         }
       });
