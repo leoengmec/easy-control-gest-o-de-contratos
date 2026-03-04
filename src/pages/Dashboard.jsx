@@ -37,10 +37,23 @@ export default function Dashboard() {
   }, []);
 
   const contratosAtivos = contratos.filter(c => c.status === "ativo");
-  const lancamentosAno = lancamentos.filter(l => l.ano === anoAtual);
+
+  const lancamentosBase = contratoSelecionado === "todos"
+    ? lancamentos
+    : lancamentos.filter(l => l.contrato_id === contratoSelecionado);
+
+  const empenhosFiltrados = contratoSelecionado === "todos"
+    ? empenhos
+    : empenhos.filter(e => e.contrato_id === contratoSelecionado);
+
+  const orcamentosContratuaisFiltrados = contratoSelecionado === "todos"
+    ? orcamentosContratuais
+    : orcamentosContratuais.filter(o => o.contrato_id === contratoSelecionado);
+
+  const lancamentosAno = lancamentosBase.filter(l => l.ano === anoAtual);
   const totalPagoAno = lancamentosAno.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
   const totalProvisionadoAno = lancamentosAno.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalEmpenhado = empenhos.filter(e => e.ano === anoAtual).reduce((s, e) => s + (e.valor_total || 0), 0);
+  const totalEmpenhado = empenhosFiltrados.filter(e => e.ano === anoAtual).reduce((s, e) => s + (e.valor_total || 0), 0);
 
   const contratosFiltrados = contratos.filter(c => {
     const statusOk = filtroStatus === "todos" || c.status === filtroStatus;
