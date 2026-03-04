@@ -169,6 +169,9 @@ export default function ContratoDetalhe() {
           <TabsTrigger value="aditivos">
             Aditivos {aditivos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{aditivos.length}</span>}
           </TabsTrigger>
+          <TabsTrigger value="empenhos">
+            Empenhos {empenhos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{empenhos.length}</span>}
+          </TabsTrigger>
           <TabsTrigger value="fiscalizacao">Fiscalização</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
           <TabsTrigger value="info">Informações Gerais</TabsTrigger>
