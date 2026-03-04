@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
 import ContratoCard from "@/components/dashboard/ContratoCard";
+import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
