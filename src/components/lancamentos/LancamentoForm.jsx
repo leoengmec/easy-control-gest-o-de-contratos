@@ -237,35 +237,35 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           {/* MÊS / ANO / STATUS */}
           <div className="border rounded-lg p-4 bg-gray-50 space-y-3">
             <p className="text-sm font-semibold text-[#1a2e4a]">Mês de Referência da Medição</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <Label>Mês *</Label>
-              <Select value={String(mes)} onValueChange={v => setMes(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {mesesNomes.map((m, i) => <SelectItem key={i+1} value={String(i+1)}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label>Mês *</Label>
+                <Select value={String(mes)} onValueChange={v => setMes(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {mesesNomes.map((m, i) => <SelectItem key={i+1} value={String(i+1)}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Ano *</Label>
+                <Select value={String(ano)} onValueChange={v => setAno(v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label>Ano *</Label>
-              <Select value={String(ano)} onValueChange={v => setAno(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           </div>
 
           {/* ITENS / CATEGORIAS */}
