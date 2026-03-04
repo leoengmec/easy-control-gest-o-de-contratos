@@ -207,6 +207,24 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
+
+      const itensMatSchema = isMaterialNota ? {
+        itens_material: {
+          type: "array",
+          description: "Lista de itens/produtos da nota fiscal",
+          items: {
+            type: "object",
+            properties: {
+              descricao:       { type: "string", description: "Descrição do produto ou serviço" },
+              unidade:         { type: "string", description: "Unidade de medida (UN, KG, M, PC, etc.)" },
+              quantidade:      { type: "number", description: "Quantidade do item" },
+              valor_unitario:  { type: "number", description: "Valor unitário do item" },
+              valor_total_item:{ type: "number", description: "Valor total do item (quantidade x valor unitário)" },
+            }
+          }
+        }
+      } : {};
+
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url,
         json_schema: {
@@ -216,6 +234,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             data_nf:     { type: "string", description: "Data de emissão da nota fiscal no formato YYYY-MM-DD. Se não encontrar, retorne null." },
             valor_total: { type: "number", description: "Valor total da nota fiscal em reais. Se não encontrar, retorne null." },
             ...osProperties,
+            ...itensMatSchema,
           }
         }
       });
