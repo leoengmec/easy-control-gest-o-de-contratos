@@ -57,11 +57,14 @@ export default function ContratoDetalhe() {
   const [itens, setItens] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [aditivos, setAditivos] = useState([]);
+  const [empenhos, setEmpenhos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [showAditivoForm, setShowAditivoForm] = useState(false);
   const [editingAditivo, setEditingAditivo] = useState(null);
+  const [showEmpenhoForm, setShowEmpenhoForm] = useState(false);
+  const [editingEmpenho, setEditingEmpenho] = useState(null);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
