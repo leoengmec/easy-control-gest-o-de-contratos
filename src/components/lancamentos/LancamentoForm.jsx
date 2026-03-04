@@ -199,6 +199,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       },
     } : {};
 
+    // Verifica se é nota de material
+    const isMaterialNota = itensLancamento.some(e => {
+      const cat = CATEGORIAS.find(c => c.value === e.item_label);
+      return cat?.tipo === "material";
+    });
+
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
