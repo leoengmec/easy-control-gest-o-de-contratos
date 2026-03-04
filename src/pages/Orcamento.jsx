@@ -18,6 +18,8 @@ const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
 export default function Orcamento() {
   const [orcamentos, setOrcamentos] = useState([]);
   const [historico, setHistorico] = useState([]);
+  const [contratos, setContratos] = useState([]);
+  const [contratoSel, setContratoSel] = useState("");
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [anoSel, setAnoSel] = useState(String(anoAtual));
