@@ -219,10 +219,15 @@ export default function ContratoForm({ contrato, onSave, onCancel }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <Label>Valor Global (R$) *</Label>
                   <Input type="number" step="0.01" min="0" value={form.valor_global} onChange={e => set("valor_global", e.target.value)} required placeholder="0,00" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Valor Financeiro Disponível NUFIP (R$)</Label>
+                  <Input type="number" step="0.01" min="0" value={form.valor_financeiro_disponivel_nufip} onChange={e => set("valor_financeiro_disponivel_nufip", e.target.value)} placeholder="0,00" />
+                  <p className="text-xs text-gray-400">Informado pelo Núcleo Financeiro</p>
                 </div>
                 <div className="space-y-1">
                   <Label>Status</Label>
