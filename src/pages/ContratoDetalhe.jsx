@@ -11,6 +11,7 @@ import { format, differenceInMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import ItemForm from "@/components/contratos/ItemForm.jsx";
 import AditivoForm from "@/components/contratos/AditivoForm.jsx";
+import ItensAgrupados from "@/components/contratos/ItensAgrupados.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
