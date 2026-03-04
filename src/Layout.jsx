@@ -7,6 +7,7 @@ import {
   FileText,
   DollarSign,
   PiggyBank,
+  BarChart2,
   Menu,
   X,
   ChevronRight,
