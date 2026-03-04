@@ -34,17 +34,17 @@ export default function Dashboard() {
   }, []);
 
   const contratosAtivos = contratos.filter(c => c.status === "ativo");
-  const totalPago = lancamentos.filter(l => l.tipo === "pagamento" && l.status === "pago").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalProvisionado = lancamentos.filter(l => l.tipo === "provisao").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalEmpenhos = lancamentos.filter(l => l.tipo === "empenho").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalPago = lancamentos.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalProvisionado = lancamentos.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalEmpenhos = lancamentos.filter(l => l.nota_empenho_id && l.status !== "Cancelado").reduce((s, l) => s + (l.valor || 0), 0);
   const dotacaoAtual = orcamento?.valor_dotacao_atual || 0;
   const saldoDisponivel = dotacaoAtual - totalEmpenhos;
 
   // Dados por mês para gráfico
   const meses = Array.from({ length: 12 }, (_, i) => {
     const m = i + 1;
-    const pago = lancamentos.filter(l => l.mes === m && l.tipo === "pagamento" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
-    const provisao = lancamentos.filter(l => l.mes === m && l.tipo === "provisao").reduce((s, l) => s + l.valor, 0);
+    const pago = lancamentos.filter(l => l.mes === m && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    const provisao = lancamentos.filter(l => l.mes === m && l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
     return {
       name: ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][i],
       Pago: pago,
