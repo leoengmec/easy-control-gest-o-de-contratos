@@ -99,7 +99,44 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     });
   }, []);
 
-  // 1. Distribuição por Status (Pizza)
+  const [abaGrafico, setAbaGrafico] = useState("mensal");
+
+  // Lançamentos do ano filtrado
+  const lancsFiltro = lancamentos.filter(l => l.ano === anoSelecionado);
+
+  // Orçado total do ano filtrado
+  const orcadoTotal = orcamentosContratuais.filter(o => o.ano === anoSelecionado).reduce((s, o) => s + (o.valor_orcado || 0), 0);
+
+  // Orcamento por item/categoria filtrado pelo ano e contrato
+  const orcItensAno = orcamentosItens.filter(o =>
+    o.ano === anoSelecionado &&
+    (contratoSelecionado === "todos" || o.contrato_id === contratoSelecionado)
+  );
+
+  // Helper: valor orçado para uma categoria (ou grupo)
+  const getOrcadoCategoria = (cat) => {
+    if (agrupamento === "grupo") {
+      const cats = GRUPOS[cat] || [cat];
+      return orcItensAno.filter(o => cats.some(c => o.item_label?.includes(c))).reduce((s, o) => s + (o.valor_orcado || 0), 0);
+    }
+    return orcItensAno.filter(o => o.item_label?.includes(cat)).reduce((s, o) => s + (o.valor_orcado || 0), 0);
+  };
+
+  // Helper: valor pago para uma categoria (ou grupo)
+  const getPagoCategoria = (cat, lancs) => {
+    const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
+    return lancs.filter(l => l.status === "Pago" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + (l.valor || 0), 0);
+  };
+
+  const getAprovCategoria = (cat, lancs) => {
+    const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
+    return lancs.filter(l => l.status === "Aprovisionado" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + (l.valor || 0), 0);
+  };
+
+  // Categorias ativas de acordo com agrupamento
+  const categoriasAtivas = agrupamento === "grupo" ? Object.keys(GRUPOS) : CATEGORIAS;
+
+  // 1. Distribuição por Status (Pizza) - sempre sobre todos os contratos
   const totalContratos = contratos.length;
   const distStatus = ["ativo", "encerrado", "suspenso"].map(status => {
     const count = contratos.filter(c => c.status === status).length;
@@ -110,25 +147,46 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     };
   }).filter(d => d.value > 0);
 
-  // 2. Gráfico Mensal Consolidado (todos os contratos ou filtrado)
-  const lancsFiltro = contratoFiltro === "todos"
-    ? lancamentos.filter(l => l.ano === anoSelecionado)
-    : lancamentos.filter(l => l.ano === anoSelecionado && l.contrato_id === contratoFiltro);
+  // 2. Gráfico por Categoria (Pago x Orçado x Empenhado)
+  const empenhadoServico = empenhos.filter(e => e.ano === anoSelecionado && e.natureza_despesa === "339039_servico").reduce((s, e) => s + (e.valor_total || 0), 0);
+  const empenhadoMaterial = empenhos.filter(e => e.ano === anoSelecionado && e.natureza_despesa === "339030_material").reduce((s, e) => s + (e.valor_total || 0), 0);
 
-  const orcadoTotal = contratoFiltro === "todos"
-    ? orcamentosContratuais.filter(o => o.ano === anoSelecionado).reduce((s, o) => s + (o.valor_orcado || 0), 0)
-    : orcamentosContratuais.find(o => o.contrato_id === contratoFiltro && o.ano === anoSelecionado)?.valor_orcado || 0;
+  const getEmpenhadoCategoria = (cat) => {
+    const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
+    const isMaterial = cats.includes("Fornecimento de Materiais");
+    const isServico = cats.some(c => c !== "Fornecimento de Materiais");
+    // Proporcional: distribuir o empenho entre as categorias
+    if (isMaterial && !isServico) return empenhadoMaterial;
+    if (!isMaterial && isServico) {
+      const totalOrcadoServico = categoriasAtivas
+        .filter(c => !(agrupamento === "grupo" ? GRUPOS[c] : [c]).includes("Fornecimento de Materiais"))
+        .reduce((s, c) => s + getOrcadoCategoria(c), 0);
+      const orcCat = getOrcadoCategoria(cat);
+      return totalOrcadoServico > 0 ? (empenhadoServico * orcCat / totalOrcadoServico) : 0;
+    }
+    return 0;
+  };
 
+  const dadosPorCategoria = categoriasAtivas.map(cat => {
+    const pago = getPagoCategoria(cat, lancsFiltro);
+    const aprov = getAprovCategoria(cat, lancsFiltro);
+    const orcado = getOrcadoCategoria(cat);
+    const empenhado = getEmpenhadoCategoria(cat);
+    return { name: cat, Pago: pago, Aprovisionado: aprov, Orçado: orcado, Empenhado: empenhado };
+  }).filter(d => d.Pago > 0 || d.Orçado > 0 || d.Empenhado > 0);
+
+  // 3. Gráfico Mensal
   const dadosMensais = MESES_LABELS.map((name, i) => {
     const m = i + 1;
-    const pago = lancsFiltro.filter(l => l.mes === m && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-    const aprovisionado = lancsFiltro.filter(l => l.mes === m && l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-    const instrucao = lancsFiltro.filter(l => l.mes === m && ["Em instrução","Em execução","SOF"].includes(l.status)).reduce((s, l) => s + (l.valor || 0), 0);
+    const lancsM = lancsFiltro.filter(l => l.mes === m);
+    const pago = lancsM.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    const aprovisionado = lancsM.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+    const instrucao = lancsM.filter(l => ["Em instrução","Em execução","SOF"].includes(l.status)).reduce((s, l) => s + (l.valor || 0), 0);
     const orcadoMes = orcadoTotal > 0 ? orcadoTotal / 12 : 0;
     return { name, Pago: pago, Aprovisionado: aprovisionado, "Em instrução": instrucao, "Orçado/Mês": orcadoMes };
   });
 
-  // 3. Acumulado do ano
+  // 4. Acumulado do ano
   const dadosAcumulados = MESES_LABELS.map((name, i) => {
     const m = i + 1;
     const pagoAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
@@ -142,7 +200,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     };
   });
 
-  // 4. Evolução do Orçamento Anual
+  // 5. Evolução do Orçamento Anual
   const evolucaoOrcamento = ANOS_DISPONIVEIS.map(ano => {
     const orc = orcamentosAnuais.find(o => o.ano === ano);
     const empenhado = empenhos.filter(e => e.ano === ano).reduce((s, e) => s + (e.valor_total || 0), 0);
@@ -155,24 +213,6 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
       "Pago": pago,
     };
   }).filter(d => d["Dotação Inicial"] > 0 || d["Empenhado"] > 0 || d["Pago"] > 0);
-
-  // 5. Comparativo por contrato
-  const dadosContratos = contratos.filter(c => c.status === "ativo").map(c => {
-    const orcContrato = orcamentosContratuais.find(o => o.contrato_id === c.id);
-    const lancContrato = lancamentos.filter(l => l.contrato_id === c.id && l.ano === anoSelecionado);
-    const pago = lancContrato.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-    const aprov = lancContrato.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-    return {
-      name: c.numero?.length > 12 ? c.numero.substring(0, 12) + "…" : c.numero,
-      nomeCompleto: c.numero + " · " + c.contratada,
-      "Orçado": orcContrato?.valor_orcado || 0,
-      "Pago": pago,
-      "Aprovisionado": aprov,
-      max: orcContrato?.valor_orcado || c.valor_global || 0,
-    };
-  });
-
-  const [abaGrafico, setAbaGrafico] = useState("mensal");
 
   const abas = [
     { key: "mensal", label: "Mensal" },
