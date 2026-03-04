@@ -159,14 +159,19 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
     const isMaterial = cats.includes("Fornecimento de Materiais");
     const isServico = cats.some(c => c !== "Fornecimento de Materiais");
-    // Proporcional: distribuir o empenho entre as categorias
     if (isMaterial && !isServico) return empenhadoMaterial;
     if (!isMaterial && isServico) {
+      // Tenta distribuir proporcionalmente ao orçado
       const totalOrcadoServico = categoriasAtivas
         .filter(c => !(agrupamento === "grupo" ? GRUPOS[c] : [c]).includes("Fornecimento de Materiais"))
         .reduce((s, c) => s + getOrcadoCategoria(c), 0);
       const orcCat = getOrcadoCategoria(cat);
-      return totalOrcadoServico > 0 ? (empenhadoServico * orcCat / totalOrcadoServico) : 0;
+      if (totalOrcadoServico > 0) {
+        return empenhadoServico * orcCat / totalOrcadoServico;
+      }
+      // Sem orçado cadastrado: distribui igualmente entre categorias de serviço
+      const catServico = categoriasAtivas.filter(c => !(agrupamento === "grupo" ? GRUPOS[c] : [c]).includes("Fornecimento de Materiais"));
+      return empenhadoServico / catServico.length;
     }
     return 0;
   };
