@@ -178,7 +178,7 @@ export default function Dashboard() {
           <CardContent className="space-y-3">
             {contratosAtivos.length === 0 && <div className="text-sm text-gray-400 text-center py-4">Nenhum contrato ativo</div>}
             {contratosAtivos.slice(0, 5).map(c => {
-              const pago = lancamentos.filter(l => l.contrato_id === c.id && l.tipo === "pagamento" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
+              const pago = lancamentos.filter(l => l.contrato_id === c.id && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
               const pct = c.valor_global > 0 ? (pago / c.valor_global) * 100 : 0;
               return (
                 <div key={c.id} className="border rounded-lg p-3">
