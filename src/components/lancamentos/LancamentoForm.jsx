@@ -181,6 +181,23 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     const file = e.target.files?.[0];
     if (!file) return;
     setExtractingPdf(true);
+
+    // Verifica se algum item selecionado é MOR (não possui OS)
+    const temItensMor = itensLancamento.some(entry => isMorCategoria(entry.item_label));
+    // Só extrai OS se houver itens não-MOR selecionados
+    const extrairOS = itensLancamento.some(entry => !isMorCategoria(entry.item_label));
+
+    const osProperties = extrairOS ? {
+      os_numero: {
+        type: "string",
+        description: "Número da Ordem de Serviço (OS), encontrado no campo 'Descrição do Serviço' do PDF, no formato 'O.S XXX.YYYY' (ex: O.S 021.2025). Extraia apenas o código numérico (ex: '021.2025'). NÃO confundir com o número do contrato. Se não encontrar, retorne null."
+      },
+      os_data: {
+        type: "string",
+        description: "Data da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' junto ao número da OS, geralmente indicada como mês e ano em português (ex: NOVEMBRO 2025). Retorne no formato YYYY-MM-DD usando o primeiro dia do mês. Se não encontrar, retorne null."
+      },
+    } : {};
+
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
@@ -188,11 +205,10 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         json_schema: {
           type: "object",
           properties: {
-            numero_nf:   { type: "string",  description: "Número da nota fiscal" },
-            data_nf:     { type: "string",  description: "Data de emissão da nota fiscal no formato YYYY-MM-DD" },
-            valor_total: { type: "number",  description: "Valor total da nota fiscal" },
-            os_numero:   { type: "string",  description: "Número da Ordem de Serviço (OS), encontrado no campo 'Descrição do Serviço' do PDF, no formato 'O.S XXX.YYYY' (ex: O.S 021.2025, O.S 025.2025). Extraia apenas o código numérico, ex: '021.2025'." },
-            os_data:     { type: "string",  description: "Data da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' do PDF junto ao número da OS, geralmente indicada como mês e ano em português (ex: NOVEMBRO 2025, OUTUBRO 2025). Retorne no formato YYYY-MM-DD usando o primeiro dia do mês mencionado." },
+            numero_nf:   { type: "string", description: "Número da nota fiscal. Se não encontrar, retorne null." },
+            data_nf:     { type: "string", description: "Data de emissão da nota fiscal no formato YYYY-MM-DD. Se não encontrar, retorne null." },
+            valor_total: { type: "number", description: "Valor total da nota fiscal em reais. Se não encontrar, retorne null." },
+            ...osProperties,
           }
         }
       });
@@ -200,22 +216,21 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (result.status === "success" && result.output) {
         const data = result.output;
 
-        // Preenche OS apenas para itens não-MOR
-        if (data.os_numero) setOsNumero(data.os_numero);
-        if (data.os_data)   setOsData(data.os_data);
-
-        // Preenche NF nos itens não-MOR selecionados
-        if (data.numero_nf || data.data_nf || data.valor_total) {
-          setItensLancamento(prev => prev.map(entry => {
-            if (isMorCategoria(entry.item_label)) return entry; // MOR não recebe OS
-            return {
-              ...entry,
-              numero_nf: data.numero_nf  || entry.numero_nf,
-              data_nf:   data.data_nf    || entry.data_nf,
-              valor:     data.valor_total != null ? data.valor_total : entry.valor,
-            };
-          }));
+        // Preenche OS apenas se aplicável e se foram extraídos com sucesso
+        if (extrairOS) {
+          if (data.os_numero) setOsNumero(data.os_numero);
+          if (data.os_data)   setOsData(data.os_data);
+          // Se não extraiu, mantém o campo atual para preenchimento manual
         }
+
+        // Preenche NF em TODOS os itens selecionados (incluindo MOR)
+        setItensLancamento(prev => prev.map(entry => ({
+          ...entry,
+          numero_nf: data.numero_nf   != null ? data.numero_nf   : entry.numero_nf,
+          data_nf:   data.data_nf     != null ? data.data_nf     : entry.data_nf,
+          valor:     data.valor_total != null ? data.valor_total : entry.valor,
+        })));
+
       } else {
         alert("Não foi possível extrair dados do PDF. Verifique se o arquivo é uma nota fiscal válida.");
       }
