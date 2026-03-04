@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, FileText, DollarSign, Package, AlertTriangle, ChevronRight } from "lucide-react";
+import { Database, FileText, DollarSign, Package, AlertTriangle, Trash2, RefreshCw } from "lucide-react";
 
 const ENTIDADES = [
   {
