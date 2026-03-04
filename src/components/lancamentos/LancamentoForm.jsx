@@ -85,7 +85,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [ano,                 setAno]                 = useState(lancamento?.ano || anoAtual);
   const [mes,                 setMes]                 = useState(lancamento?.mes || new Date().getMonth() + 1);
   const [status,              setStatus]              = useState(lancamento?.status || "Em instrução");
-  const [valor,               setValor]               = useState(lancamento?.valor || "");
+
   const [processoPagSei,      setProcessoPagSei]      = useState(lancamento?.processo_pagamento_sei || "");
   const [ordemBancaria,       setOrdemBancaria]       = useState(lancamento?.ordem_bancaria || "");
   const [osNumero,            setOsNumero]            = useState(lancamento?.os_numero || "");
