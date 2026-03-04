@@ -38,14 +38,16 @@ export default function Orcamento() {
   }, []);
 
   const load = async () => {
-    const [o, h, c] = await Promise.all([
+    const [o, h, c, l] = await Promise.all([
       base44.entities.OrcamentoAnual.list(),
       base44.entities.HistoricoOrcamento.list("-data_alteracao"),
-      base44.entities.Contrato.list()
+      base44.entities.Contrato.list(),
+      base44.entities.LancamentoFinanceiro.list()
     ]);
     setOrcamentos(o);
     setHistorico(h);
     setContratos(c);
+    setLancamentos(l);
     if (c.length > 0 && !contratoSel) setContratoSel(c[0].id);
     setLoading(false);
   };
