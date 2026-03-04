@@ -1,0 +1,346 @@
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  LineChart, Line, ReferenceLine, ComposedChart, Area
+} from "recharts";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+const fmtK = (v) => {
+  if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
+  if (v >= 1000) return `${(v / 1000).toFixed(0)}k`;
+  return v.toFixed(0);
+};
+
+const MESES_LABELS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const ANOS_DISPONIVEIS = [2024, 2025, 2026, 2027];
+
+const STATUS_CORES = {
+  ativo: "#22c55e",
+  encerrado: "#6b7280",
+  suspenso: "#f59e0b",
+};
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs max-w-xs">
+      <div className="font-semibold text-gray-700 mb-2">{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center justify-between gap-4 mb-1">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: p.color }} />
+            <span className="text-gray-500">{p.name}:</span>
+          </div>
+          <span className="font-bold text-gray-800">{fmt(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const PieTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-xs">
+      <div className="font-semibold capitalize">{payload[0].name}</div>
+      <div className="text-gray-600">{payload[0].value} contrato(s)</div>
+      <div className="text-gray-400">{payload[0].payload.percent}%</div>
+    </div>
+  );
+};
+
+export default function GraficoDashboardConsolidado({ contratos, lancamentos, empenhos, orcamentosContratuais }) {
+  const [orcamentosAnuais, setOrcamentosAnuais] = useState([]);
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear());
+  const [contratoFiltro, setContratoFiltro] = useState("todos");
+
+  useEffect(() => {
+    base44.entities.OrcamentoAnual.list().then(setOrcamentosAnuais);
+  }, []);
+
+  // 1. Distribuição por Status (Pizza)
+  const totalContratos = contratos.length;
+  const distStatus = ["ativo", "encerrado", "suspenso"].map(status => {
+    const count = contratos.filter(c => c.status === status).length;
+    return {
+      name: status.charAt(0).toUpperCase() + status.slice(1),
+      value: count,
+      percent: totalContratos > 0 ? ((count / totalContratos) * 100).toFixed(0) : 0,
+    };
+  }).filter(d => d.value > 0);
+
+  // 2. Gráfico Mensal Consolidado (todos os contratos ou filtrado)
+  const lancsFiltro = contratoFiltro === "todos"
+    ? lancamentos.filter(l => l.ano === anoSelecionado)
+    : lancamentos.filter(l => l.ano === anoSelecionado && l.contrato_id === contratoFiltro);
+
+  const orcadoTotal = contratoFiltro === "todos"
+    ? orcamentosContratuais.filter(o => o.ano === anoSelecionado).reduce((s, o) => s + (o.valor_orcado || 0), 0)
+    : orcamentosContratuais.find(o => o.contrato_id === contratoFiltro && o.ano === anoSelecionado)?.valor_orcado || 0;
+
+  const dadosMensais = MESES_LABELS.map((name, i) => {
+    const m = i + 1;
+    const pago = lancsFiltro.filter(l => l.mes === m && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    const aprovisionado = lancsFiltro.filter(l => l.mes === m && l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+    const instrucao = lancsFiltro.filter(l => l.mes === m && ["Em instrução","Em execução","SOF"].includes(l.status)).reduce((s, l) => s + (l.valor || 0), 0);
+    const orcadoMes = orcadoTotal > 0 ? orcadoTotal / 12 : 0;
+    return { name, Pago: pago, Aprovisionado: aprovisionado, "Em instrução": instrucao, "Orçado/Mês": orcadoMes };
+  });
+
+  // 3. Acumulado do ano
+  const dadosAcumulados = MESES_LABELS.map((name, i) => {
+    const m = i + 1;
+    const pagoAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    const aprovAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+    const orcadoAcum = orcadoTotal > 0 ? orcadoTotal * (m / 12) : 0;
+    return {
+      name,
+      "Realizado": pagoAcum,
+      "Realizado + Aprovisionado": pagoAcum + aprovAcum,
+      "Orçado (prop.)": orcadoAcum,
+    };
+  });
+
+  // 4. Evolução do Orçamento Anual
+  const evolucaoOrcamento = ANOS_DISPONIVEIS.map(ano => {
+    const orc = orcamentosAnuais.find(o => o.ano === ano);
+    const empenhado = empenhos.filter(e => e.ano === ano).reduce((s, e) => s + (e.valor_total || 0), 0);
+    const pago = lancamentos.filter(l => l.ano === ano && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    return {
+      name: String(ano),
+      "Dotação Inicial": orc?.valor_dotacao_inicial || 0,
+      "Dotação Atual": orc?.valor_dotacao_atual || 0,
+      "Empenhado": empenhado,
+      "Pago": pago,
+    };
+  }).filter(d => d["Dotação Inicial"] > 0 || d["Empenhado"] > 0 || d["Pago"] > 0);
+
+  // 5. Comparativo por contrato
+  const dadosContratos = contratos.filter(c => c.status === "ativo").map(c => {
+    const orcContrato = orcamentosContratuais.find(o => o.contrato_id === c.id);
+    const lancContrato = lancamentos.filter(l => l.contrato_id === c.id && l.ano === anoSelecionado);
+    const pago = lancContrato.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    const aprov = lancContrato.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+    return {
+      name: c.numero?.length > 12 ? c.numero.substring(0, 12) + "…" : c.numero,
+      nomeCompleto: c.numero + " · " + c.contratada,
+      "Orçado": orcContrato?.valor_orcado || 0,
+      "Pago": pago,
+      "Aprovisionado": aprov,
+      max: orcContrato?.valor_orcado || c.valor_global || 0,
+    };
+  });
+
+  const [abaGrafico, setAbaGrafico] = useState("mensal");
+
+  const abas = [
+    { key: "mensal", label: "Mensal" },
+    { key: "acumulado", label: "Acumulado" },
+    { key: "contratos", label: "Por Contrato" },
+    { key: "evolucao", label: "Evolução Anual" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Card de Distribuição por Status (Pizza) */}
+      <Card className="lg:col-span-1">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <div className="text-sm font-semibold text-[#1a2e4a]">Distribuição por Status</div>
+          <div className="text-xs text-gray-400">{totalContratos} contrato(s) no total</div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <ResponsiveContainer width="100%" height={180}>
+            <PieChart>
+              <Pie
+                data={distStatus}
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={70}
+                dataKey="value"
+                paddingAngle={3}
+              >
+                {distStatus.map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={STATUS_CORES[entry.name.toLowerCase()] || "#6b7280"}
+                  />
+                ))}
+              </Pie>
+              <Tooltip content={<PieTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex flex-col gap-1.5 mt-1">
+            {distStatus.map((d, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_CORES[d.name.toLowerCase()] || "#6b7280" }} />
+                  <span className="text-gray-600 capitalize">{d.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-800">{d.value}</span>
+                  <span className="text-gray-400">({d.percent}%)</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card Principal com Abas */}
+      <Card className="lg:col-span-2">
+        <CardHeader className="pb-2 pt-4 px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-1 flex-wrap">
+              {abas.map(aba => (
+                <Button
+                  key={aba.key}
+                  variant={abaGrafico === aba.key ? "default" : "outline"}
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={() => setAbaGrafico(aba.key)}
+                >
+                  {aba.label}
+                </Button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {(abaGrafico === "mensal" || abaGrafico === "acumulado" || abaGrafico === "contratos") && (
+                <Select value={String(anoSelecionado)} onValueChange={v => setAnoSelecionado(Number(v))}>
+                  <SelectTrigger className="h-7 text-xs w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ANOS_DISPONIVEIS.map(a => (
+                      <SelectItem key={a} value={String(a)}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {(abaGrafico === "mensal" || abaGrafico === "acumulado") && (
+                <Select value={contratoFiltro} onValueChange={setContratoFiltro}>
+                  <SelectTrigger className="h-7 text-xs w-36">
+                    <SelectValue placeholder="Todos contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos contratos</SelectItem>
+                    {contratos.filter(c => c.status === "ativo").map(c => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.numero?.length > 20 ? c.numero.substring(0, 20) + "…" : c.numero}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {/* Mensal */}
+          {abaGrafico === "mensal" && (
+            <div>
+              <div className="text-xs text-gray-500 mb-3 flex items-center justify-between">
+                <span>Pagamentos mensais · {anoSelecionado}</span>
+                {orcadoTotal > 0 && <span className="text-red-500 font-medium">— Máx/mês: {fmt(orcadoTotal / 12)}</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={210}>
+                <ComposedChart data={dadosMensais} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  {orcadoTotal > 0 && (
+                    <ReferenceLine y={orcadoTotal / 12} stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5}
+                      label={{ value: "Teto/mês", position: "insideTopRight", fontSize: 9, fill: "#ef4444" }} />
+                  )}
+                  <Bar dataKey="Pago" fill="#22c55e" radius={[3,3,0,0]} maxBarSize={28} />
+                  <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} />
+                  <Bar dataKey="Em instrução" fill="#93c5fd" radius={[3,3,0,0]} maxBarSize={28} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Acumulado */}
+          {abaGrafico === "acumulado" && (
+            <div>
+              <div className="text-xs text-gray-500 mb-3 flex items-center justify-between">
+                <span>Realizado acumulado vs. Orçado · {anoSelecionado}</span>
+                {orcadoTotal > 0 && <span className="text-purple-500 font-medium">Teto: {fmt(orcadoTotal)}</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={210}>
+                <ComposedChart data={dadosAcumulados} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  {orcadoTotal > 0 && (
+                    <ReferenceLine y={orcadoTotal} stroke="#a855f7" strokeDasharray="5 3" strokeWidth={1.5}
+                      label={{ value: "Orçado total", position: "insideTopRight", fontSize: 9, fill: "#a855f7" }} />
+                  )}
+                  <Area dataKey="Orçado (prop.)" fill="#dbeafe" stroke="#3b82f6" strokeWidth={1.5} dot={false} fillOpacity={0.35} />
+                  <Line dataKey="Realizado" stroke="#22c55e" strokeWidth={2.5} dot={{ r: 3, fill: "#22c55e" }} activeDot={{ r: 5 }} />
+                  <Line dataKey="Realizado + Aprovisionado" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Por Contrato */}
+          {abaGrafico === "contratos" && (
+            <div>
+              <div className="text-xs text-gray-500 mb-3">Orçado × Pago × Aprovisionado por Contrato · {anoSelecionado}</div>
+              {dadosContratos.length > 0 ? (
+                <ResponsiveContainer width="100%" height={Math.max(200, dadosContratos.length * 52)}>
+                  <BarChart data={dadosContratos} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={80} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="Orçado" fill="#3b82f6" radius={[0,3,3,0]} maxBarSize={16} />
+                    <Bar dataKey="Pago" fill="#22c55e" radius={[0,3,3,0]} maxBarSize={16} />
+                    <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[0,3,3,0]} maxBarSize={16} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-xs text-gray-400 text-center py-8">Sem dados para o período</div>
+              )}
+            </div>
+          )}
+
+          {/* Evolução Anual */}
+          {abaGrafico === "evolucao" && (
+            <div>
+              <div className="text-xs text-gray-500 mb-3">Evolução do Orçamento Anual</div>
+              {evolucaoOrcamento.length > 0 ? (
+                <ResponsiveContainer width="100%" height={210}>
+                  <ComposedChart data={evolucaoOrcamento} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 10 }} />
+                    <Bar dataKey="Dotação Inicial" fill="#dbeafe" stroke="#3b82f6" radius={[3,3,0,0]} maxBarSize={40} />
+                    <Bar dataKey="Dotação Atual" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={40} />
+                    <Line dataKey="Empenhado" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
+                    <Line dataKey="Pago" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-xs text-gray-400 text-center py-8">Cadastre orçamentos anuais para visualizar a evolução</div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
