@@ -215,9 +215,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   }).filter(d => d["Dotação Inicial"] > 0 || d["Empenhado"] > 0 || d["Pago"] > 0);
 
   const abas = [
+    { key: "categoria", label: "Por Categoria" },
     { key: "mensal", label: "Mensal" },
     { key: "acumulado", label: "Acumulado" },
-    { key: "contratos", label: "Por Contrato" },
     { key: "evolucao", label: "Evolução Anual" },
   ];
 
