@@ -135,9 +135,10 @@ export default function Dashboard() {
 
       <GraficoDashboardConsolidado
         contratos={contratos}
-        lancamentos={lancamentos}
-        empenhos={empenhos}
-        orcamentosContratuais={orcamentosContratuais}
+        lancamentos={lancamentosBase}
+        empenhos={empenhosFiltrados}
+        orcamentosContratuais={orcamentosContratuaisFiltrados}
+        contratoSelecionado={contratoSelecionado}
       />
 
       <div className="flex flex-wrap items-center gap-3">
