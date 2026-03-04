@@ -183,6 +183,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       const entry = itensLancamento[0] || {};
       await base44.entities.LancamentoFinanceiro.update(lancamento.id, {
         ...baseData,
+        valor:           parseFloat(entry.valor) || 0,
         item_label:      entry.item_label,
         nota_empenho_id: entry.nota_empenho_id,
         numero_nf:       entry.numero_nf,
@@ -195,6 +196,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           for (const itemReal of grupoItens) {
             await base44.entities.LancamentoFinanceiro.create({
               ...baseData,
+              valor:           parseFloat(entry.valor) || 0,
               item_label:      entry.item_label,
               item_contrato_id: itemReal.id,
               nota_empenho_id: entry.nota_empenho_id,
@@ -205,6 +207,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         } else {
           await base44.entities.LancamentoFinanceiro.create({
             ...baseData,
+            valor:           parseFloat(entry.valor) || 0,
             item_label:      entry.item_label,
             nota_empenho_id: entry.nota_empenho_id,
             numero_nf:       entry.numero_nf,
