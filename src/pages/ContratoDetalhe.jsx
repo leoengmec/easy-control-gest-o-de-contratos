@@ -111,9 +111,9 @@ export default function ContratoDetalhe() {
   if (loading) return <div className="p-8 text-center text-gray-400">Carregando...</div>;
   if (!contrato) return <div className="p-8 text-center text-gray-400">Contrato não encontrado</div>;
 
-  const totalPago = lancamentos.filter(l => l.tipo === "pagamento" && l.status === "pago").reduce((s, l) => s + l.valor, 0);
-  const totalProvisao = lancamentos.filter(l => l.tipo === "provisao").reduce((s, l) => s + l.valor, 0);
-  const totalEmpenho = lancamentos.filter(l => l.tipo === "empenho").reduce((s, l) => s + l.valor, 0);
+  const totalPago = lancamentos.filter(l => l.status === "Pago").reduce((s, l) => s + l.valor, 0);
+  const totalProvisao = lancamentos.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + l.valor, 0);
+  const totalEmpenho = empenhos.reduce((s, e) => s + (e.valor_total || 0), 0);
 
   // Cálculo de vigência
   const hoje = new Date();
