@@ -147,6 +147,14 @@ export default function ContratoCard({ contrato, lancamentos, empenhos, orcament
           </div>
         </div>
 
+        {/* Saldo por item */}
+        {expanded && (
+          <div className="mb-3 border rounded-lg p-3">
+            <div className="text-xs text-gray-500 font-medium mb-2">Saldo por Item × Orçado ({anoAtual})</div>
+            <SaldoItens contrato={contrato} lancamentos={lancamentosContrato} ano={anoAtual} />
+          </div>
+        )}
+
         {/* Seção expandida com gráficos */}
         {expanded && (
           <GraficoContrato
