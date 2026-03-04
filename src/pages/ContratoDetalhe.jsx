@@ -21,8 +21,6 @@ const NATUREZA_LABELS = {
   "339030_material": "339030 – Material de Consumo"
 };
 
-const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-
 const tipoAditivoLabels = {
   tempo: "Prorrogação de Prazo",
   repactuacao: "Repactuação",
