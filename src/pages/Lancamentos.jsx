@@ -58,9 +58,17 @@ export default function Lancamentos() {
     setLoading(false);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (lancamento) => {
     if (!confirm("Excluir este lançamento?")) return;
-    await base44.entities.LancamentoFinanceiro.delete(id);
+    // Se for material, exclui os itens de material associados
+    const isMaterial = lancamento.item_label === "Fornecimento de Materiais";
+    if (isMaterial) {
+      const itensMat = await base44.entities.ItemMaterialNF.filter({ lancamento_financeiro_id: lancamento.id });
+      for (const item of itensMat) {
+        await base44.entities.ItemMaterialNF.delete(item.id);
+      }
+    }
+    await base44.entities.LancamentoFinanceiro.delete(lancamento.id);
     loadLancamentos();
   };
 
