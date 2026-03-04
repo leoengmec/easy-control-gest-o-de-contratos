@@ -9,8 +9,15 @@ import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const mesesNomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-const tipoColors = { pagamento: "bg-green-50 text-green-700 border-green-200", provisao: "bg-amber-50 text-amber-700 border-amber-200", empenho: "bg-purple-50 text-purple-700 border-purple-200" };
-const statusColors = { pago: "bg-green-100 text-green-800", aprovado_nao_pago: "bg-amber-100 text-amber-800", cancelado: "bg-gray-100 text-gray-500" };
+const statusColors = {
+  "SOF": "bg-blue-100 text-blue-800",
+  "Pago": "bg-green-100 text-green-800",
+  "Cancelado": "bg-gray-100 text-gray-500",
+  "Aprovisionado": "bg-amber-100 text-amber-800",
+  "Em execução": "bg-purple-100 text-purple-800",
+  "Em instrução": "bg-sky-100 text-sky-800"
+};
+const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
 
 export default function Lancamentos() {
   const [lancamentos, setLancamentos] = useState([]);
