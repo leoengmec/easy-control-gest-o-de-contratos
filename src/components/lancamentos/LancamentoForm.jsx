@@ -449,7 +449,14 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Local de Prestação</Label>
-                <Input value={osLocal} onChange={e => setOsLocal(e.target.value)} placeholder="Local dos serviços" />
+                <Select value={osLocal} onValueChange={setOsLocal}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o local" /></SelectTrigger>
+                  <SelectContent>
+                    {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(l => (
+                      <SelectItem key={l} value={l}>{l}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
