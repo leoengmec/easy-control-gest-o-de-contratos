@@ -49,7 +49,6 @@
  */
 import ContratoDetalhe from './pages/ContratoDetalhe';
 import Contratos from './pages/Contratos';
-import Dashboard from './pages/Dashboard';
 import Lancamentos from './pages/Lancamentos';
 import Orcamento from './pages/Orcamento';
 import __Layout from './Layout.jsx';
@@ -58,13 +57,12 @@ import __Layout from './Layout.jsx';
 export const PAGES = {
     "ContratoDetalhe": ContratoDetalhe,
     "Contratos": Contratos,
-    "Dashboard": Dashboard,
     "Lancamentos": Lancamentos,
     "Orcamento": Orcamento,
 }
 
 export const pagesConfig = {
-    mainPage: "Dashboard",
+    mainPage: "ContratoDetalhe",
     Pages: PAGES,
     Layout: __Layout,
 };
