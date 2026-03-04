@@ -148,8 +148,12 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   }).filter(d => d.value > 0);
 
   // 2. Gráfico por Categoria (Pago x Orçado x Empenhado)
-  const empenhadoServico = empenhos.filter(e => e.ano === anoSelecionado && e.natureza_despesa === "339039_servico").reduce((s, e) => s + (e.valor_total || 0), 0);
-  const empenhadoMaterial = empenhos.filter(e => e.ano === anoSelecionado && e.natureza_despesa === "339030_material").reduce((s, e) => s + (e.valor_total || 0), 0);
+  const empenhosFiltro = empenhos.filter(e =>
+    e.ano === anoSelecionado &&
+    (contratoSelecionado === "todos" || e.contrato_id === contratoSelecionado)
+  );
+  const empenhadoServico = empenhosFiltro.filter(e => e.natureza_despesa === "339039_servico").reduce((s, e) => s + (e.valor_total || 0), 0);
+  const empenhadoMaterial = empenhosFiltro.filter(e => e.natureza_despesa === "339030_material").reduce((s, e) => s + (e.valor_total || 0), 0);
 
   const getEmpenhadoCategoria = (cat) => {
     const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
