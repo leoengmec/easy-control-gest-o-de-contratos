@@ -127,6 +127,15 @@ export default function Orcamento() {
         </div>
       </div>
 
+      {/* Alertas de orçamento */}
+      {orcamentoSel && (
+        <AlertasOrcamento
+          orcamento={orcamentoSel}
+          lancamentos={lancamentos}
+          ano={parseInt(anoSel)}
+        />
+      )}
+
       {/* Orçamento atual */}
       {orcamentoSel ? (
         <Card>
