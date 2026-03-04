@@ -285,8 +285,8 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                 </Button>
               ))}
             </div>
-            <div className="flex gap-2">
-              {(abaGrafico === "mensal" || abaGrafico === "acumulado" || abaGrafico === "contratos") && (
+            <div className="flex gap-2 flex-wrap">
+              {abaGrafico !== "evolucao" && (
                 <Select value={String(anoSelecionado)} onValueChange={v => setAnoSelecionado(Number(v))}>
                   <SelectTrigger className="h-7 text-xs w-24">
                     <SelectValue />
@@ -298,18 +298,14 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                   </SelectContent>
                 </Select>
               )}
-              {(abaGrafico === "mensal" || abaGrafico === "acumulado") && (
-                <Select value={contratoFiltro} onValueChange={setContratoFiltro}>
-                  <SelectTrigger className="h-7 text-xs w-36">
-                    <SelectValue placeholder="Todos contratos" />
+              {abaGrafico === "categoria" && (
+                <Select value={agrupamento} onValueChange={setAgrupamento}>
+                  <SelectTrigger className="h-7 text-xs w-32">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos contratos</SelectItem>
-                    {contratos.filter(c => c.status === "ativo").map(c => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.numero?.length > 20 ? c.numero.substring(0, 20) + "…" : c.numero}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="grupo">Agrupado</SelectItem>
+                    <SelectItem value="individual">Individual</SelectItem>
                   </SelectContent>
                 </Select>
               )}
