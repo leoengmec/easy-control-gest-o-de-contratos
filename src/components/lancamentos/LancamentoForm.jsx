@@ -369,9 +369,33 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           {/* NF POR ITEM */}
           {itensLancamento.length > 0 && (
             <div className="space-y-3">
-              <Label className="text-sm font-semibold text-[#1a2e4a]">
-                Notas Fiscais {itensLancamento.length > 1 && <span className="font-normal text-gray-400 text-xs">({itensLancamento.length} itens)</span>}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-[#1a2e4a]">
+                  Notas Fiscais {itensLancamento.length > 1 && <span className="font-normal text-gray-400 text-xs">({itensLancamento.length} itens)</span>}
+                </Label>
+                <div>
+                  <input
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={handlePdfUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1.5 border-blue-300 text-blue-700 hover:bg-blue-50"
+                    disabled={extractingPdf}
+                    onClick={() => pdfInputRef.current?.click()}
+                  >
+                    {extractingPdf
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Extraindo...</>
+                      : <><Upload className="w-3 h-3" /> Importar PDF da NF</>
+                    }
+                  </Button>
+                </div>
+              </div>
               {itensLancamento.map((entry, idx) => (
                 <ItemNFCard
                   key={entry.item_label}
