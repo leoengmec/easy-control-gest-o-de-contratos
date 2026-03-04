@@ -24,6 +24,7 @@ const navItems = [
   { label: "Orçamento", page: "Orcamento", icon: PiggyBank, roles: ["admin", "gestor", "direcao"] },
   { label: "Relatórios", page: "Relatorios", icon: BarChart2, roles: ["admin", "gestor", "direcao"] },
   { label: "Controle de Materiais", page: "ControleMateriais", icon: ShoppingCart, roles: ["admin", "gestor", "fiscal"] },
+  { label: "Administração", page: "AdminPanel", icon: Shield, roles: ["admin"] },
 ];
 
 export default function Layout({ children, currentPageName }) {
