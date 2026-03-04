@@ -19,6 +19,7 @@ export default function ContratoForm({ contrato, onSave, onCancel }) {
     contratada: contrato?.contratada || "",
     cnpj: contrato?.cnpj || "",
     valor_global: contrato?.valor_global || "",
+    valor_financeiro_disponivel_nufip: contrato?.valor_financeiro_disponivel_nufip || "",
     data_inicio: contrato?.data_inicio || "",
     data_fim: contrato?.data_fim || "",
     prazo_vigencia_inicial_meses: contrato?.prazo_vigencia_inicial_meses || "",
