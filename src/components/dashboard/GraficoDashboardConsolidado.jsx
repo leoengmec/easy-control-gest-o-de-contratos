@@ -389,29 +389,6 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
             </div>
           )}
 
-          {/* Por Contrato */}
-          {abaGrafico === "contratos" && (
-            <div>
-              <div className="text-xs text-gray-500 mb-3">Orçado × Pago × Aprovisionado por Contrato · {anoSelecionado}</div>
-              {dadosContratos.length > 0 ? (
-                <ResponsiveContainer width="100%" height={Math.max(200, dadosContratos.length * 52)}>
-                  <BarChart data={dadosContratos} layout="vertical" margin={{ top: 0, right: 10, left: 10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 9 }} width={80} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="Orçado" fill="#3b82f6" radius={[0,3,3,0]} maxBarSize={16} />
-                    <Bar dataKey="Pago" fill="#22c55e" radius={[0,3,3,0]} maxBarSize={16} />
-                    <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[0,3,3,0]} maxBarSize={16} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="text-xs text-gray-400 text-center py-8">Sem dados para o período</div>
-              )}
-            </div>
-          )}
-
           {/* Evolução Anual */}
           {abaGrafico === "evolucao" && (
             <div>
