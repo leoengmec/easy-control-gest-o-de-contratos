@@ -101,6 +101,13 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      <GraficoDashboardConsolidado
+        contratos={contratos}
+        lancamentos={lancamentos}
+        empenhos={empenhos}
+        orcamentosContratuais={orcamentosContratuais}
+      />
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
           <Filter className="w-4 h-4 text-gray-400" />
