@@ -168,7 +168,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       ano:                  parseInt(ano),
       mes:                  parseInt(mes),
       status,
-      valor:                parseFloat(valor) || 0,
+      valor:                0,
       processo_pagamento_sei: processoPagSei,
       ordem_bancaria:       ordemBancaria,
       os_numero:            osNumero,
