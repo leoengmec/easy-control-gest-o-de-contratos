@@ -202,29 +202,14 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       });
     } else {
       for (const entry of itensLancamento) {
-        const grupoItens = getItensDoGrupo(entry.item_label, itensContrato);
-        if (grupoItens.length > 0) {
-          for (const itemReal of grupoItens) {
-            await base44.entities.LancamentoFinanceiro.create({
-              ...baseData,
-              valor:           parseFloat(entry.valor) || 0,
-              item_label:      entry.item_label,
-              item_contrato_id: itemReal.id,
-              nota_empenho_id: entry.nota_empenho_id,
-              numero_nf:       entry.numero_nf,
-              data_nf:         entry.data_nf,
-            });
-          }
-        } else {
-          await base44.entities.LancamentoFinanceiro.create({
-            ...baseData,
-            valor:           parseFloat(entry.valor) || 0,
-            item_label:      entry.item_label,
-            nota_empenho_id: entry.nota_empenho_id,
-            numero_nf:       entry.numero_nf,
-            data_nf:         entry.data_nf,
-          });
-        }
+        await base44.entities.LancamentoFinanceiro.create({
+          ...baseData,
+          valor:           parseFloat(entry.valor) || 0,
+          item_label:      entry.item_label,
+          nota_empenho_id: entry.nota_empenho_id,
+          numero_nf:       entry.numero_nf,
+          data_nf:         entry.data_nf,
+        });
       }
     }
     onSave();
