@@ -68,10 +68,14 @@ export default function ControleMateriais() {
     setExpandedNFs(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const temFiltroAtivo = filtroOS || filtroNF || filtroLocal !== "todos" || filtroDataInicio || filtroDataFim;
+
   const limparFiltros = () => {
     setFiltroOS("");
     setFiltroNF("");
     setFiltroLocal("todos");
+    setFiltroDataInicio("");
+    setFiltroDataFim("");
   };
 
   if (loading) {
