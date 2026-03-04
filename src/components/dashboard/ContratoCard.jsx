@@ -32,7 +32,9 @@ export default function ContratoCard({ contrato, lancamentos, empenhos, orcament
   const valorOrcado = orcamentoContratual?.valor_orcado || 0;
   const valorFinanceiroNufip = contrato.valor_financeiro_disponivel_nufip || 0;
 
-  const saldoAno = valorOrcado - totalPagoAno - totalProvisionadoAno;
+  // Saldo do ano: compara financeiro NUFIP (prioritário) ou orçado JFRN com o total pago+aprovisionado
+  const baseReferenciaAno = valorFinanceiroNufip > 0 ? valorFinanceiroNufip : valorOrcado;
+  const saldoAno = baseReferenciaAno - totalPagoAno - totalProvisionadoAno;
   const saldoVigencia = (contrato.valor_global || 0) - totalPagoVigencia - totalProvisionadoVigencia;
 
   // Vigência
