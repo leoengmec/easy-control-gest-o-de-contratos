@@ -17,6 +17,7 @@ const anoAtual = new Date().getFullYear();
 const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
 
 export default function Orcamento() {
+  const [lancamentos, setLancamentos] = useState([]);
   const [orcamentos, setOrcamentos] = useState([]);
   const [historico, setHistorico] = useState([]);
   const [contratos, setContratos] = useState([]);
