@@ -148,7 +148,7 @@ export default function ContratoDetalhe() {
       </div>
 
       {/* Resumo financeiro */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "Valor Global", value: fmt(contrato.valor_global), color: "border-l-blue-500" },
           { label: "Disponível NUFIP", value: contrato.valor_financeiro_disponivel_nufip != null ? fmt(contrato.valor_financeiro_disponivel_nufip) : "—", color: "border-l-cyan-500" },
