@@ -59,8 +59,13 @@ const benefits = [
 ];
 
 export default function LandingPage() {
-  const handleLogin = () => {
-    base44.auth.redirectToLogin(createPageUrl("Dashboard"));
+  const handleLogin = async () => {
+    const autenticado = await base44.auth.isAuthenticated();
+    if (autenticado) {
+      window.location.href = createPageUrl("Dashboard");
+    } else {
+      base44.auth.redirectToLogin(createPageUrl("Dashboard"));
+    }
   };
 
   return (
