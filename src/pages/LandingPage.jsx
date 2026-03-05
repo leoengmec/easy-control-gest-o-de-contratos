@@ -98,7 +98,7 @@ export default function LandingPage() {
           <img
             src={LOGO_URL}
             alt="Easer Control"
-            className="h-24 mx-auto mb-8 object-contain drop-shadow-lg"
+            className="h-40 mx-auto mb-8 object-contain drop-shadow-lg"
           />
           <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-5">
             Gestão de Contratos{" "}
