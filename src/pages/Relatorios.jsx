@@ -145,7 +145,7 @@ export default function Relatorios() {
 
   const exportPDF = () => {
     const header = camposSel.map(k => campos.find(c => c.key === k)?.label || k);
-    const linhas = resultados.map(row => camposSel.map(k => String(row[k] ?? "—")));
+    const linhas = resultados.map(row => camposSel.filter(k => !k.startsWith("_")).map(k => String(row[k] ?? "—")));
 
     let html = `<html><head><meta charset="UTF-8"><style>
       body{font-family:Arial,sans-serif;font-size:11px;padding:20px}
