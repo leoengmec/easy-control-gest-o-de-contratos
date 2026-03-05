@@ -118,7 +118,7 @@ export default function LandingPage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-white/20 text-white hover:bg-white/10 text-base px-8 py-6"
+              className="border-blue-400 text-blue-300 hover:bg-blue-400/10 hover:text-white text-base px-8 py-6"
               onClick={() => document.getElementById("features").scrollIntoView({ behavior: "smooth" })}
             >
               Conhecer funcionalidades
