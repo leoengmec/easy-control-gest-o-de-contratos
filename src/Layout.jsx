@@ -17,6 +17,7 @@ import {
   Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
 
 const navItems = [
   { label: "Dashboard", page: "Dashboard", icon: LayoutDashboard, roles: ["admin", "gestor", "fiscal", "direcao"] },
