@@ -215,7 +215,7 @@ export default function LandingPage() {
           </p>
           <Button
             size="lg"
-            className="bg-blue-500 hover:bg-blue-400 text-white text-base px-10 py-6"
+            className="bg-blue-500 hover:bg-blue-400 text-white text-base px-10"
             onClick={handleLogin}
           >
             Acessar o Easer Control <ArrowRight className="w-5 h-5 ml-2" />
