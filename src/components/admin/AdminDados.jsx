@@ -234,12 +234,51 @@ function ItemMaterialNFCard() {
 }
 
 export default function AdminDados() {
+  const [exportando, setExportando] = useState(false);
+  const [exportMsg, setExportMsg] = useState("");
+
+  const handleExportarBD = async () => {
+    setExportando(true);
+    setExportMsg("");
+    const response = await base44.functions.invoke('exportDatabase');
+    const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `easer_control_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    setExportando(false);
+    setExportMsg("Backup exportado com sucesso!");
+    setTimeout(() => setExportMsg(""), 5000);
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Database className="w-4 h-4 text-[#1a2e4a]" />
-        <h2 className="text-base font-semibold text-[#1a2e4a]">Gerenciamento de Dados</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-[#1a2e4a]" />
+          <h2 className="text-base font-semibold text-[#1a2e4a]">Gerenciamento de Dados</h2>
+        </div>
+        <Button
+          size="sm"
+          className="gap-2 bg-[#1a2e4a] hover:bg-[#243d5e] text-white text-xs"
+          onClick={handleExportarBD}
+          disabled={exportando}
+        >
+          <Download className="w-3.5 h-3.5" />
+          {exportando ? "Exportando..." : "Exportar Banco de Dados (JSON)"}
+        </Button>
       </div>
+
+      {exportMsg && (
+        <div className="text-xs bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">
+          {exportMsg}
+        </div>
+      )}
+
       <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-3 rounded-lg flex items-start gap-2">
         <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
         <span>As operações de limpeza de dados são <strong>irreversíveis</strong>. Tenha certeza antes de prosseguir.</span>
