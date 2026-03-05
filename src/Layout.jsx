@@ -43,6 +43,7 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
+      <BarraAcessibilidade />
       <style>{`
         :root {
           --primary: 220 70% 30%;
