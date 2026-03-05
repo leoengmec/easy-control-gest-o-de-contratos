@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, FileText, DollarSign, Package, AlertTriangle, Trash2, RefreshCw } from "lucide-react";
+import { Database, FileText, DollarSign, Package, AlertTriangle, Trash2, RefreshCw, Download } from "lucide-react";
 
 const ENTIDADES_SIMPLES = [
   {
