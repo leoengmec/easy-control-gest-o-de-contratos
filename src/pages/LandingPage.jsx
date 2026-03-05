@@ -103,7 +103,7 @@ export default function LandingPage() {
             alt="Easer Control"
             className="h-40 mx-auto mb-8 object-contain drop-shadow-lg"
           />
-          <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-5">
+          <h1 className="text-3xl md:text-5xl font-bold leading-tight mb-5">
             Gestão de Contratos{" "}
             <span className="text-blue-400">inteligente e eficiente</span>
           </h1>
