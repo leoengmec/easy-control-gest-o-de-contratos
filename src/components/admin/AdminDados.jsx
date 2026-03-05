@@ -308,9 +308,13 @@ export default function AdminDados() {
       </div>
 
       {exportMsg && (
-        <div className="text-xs bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">
-          {exportMsg}
-        </div>
+        <div className="text-xs bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">{exportMsg}</div>
+      )}
+      {importMsg && (
+        <div className="text-xs bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">{importMsg}</div>
+      )}
+      {importErro && (
+        <div className="text-xs bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg">{importErro}</div>
       )}
 
       <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-3 rounded-lg flex items-start gap-2">
