@@ -68,21 +68,23 @@ export default function LandingPage() {
 
       {/* NAVBAR */}
       <nav className="fixed top-0 w-full z-50 bg-[#0d1b2e]/95 backdrop-blur border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <span className="text-white font-bold text-sm tracking-wide">Easer Control</span>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <Button
               variant="ghost"
+              size="sm"
               className="text-blue-200 hover:text-white hover:bg-white/10 text-sm"
               onClick={handleLogin}
             >
               Entrar
             </Button>
             <Button
-              className="bg-blue-500 hover:bg-blue-400 text-white text-sm px-5"
+              size="sm"
+              className="bg-blue-500 hover:bg-blue-400 text-white text-sm px-4"
               onClick={handleLogin}
             >
-              Começar agora <ArrowRight className="w-4 h-4 ml-1" />
+              Começar <ArrowRight className="w-3 h-3 ml-1" />
             </Button>
           </div>
         </div>
