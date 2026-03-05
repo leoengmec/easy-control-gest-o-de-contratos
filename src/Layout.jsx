@@ -35,7 +35,30 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    base44.auth.me().then(u => {
+      setUser(u);
+      // Se o usuário não tem role ou tem role "user" e foi criado recentemente (últimas 2h), gera notificação
+      if (u && (!u.role || u.role === "user")) {
+        const criadoEm = u.created_date ? new Date(u.created_date) : null;
+        const agora = new Date();
+        const duasHoras = 2 * 60 * 60 * 1000;
+        if (criadoEm && (agora - criadoEm) < duasHoras) {
+          // Verifica se já existe notificação para este usuário para não duplicar
+          base44.entities.NotificacaoAdmin.filter({ dados_extras: u.email })
+            .then(existentes => {
+              if (existentes.length === 0) {
+                base44.entities.NotificacaoAdmin.create({
+                  tipo: "novo_usuario",
+                  titulo: "Novo usuário registrado",
+                  mensagem: `${u.full_name || u.email} criou uma conta e aguarda atribuição de perfil.`,
+                  lida: false,
+                  dados_extras: u.email,
+                });
+              }
+            }).catch(() => {});
+        }
+      }
+    }).catch(() => {});
   }, []);
 
   const userRole = user?.role || "direcao";
