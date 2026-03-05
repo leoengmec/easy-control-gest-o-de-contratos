@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Shield, Users, Database, Settings, ChevronRight } from "lucide-react";
+import { Shield, Users, Database, Settings, Bell, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import AdminUsuarios from "@/components/admin/AdminUsuarios.jsx";
 import AdminDados from "@/components/admin/AdminDados.jsx";
 import AdminConfiguracoes from "@/components/admin/AdminConfiguracoes.jsx";
+import AdminAlertas from "@/components/admin/AdminAlertas.jsx";
 
 const TABS = [
   { id: "usuarios",     label: "Usuários",         icon: Users,    desc: "Gerenciar usuários e permissões" },
+  { id: "alertas",      label: "Alertas",           icon: Bell,     desc: "Configurar notificações automáticas" },
   { id: "dados",        label: "Dados",             icon: Database, desc: "Gerenciar registros do sistema" },
   { id: "configuracoes",label: "Configurações",     icon: Settings, desc: "Configurações gerais do sistema" },
 ];
@@ -74,6 +76,7 @@ export default function AdminPanel() {
 
       {/* Content */}
       {activeTab === "usuarios"      && <AdminUsuarios />}
+      {activeTab === "alertas"       && <AdminAlertas />}
       {activeTab === "dados"         && <AdminDados />}
       {activeTab === "configuracoes" && <AdminConfiguracoes />}
     </div>
