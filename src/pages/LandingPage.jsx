@@ -68,7 +68,7 @@ export default function LandingPage() {
       {/* NAVBAR */}
       <nav className="fixed top-0 w-full z-50 bg-[#0d1b2e]/95 backdrop-blur border-b border-white/10">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <img src={LOGO_URL} alt="Easer Control" className="h-10 object-contain" />
+          <span className="text-white font-bold text-sm tracking-wide">Easer Control</span>
           <div className="flex gap-3">
             <Button
               variant="ghost"
