@@ -132,7 +132,7 @@ export default function Relatorios() {
 
   const exportCSV = () => {
     const header = camposSel.map(k => campos.find(c => c.key === k)?.label || k);
-    const rows = resultados.map(row => camposSel.map(k => `"${String(row[k] ?? "").replace(/"/g, '""')}"`));
+    const rows = resultados.map(row => camposSel.filter(k => !k.startsWith("_")).map(k => `"${String(row[k] ?? "").replace(/"/g, '""')}"`));
     const csv = [header.join(";"), ...rows.map(r => r.join(";"))].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
