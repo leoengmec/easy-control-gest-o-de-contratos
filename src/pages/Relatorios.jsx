@@ -272,6 +272,24 @@ export default function Relatorios() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Categoria</Label>
+                    <Select value={filtCategoria} onValueChange={setFiltCategoria}>
+                      <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todos">Todas</SelectItem>
+                        {CATEGORIAS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Data NF — de</Label>
+                    <Input type="date" value={filtDataNfInicio} onChange={e => setFiltDataNfInicio(e.target.value)} className="text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Data NF — até</Label>
+                    <Input type="date" value={filtDataNfFim} onChange={e => setFiltDataNfFim(e.target.value)} className="text-xs" />
+                  </div>
                 </>
               )}
 
