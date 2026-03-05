@@ -30,6 +30,9 @@ const navItems = [
 ];
 
 export default function Layout({ children, currentPageName }) {
+  if (currentPageName === "LandingPage") {
+    return <>{children}</>;
+  }
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
