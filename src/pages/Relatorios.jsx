@@ -156,7 +156,7 @@ export default function Relatorios() {
       tr:nth-child(even){background:#f9f9f9}
     </style></head><body>
     <h2>Relatório de ${tipoRelatorio === "lancamentos" ? "Lançamentos Financeiros" : "Contratos"}</h2>
-    <p style="color:#666;font-size:10px">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} — ${resultados.length} registro(s)</p>
+    <p style="color:#666;font-size:10px">Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} — ${resultados.length} registro(s) | Filtros aplicados</p>
     <table><thead><tr>${header.map(h => `<th>${h}</th>`).join("")}</tr></thead>
     <tbody>${linhas.map(row => `<tr>${row.map(v => `<td>${v}</td>`).join("")}</tr>`).join("")}</tbody>
     </table></body></html>`;
