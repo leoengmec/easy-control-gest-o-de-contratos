@@ -153,6 +153,12 @@ export default function Layout({ children, currentPageName }) {
           {children}
         </main>
       </div>
+
+      {/* Footer rodapé oculto em mobile, visível no desktop */}
+      <footer className="hidden lg:flex fixed bottom-0 left-0 w-64 bg-[#111e30] text-blue-300/60 text-[10px] px-4 py-2 flex-col gap-0.5 border-t border-white/5">
+        <span>© {new Date().getFullYear()} Easer Control — Gestão de Contratos</span>
+        <span>Desenvolvido por <span className="text-blue-200/80 font-medium">Leonardo Alves</span> · v1.0.0</span>
+      </footer>
     </div>
   );
 }
