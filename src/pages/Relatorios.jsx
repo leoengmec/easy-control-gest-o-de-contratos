@@ -105,6 +105,7 @@ export default function Relatorios() {
           const contrato = contratos.find(c => c.id === l.contrato_id);
           return {
             ...l,
+            _valor_raw: l.valor,
             contrato_numero: contrato?.numero || l.contrato_id,
             mes_label: MESES[(l.mes || 1) - 1],
             data_nf: l.data_nf ? format(new Date(l.data_nf), "dd/MM/yyyy") : "",
