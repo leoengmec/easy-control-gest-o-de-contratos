@@ -76,6 +76,11 @@ export default function Relatorios() {
 
   const campos = tipoRelatorio === "lancamentos" ? CAMPOS_LANCAMENTO : CAMPOS_CONTRATO;
 
+  const CATEGORIAS = [
+    "MOR Natal","MOR Mossoró","Deslocamento Corretivo","Deslocamento Preventivo",
+    "Locações","Serviços eventuais","Fornecimento de Materiais"
+  ];
+
   const toggleCampo = (key) => {
     setCamposSel(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
   };
