@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { FileDown, FileText, Filter, Table2, RefreshCw } from "lucide-react";
+import { FileDown, FileText, Filter, Table2, RefreshCw, TrendingUp, DollarSign, CheckCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
