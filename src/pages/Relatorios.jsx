@@ -58,6 +58,9 @@ export default function Relatorios() {
   const [filtMesInicio, setFiltMesInicio] = useState("1");
   const [filtMesFim, setFiltMesFim] = useState("12");
   const [filtStatus, setFiltStatus] = useState("todos");
+  const [filtCategoria, setFiltCategoria] = useState("todos");
+  const [filtDataNfInicio, setFiltDataNfInicio] = useState("");
+  const [filtDataNfFim, setFiltDataNfFim] = useState("");
 
   // Filtros contratos
   const [filtStatusContrato, setFiltStatusContrato] = useState("todos");
