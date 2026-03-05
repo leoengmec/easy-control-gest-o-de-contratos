@@ -96,6 +96,9 @@ export default function Relatorios() {
           if (filtAno !== "todos" && l.ano !== parseInt(filtAno)) return false;
           if (l.mes < parseInt(filtMesInicio) || l.mes > parseInt(filtMesFim)) return false;
           if (filtStatus !== "todos" && l.status !== filtStatus) return false;
+          if (filtCategoria !== "todos" && l.item_label !== filtCategoria) return false;
+          if (filtDataNfInicio && l.data_nf && l.data_nf < filtDataNfInicio) return false;
+          if (filtDataNfFim && l.data_nf && l.data_nf > filtDataNfFim) return false;
           return true;
         })
         .map(l => {
