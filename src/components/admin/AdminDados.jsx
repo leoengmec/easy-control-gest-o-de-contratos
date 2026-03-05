@@ -237,6 +237,10 @@ export default function AdminDados() {
   const [exportando, setExportando] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
 
+  const [importando, setImportando] = useState(false);
+  const [importMsg, setImportMsg] = useState("");
+  const [importErro, setImportErro] = useState("");
+
   const handleExportarBD = async () => {
     setExportando(true);
     setExportMsg("");
@@ -253,6 +257,29 @@ export default function AdminDados() {
     setExportando(false);
     setExportMsg("Backup exportado com sucesso!");
     setTimeout(() => setExportMsg(""), 5000);
+  };
+
+  const handleImportarBD = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setImportErro("");
+    setImportMsg("");
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      setImportando(true);
+      const db = JSON.parse(evt.target.result);
+      const response = await base44.functions.invoke('importDatabase', { db });
+      setImportando(false);
+      if (response.data?.success) {
+        const total = Object.values(response.data.resultado).reduce((acc, r) => acc + r.importados, 0);
+        setImportMsg(`Importação concluída! ${total} registro(s) importado(s).`);
+      } else {
+        setImportErro(response.data?.error || "Erro ao importar o backup.");
+      }
+      setTimeout(() => { setImportMsg(""); setImportErro(""); }, 8000);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   };
 
   return (
