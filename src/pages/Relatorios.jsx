@@ -361,11 +361,11 @@ export default function Relatorios() {
                 </CardTitle>
                 {resultados.length > 0 && (
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={exportCSV} className="text-xs">
-                      <FileDown className="w-3 h-3 mr-1" /> CSV
+                    <Button variant="outline" size="sm" onClick={exportCSV} className="text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50">
+                      <FileDown className="w-3 h-3" /> CSV
                     </Button>
-                    <Button variant="outline" size="sm" onClick={exportPDF} className="text-xs">
-                      <FileDown className="w-3 h-3 mr-1" /> PDF
+                    <Button variant="outline" size="sm" onClick={exportPDF} className="text-xs gap-1 border-red-300 text-red-700 hover:bg-red-50">
+                      <FileDown className="w-3 h-3" /> PDF
                     </Button>
                   </div>
                 )}
