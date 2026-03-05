@@ -85,7 +85,7 @@ export default function Layout({ children, currentPageName }) {
               <Scale className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-bold text-sm leading-tight">JFRN</div>
+              <div className="font-bold text-sm leading-tight">Easer Control</div>
               <div className="text-xs text-blue-300">Gestão de Contratos</div>
             </div>
           </div>
