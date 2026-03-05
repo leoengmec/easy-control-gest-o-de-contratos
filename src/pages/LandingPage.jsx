@@ -107,7 +107,7 @@ export default function LandingPage() {
             Gestão de Contratos{" "}
             <span className="text-blue-400">inteligente e eficiente</span>
           </h1>
-          <p className="text-blue-200/80 text-lg md:text-xl mb-10 max-w-2xl mx-auto">
+          <p className="text-blue-200/80 text-base md:text-xl mb-8 max-w-2xl mx-auto">
             Centralize o controle de contratos, lançamentos financeiros, orçamentos e relatórios em uma única plataforma segura e fácil de usar.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
