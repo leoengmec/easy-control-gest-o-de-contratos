@@ -78,6 +78,7 @@ export default function AdminPanel() {
 
       {/* Content */}
       {activeTab === "usuarios"      && <AdminUsuarios />}
+      {activeTab === "perfis"        && <AdminPerfisAcesso />}
       {activeTab === "alertas"       && <AdminAlertas />}
       {activeTab === "dados"         && <AdminDados />}
       {activeTab === "configuracoes" && <AdminConfiguracoes />}
