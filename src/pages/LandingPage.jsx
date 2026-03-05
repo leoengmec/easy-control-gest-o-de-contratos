@@ -174,7 +174,7 @@ export default function LandingPage() {
       </section>
 
       {/* BENEFITS */}
-      <section className="py-20 px-6 bg-white/5 border-y border-white/10">
+      <section className="py-16 px-4 sm:px-6 bg-white/5 border-y border-white/10">
         <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div>
             <h2 className="text-3xl font-bold mb-4">Por que usar o Easer Control?</h2>
