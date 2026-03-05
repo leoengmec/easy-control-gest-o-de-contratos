@@ -289,15 +289,22 @@ export default function AdminDados() {
           <Database className="w-4 h-4 text-[#1a2e4a]" />
           <h2 className="text-base font-semibold text-[#1a2e4a]">Gerenciamento de Dados</h2>
         </div>
-        <Button
-          size="sm"
-          className="gap-2 bg-[#1a2e4a] hover:bg-[#243d5e] text-white text-xs"
-          onClick={handleExportarBD}
-          disabled={exportando}
-        >
-          <Download className="w-3.5 h-3.5" />
-          {exportando ? "Exportando..." : "Exportar Banco de Dados (JSON)"}
-        </Button>
+        <div className="flex gap-2">
+          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border border-[#1a2e4a] text-[#1a2e4a] hover:bg-[#1a2e4a] hover:text-white transition-colors cursor-pointer ${importando ? "opacity-50 pointer-events-none" : ""}`}>
+            <Download className="w-3.5 h-3.5 rotate-180" />
+            {importando ? "Importando..." : "Importar Backup (JSON)"}
+            <input type="file" accept=".json" className="hidden" onChange={handleImportarBD} disabled={importando} />
+          </label>
+          <Button
+            size="sm"
+            className="gap-2 bg-[#1a2e4a] hover:bg-[#243d5e] text-white text-xs"
+            onClick={handleExportarBD}
+            disabled={exportando}
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exportando ? "Exportando..." : "Exportar Backup (JSON)"}
+          </Button>
+        </div>
       </div>
 
       {exportMsg && (
