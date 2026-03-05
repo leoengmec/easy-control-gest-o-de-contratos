@@ -173,6 +173,35 @@ export default function Relatorios() {
         <p className="text-gray-500 text-sm">Gere e exporte relatórios customizados</p>
       </div>
 
+      {/* Resumo dos resultados */}
+      {resultados.length > 0 && tipoRelatorio === "lancamentos" && (() => {
+        const totalPago = resultados.filter(r => r.status === "Pago").reduce((s, r) => s + (parseFloat(String(r._valor_raw || 0))), 0);
+        const totalAprov = resultados.filter(r => r.status === "Aprovisionado").reduce((s, r) => s + (parseFloat(String(r._valor_raw || 0))), 0);
+        const totalGeral = resultados.reduce((s, r) => s + (parseFloat(String(r._valor_raw || 0))), 0);
+        const countPago = resultados.filter(r => r.status === "Pago").length;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Total de Registros", value: resultados.length, sub: "lançamentos", icon: Table2, color: "text-blue-600 bg-blue-50" },
+              { label: "Registros Pagos", value: countPago, sub: `de ${resultados.length}`, icon: CheckCircle, color: "text-green-600 bg-green-50" },
+              { label: "Total Pago", value: fmt(totalPago), sub: "soma dos pagos", icon: DollarSign, color: "text-green-700 bg-green-50" },
+              { label: "Total Aprovisionado", value: fmt(totalAprov), sub: "soma aprovisionados", icon: Clock, color: "text-yellow-600 bg-yellow-50" },
+            ].map((card, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-100 p-3 flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${card.color}`}>
+                  <card.icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500">{card.label}</p>
+                  <p className="text-sm font-bold text-gray-800">{card.value}</p>
+                  <p className="text-[10px] text-gray-400">{card.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Painel de filtros */}
         <div className="lg:col-span-1 space-y-4">
