@@ -41,7 +41,10 @@ export default function SaldoItens({ contrato, lancamentos, ano }) {
           {itensOrcados.map(io => {
             const lancItem = lancamentos.filter(l =>
               l.ano === ano &&
-              (l.item_label === io.item_label || l.item_contrato_id === io.item_contrato_id)
+              (
+                (io.item_contrato_id && l.item_contrato_id && l.item_contrato_id === io.item_contrato_id) ||
+                l.item_label === io.item_label
+              )
             );
             const pago = lancItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
             const aprovisionado = lancItem.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
