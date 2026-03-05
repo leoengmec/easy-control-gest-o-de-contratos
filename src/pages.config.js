@@ -53,9 +53,9 @@ import Contratos from './pages/Contratos';
 import ControleMateriais from './pages/ControleMateriais';
 import Dashboard from './pages/Dashboard';
 import Lancamentos from './pages/Lancamentos';
+import LandingPage from './pages/LandingPage';
 import Orcamento from './pages/Orcamento';
 import Relatorios from './pages/Relatorios';
-import LandingPage from './pages/LandingPage';
 import __Layout from './Layout.jsx';
 
 
@@ -66,9 +66,9 @@ export const PAGES = {
     "ControleMateriais": ControleMateriais,
     "Dashboard": Dashboard,
     "Lancamentos": Lancamentos,
+    "LandingPage": LandingPage,
     "Orcamento": Orcamento,
     "Relatorios": Relatorios,
-    "LandingPage": LandingPage,
 }
 
 export const pagesConfig = {
