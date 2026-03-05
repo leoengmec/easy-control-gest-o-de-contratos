@@ -131,7 +131,7 @@ export default function LandingPage() {
       </section>
 
       {/* STATS */}
-      <section className="py-12 px-6 border-y border-white/10 bg-white/5">
+      <section className="py-10 px-4 sm:px-6 border-y border-white/10 bg-white/5">
         <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {[
             { value: "100%", label: "Web e Mobile" },
