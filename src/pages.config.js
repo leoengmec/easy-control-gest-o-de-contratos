@@ -55,6 +55,7 @@ import Dashboard from './pages/Dashboard';
 import Lancamentos from './pages/Lancamentos';
 import Orcamento from './pages/Orcamento';
 import Relatorios from './pages/Relatorios';
+import LandingPage from './pages/LandingPage';
 import __Layout from './Layout.jsx';
 
 
@@ -67,6 +68,7 @@ export const PAGES = {
     "Lancamentos": Lancamentos,
     "Orcamento": Orcamento,
     "Relatorios": Relatorios,
+    "LandingPage": LandingPage,
 }
 
 export const pagesConfig = {
