@@ -146,7 +146,7 @@ export default function Layout({ children, currentPageName }) {
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="font-semibold text-[#1a2e4a]">JFRN - Gestão de Contratos</div>
+          <div className="font-semibold text-[#1a2e4a]">Easer Control | Gestão de Contratos</div>
         </header>
 
         <main className="flex-1 overflow-auto">
