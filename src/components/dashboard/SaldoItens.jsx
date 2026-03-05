@@ -39,11 +39,12 @@ export default function SaldoItens({ contrato, lancamentos, ano }) {
         </thead>
         <tbody>
           {itensOrcados.map(io => {
+            const normalizar = (s) => (s || "").toLowerCase().trim().replace(/materiais/g, "material");
             const lancItem = lancamentos.filter(l =>
               l.ano === ano &&
               (
                 (io.item_contrato_id && l.item_contrato_id && l.item_contrato_id === io.item_contrato_id) ||
-                l.item_label === io.item_label
+                normalizar(l.item_label) === normalizar(io.item_label)
               )
             );
             const pago = lancItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
