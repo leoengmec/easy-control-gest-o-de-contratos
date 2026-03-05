@@ -110,10 +110,10 @@ export default function LandingPage() {
           <p className="text-blue-200/80 text-base md:text-xl mb-8 max-w-2xl mx-auto">
             Centralize o controle de contratos, lançamentos financeiros, orçamentos e relatórios em uma única plataforma segura e fácil de usar.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               size="lg"
-              className="bg-blue-500 hover:bg-blue-400 text-white text-base px-8 py-6"
+              className="bg-blue-500 hover:bg-blue-400 text-white text-base px-8"
               onClick={handleLogin}
             >
               Acessar o sistema <ArrowRight className="w-5 h-5 ml-2" />
@@ -121,7 +121,7 @@ export default function LandingPage() {
             <Button
               size="lg"
               variant="outline"
-              className="border-blue-400 text-blue-300 hover:bg-blue-400/10 hover:text-white text-base px-8 py-6"
+              className="border-blue-400 text-blue-300 hover:bg-blue-400/10 hover:text-white text-base px-8"
               onClick={() => document.getElementById("features").scrollIntoView({ behavior: "smooth" })}
             >
               Conhecer funcionalidades
