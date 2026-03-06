@@ -1,4 +1,6 @@
-export default function GaugeChart({ value, label, sublabel, color }) {
+const fmtBRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+
+export default function GaugeChart({ value, label, sublabel, color, rawValue }) {
   const pct = Math.min(Math.max(value || 0, 0), 100);
   const radius = 54;
   const circumference = Math.PI * radius; // half circle
@@ -39,6 +41,9 @@ export default function GaugeChart({ value, label, sublabel, color }) {
           <span className="text-xl font-bold" style={{ color: getColor() }}>
             {pct.toFixed(0)}%
           </span>
+          {rawValue !== undefined && (
+            <span className="text-[10px] text-gray-500">{fmtBRL(rawValue)}</span>
+          )}
         </div>
       </div>
       <div className="text-xs font-semibold text-gray-700 text-center mt-1">{label}</div>

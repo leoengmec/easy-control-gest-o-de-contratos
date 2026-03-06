@@ -44,7 +44,7 @@ export default function ContractFinancialOverview({ contrato }) {
     : (itensOrcados.find(i => i.item_label === itemFiltro)?.valor_orcado || 0);
 
   const pctPagoOrcado = orcadoFiltrado > 0 ? (totalPago / orcadoFiltrado) * 100 : 0;
-  const pctContratadoOrcado = orcadoTotal > 0 ? (contratadoTotal / orcadoTotal) * 100 : 0;
+  const pctAprovOrcado = orcadoFiltrado > 0 ? (totalAprov / orcadoFiltrado) * 100 : 0;
 
   // Itens únicos para o filtro
   const itensDisponiveis = [
@@ -106,21 +106,16 @@ export default function ContractFinancialOverview({ contrato }) {
           <GaugeChart
             value={pctPagoOrcado}
             label="Pago vs Orçado"
-            sublabel={`${fmt(totalPago)} / ${fmt(orcadoFiltrado)}`}
+            sublabel={`/ ${fmt(orcadoFiltrado)}`}
+            rawValue={totalPago}
           />
           <GaugeChart
-            value={pctContratadoOrcado}
-            label="Contratado vs Orçado"
-            sublabel={`${fmt(contratadoTotal)} / ${fmt(orcadoTotal)}`}
-            color="#3b82f6"
+            value={pctAprovOrcado}
+            label="Aprovisionado vs Orçado"
+            sublabel={`/ ${fmt(orcadoFiltrado)}`}
+            rawValue={totalAprov}
+            color="#f59e0b"
           />
-          {totalAprov > 0 && (
-            <div className="flex flex-col items-center justify-center text-center">
-              <div className="text-xl font-bold text-amber-500">{fmt(totalAprov)}</div>
-              <div className="text-xs font-semibold text-gray-600 mt-1">Aprovisionado</div>
-              <div className="text-[10px] text-gray-400">{fmt(orcadoFiltrado - totalPago - totalAprov)} saldo</div>
-            </div>
-          )}
         </div>
 
         {/* Tabela detalhada por item */}

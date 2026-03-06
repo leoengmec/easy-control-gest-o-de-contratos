@@ -58,8 +58,7 @@ const CATEGORIAS = [
   "Deslocamento Corretivo",
   "Deslocamento Preventivo",
   "Locações",
-  "MOR Natal",
-  "MOR Mossoró",
+  "MOR",
   "Serviços eventuais",
   "Fornecimento de Materiais",
 ];
@@ -74,11 +73,9 @@ const CAT_CORES = {
   "Deslocamento Corretivo": "#3b82f6",
   "Deslocamento Preventivo": "#6366f1",
   "Locações": "#8b5cf6",
-  "MOR Natal": "#f59e0b",
-  "MOR Mossoró": "#f97316",
+  "MOR": "#f59e0b",
   "Serviços eventuais": "#ec4899",
   "Fornecimento de Materiais": "#10b981",
-  "MOR": "#f59e0b",
   "Serviços": "#3b82f6",
   "Materiais": "#10b981",
 };
@@ -125,8 +122,7 @@ function calcularOrcadoPorCategoria(itens, totalOrcado) {
   const totalDemaisContratado = demaisItens.reduce((s, i) => s + calcularValorAnual(i), 0);
 
   const result = {
-    "MOR Natal": valMorNatal,
-    "MOR Mossoró": valMorMossoro,
+    "MOR": valMorNatal + valMorMossoro,
     "Deslocamento Preventivo": valDeslPrev,
     "Fornecimento de Materiais": valMaterial,
     "Deslocamento Corretivo": 0,
