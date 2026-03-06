@@ -13,7 +13,8 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [empenhos, setEmpenhos] = useState([]);
-  const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
+   const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
+  const [orcamentoAnualJFRN, setOrcamentoAnualJFRN] = useState(null); // LINHA ADICIONADA
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState("ativo");
   const [filtroBusca, setFiltroBusca] = useState("");
@@ -27,11 +28,13 @@ export default function Dashboard() {
       base44.entities.LancamentoFinanceiro.list(),
       base44.entities.NotaEmpenho.list(),
       base44.entities.OrcamentoContratualAnual.filter({ ano: anoAtual }),
-    ]).then(([c, l, e, o]) => {
+      base44.entities.OrcamentoAnual.filter({ ano: anoAtual }), // LINHA ADICIONADA: Busca o OrcamentoAnual
+    ]).then(([c, l, e, o, oa]) => { // ALTERAÇÃO: Adiciona 'oa' para o OrcamentoAnual
       setContratos(c);
       setLancamentos(l);
       setEmpenhos(e);
-      setOrcamentosContratuais(o);
+       setOrcamentosContratuais(o);
+      setOrcamentoAnualJFRN(oa.length > 0 ? oa[0] : null); // LINHA ADICIONADA: Define o estado com o OrcamentoAnual
       setLoading(false);
     });
   }, []);
@@ -189,6 +192,7 @@ export default function Dashboard() {
               lancamentos={lancamentos}
               empenhos={empenhos}
               orcamentoContratual={orcamentoContratual}
+              orcamentoJFRN={orcamentoAnualJFRN?.valor_dotacao_atual} // LINHA ADICIONADA: Passa o valor do Orcamento Anual JFRN
             />
           );
         })}
