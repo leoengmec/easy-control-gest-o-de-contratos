@@ -88,7 +88,7 @@ export default function Layout({ children, currentPageName }) {
               <Scale className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-bold text-sm leading-tight">Easer Control</div>
+              <div className="font-bold text-sm leading-tight">Easy Control</div>
               <div className="text-xs text-blue-300">Gestão de Contratos</div>
             </div>
           </div>
@@ -149,7 +149,7 @@ export default function Layout({ children, currentPageName }) {
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="font-semibold text-[#1a2e4a]">Easer Control | Gestão de Contratos</div>
+          <div className="font-semibold text-[#1a2e4a]">Easy Control | Gestão de Contratos</div>
         </header>
 
         <main className="flex-1 overflow-auto">
@@ -159,7 +159,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Footer rodapé oculto em mobile, visível no desktop */}
       <footer className="hidden lg:flex fixed bottom-0 left-0 w-64 bg-[#111e30] text-blue-300/60 text-[10px] px-4 py-2 flex-col gap-0.5 border-t border-white/5">
-        <span>© {new Date().getFullYear()} Easer Control — Gestão de Contratos</span>
+        <span>© {new Date().getFullYear()} Easy Control — Gestão de Contratos</span>
         <span>Desenvolvido por <span className="text-blue-200/80 font-medium">Leonardo Alves</span> · v1.0.0</span>
       </footer>
     </div>
