@@ -11,7 +11,7 @@ import SaldoItens from "./SaldoItens";
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "-";
 
-export default function ContratoCard({ contrato, lancamentos, empenhos, orcamentoContratual }) {
+export default function ContratoCard({ contrato, lancamentos, empenhos, orcamentoContratual, orcamentoJFRN }) { // ALTERAÇÃO: Adiciona 'orcamentoJFRN'
   const [expanded, setExpanded] = useState(false);
 
   const anoAtual = new Date().getFullYear();
