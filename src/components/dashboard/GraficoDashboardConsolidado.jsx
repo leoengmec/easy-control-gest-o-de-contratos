@@ -314,54 +314,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      {/* Card de Distribuição por Status (Pizza) */}
-      <Card className="lg:col-span-1">
-        <CardHeader className="pb-2 pt-4 px-4">
-          <div className="text-sm font-semibold text-[#1a2e4a]">Distribuição por Status</div>
-          <div className="text-xs text-gray-400">{totalContratos} contrato(s) no total</div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie
-                data={distStatus}
-                cx="50%"
-                cy="50%"
-                innerRadius={45}
-                outerRadius={70}
-                dataKey="value"
-                paddingAngle={3}
-              >
-                {distStatus.map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={STATUS_CORES[entry.name.toLowerCase()] || "#6b7280"}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<PieTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex flex-col gap-1.5 mt-1">
-            {distStatus.map((d, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: STATUS_CORES[d.name.toLowerCase()] || "#6b7280" }} />
-                  <span className="text-gray-600 capitalize">{d.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-800">{d.value}</span>
-                  <span className="text-gray-400">({d.percent}%)</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Card Principal com Abas */}
-      <Card className="lg:col-span-2">
+    <div className="grid grid-cols-1 gap-4">
+      {/* Card Principal com Abas - agora ocupa toda a largura */}
+      <Card className="w-full">
         <CardHeader className="pb-2 pt-4 px-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex gap-1 flex-wrap">
