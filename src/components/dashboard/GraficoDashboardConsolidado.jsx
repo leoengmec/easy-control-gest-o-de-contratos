@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  LineChart, Line, ReferenceLine, ComposedChart, Area
+  Line, ReferenceLine, ComposedChart, Area
 } from "recharts";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
