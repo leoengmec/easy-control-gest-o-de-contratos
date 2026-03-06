@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
 import ContratoCard from "@/components/dashboard/ContratoCard";
 import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
+import ContractFinancialOverview from "@/components/dashboard/ContractFinancialOverview";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
