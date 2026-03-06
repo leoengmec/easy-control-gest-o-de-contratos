@@ -95,8 +95,7 @@ export default function ContratoCard({ contrato, lancamentos, empenhos, orcament
             <div className={`text-xs font-medium mb-1 ${valorFinanceiroNufip > 0 ? "text-purple-600" : "text-gray-500"}`}>Financeiro NUFIP ({anoAtual})</div>
             <div className={`text-sm font-bold ${valorFinanceiroNufip > 0 ? "text-purple-800" : "text-gray-400"}`}>{valorFinanceiroNufip > 0 ? fmt(valorFinanceiroNufip) : "Não informado"}</div>
           </div>
-          <div className={`rounded-lg p-3 ${valorOrcado > 0 ? "bg-green-50" : "bg-gray-50"}`}>
-         <div className={`rounded-lg p-3 ${orcamentoJFRN > 0 ? "bg-green-50" : "bg-gray-50"}`}>
+            <div className={`rounded-lg p-3 ${orcamentoJFRN > 0 ? "bg-green-50" : "bg-gray-50"}`}>
             <div className={`text-xs font-medium mb-1 ${orcamentoJFRN > 0 ? "text-green-600" : "text-gray-500"}`}>Orçado JFRN ({anoAtual})</div>
             <div className={`text-sm font-bold ${orcamentoJFRN > 0 ? "text-green-800" : "text-gray-400"}`}>{orcamentoJFRN > 0 ? fmt(orcamentoJFRN) : "Não informado"}</div>
           </div>
