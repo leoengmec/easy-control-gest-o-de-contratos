@@ -145,6 +145,21 @@ export default function Dashboard() {
         contratoSelecionado={contratoSelecionado}
       />
 
+      {/* Seção de Gauge Charts por contrato */}
+      {contratoSelecionado !== "todos" ? (
+        (() => {
+          const c = contratos.find(x => x.id === contratoSelecionado);
+          return c ? <ContractFinancialOverview contrato={c} /> : null;
+        })()
+      ) : (
+        <div className="space-y-4">
+          <div className="text-sm font-semibold text-[#1a2e4a]">Visão Financeira por Contrato</div>
+          {contratosAtivos.map(c => (
+            <ContractFinancialOverview key={c.id} contrato={c} />
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">
           <Filter className="w-4 h-4 text-gray-400" />
