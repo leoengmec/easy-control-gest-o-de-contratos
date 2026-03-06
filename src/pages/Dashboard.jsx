@@ -1,73 +1,32 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
-import ContratoCard from "@/components/dashboard/ContratoCard";
-import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
-
-const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+import ContractFinancialOverview from "@/components/dashboard/ContractFinancialOverview";
 
 export default function Dashboard() {
-  const [contratos, setContratos] = useState([]);
-  const [lancamentos, setLancamentos] = useState([]);
-  const [empenhos, setEmpenhos] = useState([]);
-   const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
-  const [orcamentoAnualJFRN, setOrcamentoAnualJFRN] = useState(null); // LINHA ADICIONADA
-  const [loading, setLoading] = useState(true);
-  const [filtroStatus, setFiltroStatus] = useState("ativo");
-  const [filtroBusca, setFiltroBusca] = useState("");
-  const [contratoSelecionado, setContratoSelecionado] = useState("todos");
+  const [contracts, setContracts] = useState([]);
+  const [selectedContractId, setSelectedContractId] = useState("all");
+  const [loadingContracts, setLoadingContracts] = useState(true);
 
   const anoAtual = new Date().getFullYear();
 
   useEffect(() => {
-    Promise.all([
-      base44.entities.Contrato.list(),
-      base44.entities.LancamentoFinanceiro.list(),
-      base44.entities.NotaEmpenho.list(),
-      base44.entities.OrcamentoContratualAnual.filter({ ano: anoAtual }),
-      base44.entities.OrcamentoAnual.filter({ ano: anoAtual }), // LINHA ADICIONADA: Busca o OrcamentoAnual
-    ]).then(([c, l, e, o, oa]) => { // ALTERAÇÃO: Adiciona 'oa' para o OrcamentoAnual
-      setContratos(c);
-      setLancamentos(l);
-      setEmpenhos(e);
-       setOrcamentosContratuais(o);
-      setOrcamentoAnualJFRN(oa.length > 0 ? oa[0] : null); // LINHA ADICIONADA: Define o estado com o OrcamentoAnual
-      setLoading(false);
-    });
+    const loadContracts = async () => {
+      setLoadingContracts(true);
+      try {
+        const fetchedContracts = await base44.entities.Contrato.list();
+        setContracts(fetchedContracts);
+      } catch (error) {
+        console.error("Erro ao carregar contratos:", error);
+      } finally {
+        setLoadingContracts(false);
+      }
+    };
+    loadContracts();
   }, []);
 
-  const contratosAtivos = contratos.filter(c => c.status === "ativo");
-
-  const lancamentosBase = contratoSelecionado === "todos"
-    ? lancamentos
-    : lancamentos.filter(l => l.contrato_id === contratoSelecionado);
-
-  const empenhosFiltrados = contratoSelecionado === "todos"
-    ? empenhos
-    : empenhos.filter(e => e.contrato_id === contratoSelecionado);
-
-  const orcamentosContratuaisFiltrados = contratoSelecionado === "todos"
-    ? orcamentosContratuais
-    : orcamentosContratuais.filter(o => o.contrato_id === contratoSelecionado);
-
-  const lancamentosAno = lancamentosBase.filter(l => l.ano === anoAtual);
-  const totalPagoAno = lancamentosAno.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalProvisionadoAno = lancamentosAno.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalEmpenhado = empenhosFiltrados.filter(e => e.ano === anoAtual).reduce((s, e) => s + (e.valor_total || 0), 0);
-
-  const contratosFiltrados = contratos.filter(c => {
-    const statusOk = filtroStatus === "todos" || c.status === filtroStatus;
-    const buscaOk = !filtroBusca ||
-      c.numero?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-      c.contratada?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-      c.objeto?.toLowerCase().includes(filtroBusca.toLowerCase());
-    return statusOk && buscaOk;
-  });
-
-  if (loading) return (
+  if (loadingContracts) return (
     <div className="p-8 flex items-center justify-center min-h-96">
       <div className="text-gray-500">Carregando...</div>
     </div>
@@ -81,15 +40,15 @@ export default function Dashboard() {
           <p className="text-gray-500 text-sm">Gestão de contratos de manutenção · {anoAtual}</p>
         </div>
         <div className="sm:ml-4">
-          <Select value={contratoSelecionado} onValueChange={setContratoSelecionado}>
+          <Select value={selectedContractId} onValueChange={setSelectedContractId}>
             <SelectTrigger className="h-8 text-xs w-64">
               <SelectValue placeholder="Todos os contratos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="todos">Todos os contratos</SelectItem>
-              {contratos.filter(c => c.status === "ativo").map(c => (
+              <SelectItem value="all">Todos os contratos</SelectItem>
+              {contracts.filter(c => c.status === "ativo").map(c => (
                 <SelectItem key={c.id} value={c.id}>
-                  {c.numero} · {c.contratada?.substring(0, 25)}
+                  {c.numero} · {c.escopo_resumido?.substring(0, 25) || c.contratada?.substring(0, 25)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -97,106 +56,31 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
-            </div>
-            <div className="text-2xl font-bold text-[#1a2e4a]">{contratosAtivos.length}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-green-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
-              <span className="text-xs text-gray-500 font-medium">Total Pago ({anoAtual})</span>
-            </div>
-            <div className="text-base font-bold text-[#1a2e4a]">{fmt(totalPagoAno)}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-amber-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-amber-500" />
-              <span className="text-xs text-gray-500 font-medium">Aprovisionado ({anoAtual})</span>
-            </div>
-            <div className="text-base font-bold text-[#1a2e4a]">{fmt(totalProvisionadoAno)}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <PiggyBank className="w-4 h-4 text-purple-500" />
-              <span className="text-xs text-gray-500 font-medium">Empenhado ({anoAtual})</span>
-            </div>
-            <div className="text-base font-bold text-[#1a2e4a]">{fmt(totalEmpenhado)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <GraficoDashboardConsolidado
-        contratos={contratos}
-        lancamentos={lancamentosBase}
-        empenhos={empenhosFiltrados}
-        orcamentosContratuais={orcamentosContratuaisFiltrados}
-        contratoSelecionado={contratoSelecionado}
-      />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1">
-          <Filter className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-500">Filtrar:</span>
-        </div>
-        {["ativo", "encerrado", "suspenso", "todos"].map(s => (
-          <Button
-            key={s}
-            variant={filtroStatus === s ? "default" : "outline"}
-            size="sm"
-            className="text-xs h-7 capitalize"
-            onClick={() => setFiltroStatus(s)}
-          >
-            {s === "todos" ? "Todos" : s}
-          </Button>
-        ))}
-        <div className="flex-1 min-w-[200px] max-w-xs">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Buscar contrato..."
-              className="w-full text-xs border rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 h-7"
-              value={filtroBusca}
-              onChange={e => setFiltroBusca(e.target.value)}
-            />
-            {filtroBusca && (
-              <button className="absolute right-2 top-1/2 -translate-y-1/2" onClick={() => setFiltroBusca("")}>
-                <X className="w-3 h-3 text-gray-400" />
-              </button>
-            )}
+      {selectedContractId === "all" ? (
+        contracts.length > 0 ? (
+          <div className="space-y-8">
+            {contracts.map((contract) => (
+              <Card key={contract.id}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-[#1a2e4a]">
+                    {contract.numero} — {contract.escopo_resumido || contract.objeto?.substring(0, 60)}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ContractFinancialOverview contractId={contract.id} contractName={contract.numero} />
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
-        <span className="text-xs text-gray-400">{contratosFiltrados.length} contrato(s)</span>
-      </div>
-
-      <div className="space-y-4">
-        {contratosFiltrados.length === 0 && (
-          <div className="text-center py-12 text-gray-400 text-sm">Nenhum contrato encontrado</div>
-        )}
-        {contratosFiltrados.map(contrato => {
-          const orcamentoContratual = orcamentosContratuais.find(o => o.contrato_id === contrato.id);
-          return (
-            <ContratoCard
-              key={contrato.id}
-              contrato={contrato}
-              lancamentos={lancamentos}
-              empenhos={empenhos}
-              orcamentoContratual={orcamentoContratual}
-              orcamentoJFRN={orcamentoAnualJFRN?.valor_dotacao_atual} // LINHA ADICIONADA: Passa o valor do Orcamento Anual JFRN
-            />
-          );
-        })}
-      </div>
+        ) : (
+          <p className="text-center py-12 text-gray-400 text-sm">Nenhum contrato encontrado.</p>
+        )
+      ) : (
+        <ContractFinancialOverview
+          contractId={selectedContractId}
+          contractName={contracts.find((c) => c.id === selectedContractId)?.numero}
+        />
+      )}
     </div>
   );
 }
