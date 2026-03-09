@@ -27,7 +27,7 @@ export default function AlertasOrcamento({ orcamento, lancamentos, ano }) {
   const totalPago = lancamentos.filter(l => l.status === "Pago" && l.ano === ano).reduce((s, l) => s + (l.valor || 0), 0);
   const totalAprovisionado = lancamentos.filter(l => l.status === "Aprovisionado" && l.ano === ano).reduce((s, l) => s + (l.valor || 0), 0);
   const totalEmpenhado = totalPago + totalAprovisionado;
-  const dotacaoAtual = orcamento?.valor_dotacao_atual || 0;
+  const dotacaoAtual = orcamento?.valor_orcado || orcamento?.valor_dotacao_atual || 0;
   const saldoDisponivel = dotacaoAtual - totalEmpenhado;
   const percentualUtilizado = dotacaoAtual > 0 ? (totalEmpenhado / dotacaoAtual) * 100 : 0;
 

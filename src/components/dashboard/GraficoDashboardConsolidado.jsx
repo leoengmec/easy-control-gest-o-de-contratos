@@ -151,7 +151,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
 
   useEffect(() => {
     Promise.all([
-      base44.entities.OrcamentoAnual.list(),
+      base44.entities.OrcamentoContratualAnual.list(),
       base44.entities.OrcamentoContratualItemAnual.list(),
       base44.entities.ItemContrato.list(),
     ]).then(([oa, oi, ic]) => {
@@ -290,17 +290,16 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
 
   // 5. Evolução do Orçamento Anual
   const evolucaoOrcamento = ANOS_DISPONIVEIS.map(ano => {
-    const orc = orcamentosAnuais.find(o => o.ano === ano);
+    const totalOrcado = orcamentosAnuais.filter(o => o.ano === ano).reduce((s, o) => s + (o.valor_orcado || 0), 0);
     const empenhado = empenhos.filter(e => e.ano === ano).reduce((s, e) => s + (e.valor_total || 0), 0);
     const pago = lancamentos.filter(l => l.ano === ano && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
     return {
       name: String(ano),
-      "Dotação Inicial": orc?.valor_dotacao_inicial || 0,
-      "Dotação Atual": orc?.valor_dotacao_atual || 0,
+      "Orçado": totalOrcado,
       "Empenhado": empenhado,
       "Pago": pago,
     };
-  }).filter(d => d["Dotação Inicial"] > 0 || d["Empenhado"] > 0 || d["Pago"] > 0);
+  }).filter(d => d["Orçado"] > 0 || d["Empenhado"] > 0 || d["Pago"] > 0);
 
   const abas = [
     { key: "categoria", label: "Por Categoria" },
@@ -444,14 +443,13 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                     <YAxis tick={{ fontSize: 9 }} tickFormatter={fmtK} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="Dotação Inicial" fill="#dbeafe" stroke="#3b82f6" radius={[3,3,0,0]} maxBarSize={40} />
-                    <Bar dataKey="Dotação Atual" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={40} />
+                    <Bar dataKey="Orçado" fill="#3b82f6" radius={[3,3,0,0]} maxBarSize={40} />
                     <Line dataKey="Empenhado" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
                     <Line dataKey="Pago" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="text-xs text-gray-400 text-center py-8">Cadastre orçamentos anuais para visualizar a evolução</div>
+                <div className="text-xs text-gray-400 text-center py-8">Cadastre orçamentos contratuais anuais para visualizar a evolução</div>
               )}
             </div>
           )}
