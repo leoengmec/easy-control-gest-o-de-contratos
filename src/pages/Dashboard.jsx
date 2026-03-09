@@ -14,8 +14,7 @@ export default function Dashboard() {
   const [contratos, setContratos] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [empenhos, setEmpenhos] = useState([]);
-   const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
-  const [orcamentoAnualJFRN, setOrcamentoAnualJFRN] = useState(null);
+  const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState("ativo");
   const [filtroBusca, setFiltroBusca] = useState("");
@@ -29,13 +28,11 @@ export default function Dashboard() {
       base44.entities.LancamentoFinanceiro.list(),
       base44.entities.NotaEmpenho.list(),
       base44.entities.OrcamentoContratualAnual.filter({ ano: anoAtual }),
-      base44.entities.OrcamentoAnual.filter({ ano: anoAtual }),
-    ]).then(([c, l, e, o, oa]) => {
+    ]).then(([c, l, e, o]) => {
       setContratos(c);
       setLancamentos(l);
       setEmpenhos(e);
-       setOrcamentosContratuais(o);
-      setOrcamentoAnualJFRN(oa.length > 0 ? oa[0] : null);
+      setOrcamentosContratuais(o);
       setLoading(false);
     });
   }, []);
@@ -208,7 +205,6 @@ export default function Dashboard() {
               lancamentos={lancamentos}
               empenhos={empenhos}
               orcamentoContratual={orcamentoContratual}
-              orcamentoJFRN={orcamentoAnualJFRN?.valor_dotacao_atual}
             />
           );
         })}

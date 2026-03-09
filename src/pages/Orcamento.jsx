@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, History, TrendingUp, TrendingDown, Minus, PiggyBank, LayoutList } from "lucide-react";
-import AlertasOrcamento from "@/components/orcamento/AlertasOrcamento";
 import { format } from "date-fns";
 import DetalhamentoOrcamentoContrato from "@/components/orcamento/DetalhamentoOrcamentoContrato";
 
@@ -18,7 +17,7 @@ const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
 
 export default function Orcamento() {
   const [lancamentos, setLancamentos] = useState([]);
-  const [orcamentos, setOrcamentos] = useState([]);
+  const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
   const [historico, setHistorico] = useState([]);
   const [contratos, setContratos] = useState([]);
   const [contratoSel, setContratoSel] = useState("");
@@ -28,7 +27,7 @@ export default function Orcamento() {
   const [showForm, setShowForm] = useState(false);
   const [showHistForm, setShowHistForm] = useState(false);
   const [editingOrc, setEditingOrc] = useState(null);
-  const [formOrc, setFormOrc] = useState({ ano: anoAtual, valor_dotacao_inicial: "", valor_dotacao_atual: "", observacoes: "" });
+  const [formOrc, setFormOrc] = useState({ ano: anoAtual, valor_orcado: "", observacoes: "" });
   const [formHist, setFormHist] = useState({ tipo_alteracao: "suplementacao", valor_novo: "", motivo: "", data_alteracao: new Date().toISOString().split("T")[0] });
   const [saving, setSaving] = useState(false);
 
@@ -38,13 +37,13 @@ export default function Orcamento() {
   }, []);
 
   const load = async () => {
-    const [o, h, c, l] = await Promise.all([
-      base44.entities.OrcamentoAnual.list(),
-      base44.entities.HistoricoOrcamento.list("-data_alteracao"),
+    const [oc, h, c, l] = await Promise.all([
+      base44.entities.OrcamentoContratualAnual.list(),
+      base44.entities.HistoricoOrcamentoContratualAnual.list("-data_alteracao"),
       base44.entities.Contrato.list(),
       base44.entities.LancamentoFinanceiro.list()
     ]);
-    setOrcamentos(o);
+    setOrcamentosContratuais(oc);
     setHistorico(h);
     setContratos(c);
     setLancamentos(l);
@@ -54,22 +53,42 @@ export default function Orcamento() {
 
   const canEdit = user?.role === "admin" || user?.role === "gestor";
 
-  const orcamentoSel = orcamentos.find(o => String(o.ano) === anoSel);
-  const historicoSel = historico.filter(h => String(h.ano) === anoSel);
+  // Orçamento do contrato selecionado no ano selecionado
+  const orcamentoSel = orcamentosContratuais.find(
+    o => String(o.ano) === anoSel && o.contrato_id === contratoSel
+  );
+
+  // Histórico do contrato/ano selecionados
+  const historicoSel = historico.filter(
+    h => String(h.ano) === anoSel && h.contrato_id === contratoSel
+  );
+
+  // Totais do ano selecionado somando todos os contratos (visão global)
+  const totalOrcadoAno = orcamentosContratuais
+    .filter(o => String(o.ano) === anoSel)
+    .reduce((s, o) => s + (o.valor_orcado || 0), 0);
+
+  const totalPagoAno = lancamentos
+    .filter(l => String(l.ano) === anoSel && l.status === "Pago")
+    .reduce((s, l) => s + (l.valor || 0), 0);
+
+  const totalAprovAno = lancamentos
+    .filter(l => String(l.ano) === anoSel && l.status === "Aprovisionado")
+    .reduce((s, l) => s + (l.valor || 0), 0);
 
   const handleSaveOrc = async (e) => {
     e.preventDefault();
     setSaving(true);
     const data = {
-      ...formOrc,
+      contrato_id: contratoSel,
       ano: parseInt(formOrc.ano),
-      valor_dotacao_inicial: parseFloat(formOrc.valor_dotacao_inicial) || 0,
-      valor_dotacao_atual: parseFloat(formOrc.valor_dotacao_atual) || 0
+      valor_orcado: parseFloat(formOrc.valor_orcado) || 0,
+      observacoes: formOrc.observacoes,
     };
     if (editingOrc?.id) {
-      await base44.entities.OrcamentoAnual.update(editingOrc.id, data);
+      await base44.entities.OrcamentoContratualAnual.update(editingOrc.id, data);
     } else {
-      await base44.entities.OrcamentoAnual.create(data);
+      await base44.entities.OrcamentoContratualAnual.create(data);
     }
     setSaving(false);
     setShowForm(false);
@@ -81,10 +100,11 @@ export default function Orcamento() {
     e.preventDefault();
     if (!orcamentoSel) return;
     setSaving(true);
-    const valorAnterior = orcamentoSel.valor_dotacao_atual;
+    const valorAnterior = orcamentoSel.valor_orcado;
     const valorNovo = parseFloat(formHist.valor_novo) || 0;
-    await base44.entities.HistoricoOrcamento.create({
-      orcamento_anual_id: orcamentoSel.id,
+    await base44.entities.HistoricoOrcamentoContratualAnual.create({
+      orcamento_contratual_anual_id: orcamentoSel.id,
+      contrato_id: contratoSel,
       ano: orcamentoSel.ano,
       valor_anterior: valorAnterior,
       valor_novo: valorNovo,
@@ -92,7 +112,7 @@ export default function Orcamento() {
       motivo: formHist.motivo,
       data_alteracao: formHist.data_alteracao
     });
-    await base44.entities.OrcamentoAnual.update(orcamentoSel.id, { valor_dotacao_atual: valorNovo });
+    await base44.entities.OrcamentoContratualAnual.update(orcamentoSel.id, { valor_orcado: valorNovo });
     setSaving(false);
     setShowHistForm(false);
     setFormHist({ tipo_alteracao: "suplementacao", valor_novo: "", motivo: "", data_alteracao: new Date().toISOString().split("T")[0] });
@@ -105,6 +125,8 @@ export default function Orcamento() {
     return <Minus className="w-3.5 h-3.5 text-gray-400" />;
   };
 
+  const contratoSelecionado = contratos.find(c => c.id === contratoSel);
+
   if (loading) return <div className="p-8 text-center text-gray-400">Carregando...</div>;
 
   return (
@@ -112,50 +134,93 @@ export default function Orcamento() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[#1a2e4a]">Orçamento Anual</h1>
-          <p className="text-gray-500 text-sm">Dotação orçamentária e histórico de alterações</p>
+          <p className="text-gray-500 text-sm">Dotação orçamentária por contrato</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Select value={anoSel} onValueChange={setAnoSel}>
             <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
             <SelectContent>{anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}</SelectContent>
           </Select>
-          {canEdit && !orcamentoSel && (
-            <Button onClick={() => { setFormOrc({ ano: parseInt(anoSel), valor_dotacao_inicial: "", valor_dotacao_atual: "", observacoes: "" }); setShowForm(true); }} className="bg-[#1a2e4a] hover:bg-[#2a4a7a]" size="sm">
+          <Select value={contratoSel} onValueChange={setContratoSel}>
+            <SelectTrigger className="w-72">
+              <SelectValue placeholder="Selecione o contrato..." />
+            </SelectTrigger>
+            <SelectContent>
+              {contratos.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.numero} — {c.contratada?.trim()}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {canEdit && !orcamentoSel && contratoSel && (
+            <Button onClick={() => { setFormOrc({ ano: parseInt(anoSel), valor_orcado: "", observacoes: "" }); setShowForm(true); }} className="bg-[#1a2e4a] hover:bg-[#2a4a7a]" size="sm">
               <Plus className="w-4 h-4 mr-1" /> Cadastrar Orçamento
             </Button>
           )}
         </div>
       </div>
 
-      {/* Alertas de orçamento */}
-      {orcamentoSel && (
-        <AlertasOrcamento
-          orcamento={orcamentoSel}
-          lancamentos={lancamentos}
-          ano={parseInt(anoSel)}
-        />
-      )}
+      {/* Resumo global do ano */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100">
+        <CardContent className="p-4">
+          <div className="text-xs text-blue-600 font-medium mb-2">CONSOLIDADO {anoSel} — TODOS OS CONTRATOS</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <div className="text-xs text-gray-500">Total Orçado</div>
+              <div className="font-bold text-blue-700">{fmt(totalOrcadoAno)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Total Pago</div>
+              <div className="font-bold text-green-700">{fmt(totalPagoAno)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Aprovisionado</div>
+              <div className="font-bold text-amber-700">{fmt(totalAprovAno)}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500">Saldo Disponível</div>
+              <div className={`font-bold ${(totalOrcadoAno - totalPagoAno - totalAprovAno) < 0 ? "text-red-600" : "text-emerald-700"}`}>
+                {fmt(totalOrcadoAno - totalPagoAno - totalAprovAno)}
+              </div>
+            </div>
+          </div>
+          {totalOrcadoAno > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Execução ({(((totalPagoAno + totalAprovAno) / totalOrcadoAno) * 100).toFixed(1)}%)</span>
+                <span>{fmt(totalPagoAno + totalAprovAno)} / {fmt(totalOrcadoAno)}</span>
+              </div>
+              <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                <div
+                  className="h-2 bg-blue-500 rounded-full transition-all"
+                  style={{ width: `${Math.min(((totalPagoAno + totalAprovAno) / totalOrcadoAno) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-      {/* Orçamento atual */}
+      {/* Orçamento do contrato selecionado */}
       {orcamentoSel ? (
         <Card>
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-xs text-gray-400 font-medium mb-1">ORÇAMENTO {orcamentoSel.ano}</div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                <div className="text-xs text-gray-400 font-medium mb-1">
+                  ORÇAMENTO {orcamentoSel.ano} · {contratoSelecionado?.numero}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <div className="text-xs text-gray-500">Dotação Inicial</div>
-                    <div className="text-xl font-bold text-[#1a2e4a] mt-1">{fmt(orcamentoSel.valor_dotacao_inicial)}</div>
+                    <div className="text-xs text-gray-500">Valor Orçado</div>
+                    <div className="text-xl font-bold text-blue-600 mt-1">{fmt(orcamentoSel.valor_orcado)}</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500">Dotação Atual</div>
-                    <div className="text-xl font-bold text-blue-600 mt-1">{fmt(orcamentoSel.valor_dotacao_atual)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Variação</div>
-                    <div className={`text-xl font-bold mt-1 ${orcamentoSel.valor_dotacao_atual >= orcamentoSel.valor_dotacao_inicial ? "text-green-600" : "text-red-600"}`}>
-                      {fmt(orcamentoSel.valor_dotacao_atual - orcamentoSel.valor_dotacao_inicial)}
+                    <div className="text-xs text-gray-500">Saldo Disponível</div>
+                    <div className={`text-xl font-bold mt-1 ${
+                      (orcamentoSel.valor_orcado - lancamentos.filter(l => String(l.ano) === anoSel && l.contrato_id === contratoSel && (l.status === "Pago" || l.status === "Aprovisionado")).reduce((s, l) => s + l.valor, 0)) < 0
+                      ? "text-red-600" : "text-green-600"
+                    }`}>
+                      {fmt(orcamentoSel.valor_orcado - lancamentos.filter(l => String(l.ano) === anoSel && l.contrato_id === contratoSel && (l.status === "Pago" || l.status === "Aprovisionado")).reduce((s, l) => s + l.valor, 0))}
                     </div>
                   </div>
                 </div>
@@ -163,7 +228,7 @@ export default function Orcamento() {
               </div>
               {canEdit && (
                 <div className="flex gap-2 shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => { setEditingOrc(orcamentoSel); setFormOrc({ ...orcamentoSel }); setShowForm(true); }}>
+                  <Button variant="outline" size="sm" onClick={() => { setEditingOrc(orcamentoSel); setFormOrc({ ano: orcamentoSel.ano, valor_orcado: orcamentoSel.valor_orcado, observacoes: orcamentoSel.observacoes || "" }); setShowForm(true); }}>
                     <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
                   </Button>
                   <Button variant="outline" size="sm" onClick={() => setShowHistForm(true)} className="text-amber-600 border-amber-200 hover:bg-amber-50">
@@ -175,21 +240,29 @@ export default function Orcamento() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-dashed">
-          <CardContent className="p-8 text-center text-gray-400">
-            <PiggyBank className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <div>Nenhum orçamento cadastrado para {anoSel}</div>
-          </CardContent>
-        </Card>
+        contratoSel && (
+          <Card className="border-dashed">
+            <CardContent className="p-8 text-center text-gray-400">
+              <PiggyBank className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <div>Nenhum orçamento cadastrado para {contratoSelecionado?.numero} em {anoSel}</div>
+              {canEdit && (
+                <Button size="sm" className="mt-3 bg-[#1a2e4a] hover:bg-[#2a4a7a]"
+                  onClick={() => { setFormOrc({ ano: parseInt(anoSel), valor_orcado: "", observacoes: "" }); setShowForm(true); }}>
+                  <Plus className="w-4 h-4 mr-1" /> Cadastrar Orçamento
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )
       )}
 
       {/* Formulário orçamento */}
       {showForm && (
         <Card>
-          <CardHeader><CardTitle className="text-sm text-[#1a2e4a]">{editingOrc ? "Editar Orçamento" : "Novo Orçamento"}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-sm text-[#1a2e4a]">{editingOrc ? "Editar Orçamento" : "Novo Orçamento"} — {contratoSelecionado?.numero}</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleSaveOrc} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label>Ano *</Label>
                   <Select value={String(formOrc.ano)} onValueChange={v => setFormOrc(f => ({ ...f, ano: v }))}>
@@ -198,14 +271,9 @@ export default function Orcamento() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Dotação Inicial (R$) *</Label>
-                  <Input type="number" step="0.01" min="0" value={formOrc.valor_dotacao_inicial}
-                    onChange={e => setFormOrc(f => ({ ...f, valor_dotacao_inicial: e.target.value, valor_dotacao_atual: f.valor_dotacao_atual || e.target.value }))} required />
-                </div>
-                <div className="space-y-1">
-                  <Label>Dotação Atual (R$) *</Label>
-                  <Input type="number" step="0.01" min="0" value={formOrc.valor_dotacao_atual}
-                    onChange={e => setFormOrc(f => ({ ...f, valor_dotacao_atual: e.target.value }))} required />
+                  <Label>Valor Orçado (R$) *</Label>
+                  <Input type="number" step="0.01" min="0" value={formOrc.valor_orcado}
+                    onChange={e => setFormOrc(f => ({ ...f, valor_orcado: e.target.value }))} required />
                 </div>
               </div>
               <div className="space-y-1">
@@ -228,7 +296,7 @@ export default function Orcamento() {
           <CardContent>
             <form onSubmit={handleRegistrarAlteracao} className="space-y-4">
               <div className="text-xs text-gray-500 bg-amber-50 rounded p-3">
-                Dotação atual: <strong>{fmt(orcamentoSel.valor_dotacao_atual)}</strong>. Informe o novo valor após a alteração.
+                Valor orçado atual: <strong>{fmt(orcamentoSel.valor_orcado)}</strong>. Informe o novo valor após a alteração.
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
@@ -245,7 +313,7 @@ export default function Orcamento() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Novo Valor da Dotação (R$) *</Label>
+                  <Label>Novo Valor Orçado (R$) *</Label>
                   <Input type="number" step="0.01" min="0" value={formHist.valor_novo} onChange={e => setFormHist(f => ({ ...f, valor_novo: e.target.value }))} required />
                 </div>
                 <div className="space-y-1">
@@ -266,47 +334,31 @@ export default function Orcamento() {
         </Card>
       )}
 
-      {/* Detalhamento por Contrato */}
+      {/* Detalhamento por Item */}
       {orcamentoSel && (
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle className="text-sm text-[#1a2e4a] flex items-center gap-2">
-                <LayoutList className="w-4 h-4" /> Detalhamento por Item de Contrato
-              </CardTitle>
-              <Select value={contratoSel} onValueChange={setContratoSel}>
-                <SelectTrigger className="w-72">
-                  <SelectValue placeholder="Selecione o contrato..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {contratos.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.numero} — {c.contratada?.trim()}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <CardTitle className="text-sm text-[#1a2e4a] flex items-center gap-2">
+              <LayoutList className="w-4 h-4" /> Detalhamento por Item — {contratoSelecionado?.numero} ({anoSel})
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {contratoSel ? (
-              <DetalhamentoOrcamentoContrato
-                contrato={contratos.find(c => c.id === contratoSel)}
-                ano={parseInt(anoSel)}
-                totalOrcado={orcamentoSel.valor_dotacao_atual}
-                canEdit={canEdit}
-              />
-            ) : (
-              <div className="text-sm text-gray-400 text-center py-4">Selecione um contrato para ver o detalhamento.</div>
-            )}
+            <DetalhamentoOrcamentoContrato
+              contrato={contratoSelecionado}
+              ano={parseInt(anoSel)}
+              totalOrcado={orcamentoSel.valor_orcado}
+              canEdit={canEdit}
+            />
           </CardContent>
         </Card>
       )}
 
       {/* Histórico */}
-      {orcamentoSel && historicoSel.length > 0 && (
+      {historicoSel.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-[#1a2e4a] flex items-center gap-2">
-              <History className="w-4 h-4" /> Histórico de Alterações ({anoSel})
+              <History className="w-4 h-4" /> Histórico de Alterações — {contratoSelecionado?.numero} ({anoSel})
             </CardTitle>
           </CardHeader>
           <CardContent>
