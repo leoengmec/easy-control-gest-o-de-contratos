@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
         // Baixar o arquivo
         const fileResponse = await fetch(fileUrl);
         const arrayBuffer = await fileResponse.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const rawData = XLSX.utils.sheet_to_json(worksheet);
