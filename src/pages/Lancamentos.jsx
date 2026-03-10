@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, DollarSign } from "lucide-react";
+import { Plus, Pencil, Trash2, DollarSign, Upload } from "lucide-react";
 import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
+import ImportarLancamentosLote from "@/components/lancamentos/ImportarLancamentosLote.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const mesesNomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -31,6 +32,7 @@ export default function Lancamentos() {
   const [filtroAno, setFiltroAno] = useState(String(anoAtual));
   const [filtroContrato, setFiltroContrato] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [showImportar, setShowImportar] = useState(false);
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -80,6 +82,16 @@ export default function Lancamentos() {
 
   const anos = Array.from({ length: 5 }, (_, i) => String(anoAtual - 2 + i));
 
+  if (showImportar) return (
+    <div className="p-6">
+      <ImportarLancamentosLote
+        contratos={contratos}
+        onComplete={() => { setShowImportar(false); loadLancamentos(); }}
+        onCancel={() => setShowImportar(false)}
+      />
+    </div>
+  );
+
   if (showForm || editing) return (
     <div className="p-6 max-w-2xl mx-auto">
       <LancamentoForm
@@ -100,9 +112,14 @@ export default function Lancamentos() {
           <p className="text-gray-500 text-sm">{filtered.length} lançamento(s) · Total: {fmt(totalFiltrado)}</p>
         </div>
         {canEdit && (
-          <Button onClick={() => setShowForm(true)} className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
-            <Plus className="w-4 h-4 mr-2" /> Novo Lançamento
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setShowImportar(true)} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
+              <Upload className="w-4 h-4 mr-2" /> Importar em Lote
+            </Button>
+            <Button onClick={() => setShowForm(true)} className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
+              <Plus className="w-4 h-4 mr-2" /> Novo Lançamento
+            </Button>
+          </div>
         )}
       </div>
 
