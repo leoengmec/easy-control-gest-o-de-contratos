@@ -58,82 +58,33 @@ export default function ImportarLancamentosLote({ contratos, onComplete, onCance
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!contratoSelecionado) {
+      alert("Selecione um contrato antes de fazer o upload.");
+      return;
+    }
+
     setUploading(true);
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
-      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
-        json_schema: {
-          type: "object",
-          properties: {
-            lancamentos: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  data_referencia: { type: "string" },
-                  vigencia: { type: "string" },
-                  local: { type: "string" },
-                  natureza_despesa: { type: "string" },
-                  observacao: { type: "string" },
-                  ordem_servicos: { type: ["string", "number"] },
-                  data_os: { type: "string" },
-                  valor_nf: { type: "number" },
-                  numero_nf: { type: ["string", "number"] },
-                  data_emissao: { type: "string" },
-                  status: { type: "string" },
-                  processo_sei: { type: "string" },
-                  ordem_bancaria: { type: "string" },
-                }
-              }
-            }
-          }
-        }
+      const resultado = await base44.functions.invoke('processarPlanilhaLancamentos', {
+        fileUrl: file_url,
+        contratoId: contratoSelecionado
       });
 
-      if (result.status === "success" && result.output?.lancamentos) {
-        // Processa os dados extraídos
-        const lancamentosProcessados = result.output.lancamentos.map(row => {
-          const dataRef = parseExcelDate(row.data_referencia);
-          const dataEmissao = parseExcelDate(row.data_emissao);
-          const dataOS = parseExcelDate(row.data_os);
-          
-          let ano = null;
-          let mes = null;
-          
-          if (dataRef) {
-            const [y, m] = dataRef.split('-');
-            ano = parseInt(y);
-            mes = parseInt(m);
-          }
-
-          return {
-            vigencia: row.vigencia,
-            contratoNumero: extrairContratoNumero(row.vigencia),
-            ano,
-            mes,
-            status: STATUS_MAP[row.status] || "Em instrução",
-            valor: row.valor_nf || 0,
-            item_label: row.natureza_despesa || "",
-            os_local: row.local || "",
-            os_numero: row.ordem_servicos ? String(row.ordem_servicos) : "",
-            os_data: dataOS,
-            numero_nf: row.numero_nf ? String(row.numero_nf) : "",
-            data_nf: dataEmissao,
-            data_lancamento: dataEmissao || new Date().toISOString().split('T')[0],
-            processo_pagamento_sei: row.processo_sei || "",
-            ordem_bancaria: row.ordem_bancaria || "",
-            observacoes: row.observacao || "",
-          };
-        });
-
-        setPreview(lancamentosProcessados);
+      if (resultado.data.sucesso && resultado.data.lancamentosValidos > 0) {
+        setPreview(resultado.data.dados);
+        
+        if (resultado.data.erros > 0) {
+          console.warn('Erros encontrados:', resultado.data.detalhesErros);
+          alert(`Planilha processada!\n${resultado.data.lancamentosValidos} lançamentos válidos.\n${resultado.data.erros} linhas com erro (verifique o console).`);
+        }
       } else {
-        alert("Erro ao processar a planilha. Verifique o formato do arquivo.");
+        alert(`Erro ao processar a planilha.\n${resultado.data.erros} linhas com erro.\nDetalhes: ${JSON.stringify(resultado.data.detalhesErros.slice(0, 3))}`);
       }
     } catch (error) {
       alert("Erro ao fazer upload da planilha: " + error.message);
+      console.error(error);
     } finally {
       setUploading(false);
       e.target.value = "";
