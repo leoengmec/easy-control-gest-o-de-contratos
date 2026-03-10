@@ -119,10 +119,12 @@ export default function ContractFinancialOverview({ contrato }) {
         </div>
 
         {/* Filtros aplicados */}
-        <div className="text-xs text-gray-500 mb-4 mt-2">
-          <div>Pago vs Orçado por Item</div>
-          <div className="font-semibold text-[#1a2e4a] text-sm mt-0.5">
-            {ano} · {itemFiltro === "todos" ? "Todos os itens" : itemFiltro}
+        <div className="mb-4 mt-3 text-center">
+          <div className="text-base font-semibold text-[#1a2e4a]">
+            {itemFiltro === "todos" ? "Todos os itens" : itemFiltro}
+          </div>
+          <div className="text-base font-semibold text-[#1a2e4a]">
+            {ano}
           </div>
         </div>
 
