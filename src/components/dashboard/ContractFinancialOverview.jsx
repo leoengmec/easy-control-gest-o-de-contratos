@@ -121,7 +121,12 @@ export default function ContractFinancialOverview({ contrato }) {
         {/* Tabela detalhada por item */}
         {tabelaItens.length > 0 && (
           <div>
-            <div className="text-xs font-semibold text-gray-500 mb-2">Pago vs Orçado por Item · {ano}</div>
+            <div className="text-xs font-semibold text-gray-500 mb-2">
+              Pago vs Orçado por Item
+              <div className="mt-0.5 text-gray-400 font-normal">
+                {ano} · {itemFiltro === "todos" ? "Todos os itens" : itemFiltro}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
