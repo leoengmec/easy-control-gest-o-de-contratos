@@ -102,7 +102,7 @@ export default function ContractFinancialOverview({ contrato }) {
       </CardHeader>
       <CardContent className="px-4 pb-4">
         {/* Gauge Charts */}
-        <div className="flex flex-wrap justify-around gap-4 mb-4 py-2">
+        <div className="flex flex-wrap justify-around gap-4 py-2">
           <GaugeChart
             value={pctPagoOrcado}
             label="Pago vs Orçado"
@@ -118,15 +118,17 @@ export default function ContractFinancialOverview({ contrato }) {
           />
         </div>
 
+        {/* Filtros aplicados */}
+        <div className="text-xs text-gray-500 mb-4 mt-2">
+          <div>Pago vs Orçado por Item</div>
+          <div className="font-semibold text-[#1a2e4a] text-sm mt-0.5">
+            {ano} · {itemFiltro === "todos" ? "Todos os itens" : itemFiltro}
+          </div>
+        </div>
+
         {/* Tabela detalhada por item */}
         {tabelaItens.length > 0 && (
           <div>
-            <div className="mb-3">
-              <div className="text-xs font-semibold text-gray-500">Pago vs Orçado por Item</div>
-              <div className="text-sm font-medium text-[#1a2e4a] mt-1">
-                {ano} · {itemFiltro === "todos" ? "Todos os itens" : itemFiltro}
-              </div>
-            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
