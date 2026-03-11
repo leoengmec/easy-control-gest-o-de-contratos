@@ -149,14 +149,30 @@ export default function AdminUsuarios() {
   const handleInvite = async () => {
     if (!inviteEmail) return;
     setInviting(true);
-    await base44.users.inviteUser(inviteEmail, inviteRole);
+    
+    // O SDK só aceita "user" ou "admin" - então convidamos como "user" e depois atualizamos o role
+    const roleParaConvite = inviteRole === "admin" ? "admin" : "user";
+    await base44.users.inviteUser(inviteEmail, roleParaConvite);
+    
+    // Se o role desejado não é "user" nem "admin", criar notificação para atualizar manualmente
+    if (inviteRole !== "user" && inviteRole !== "admin") {
+      await base44.entities.NotificacaoAdmin.create({
+        tipo: "outro",
+        titulo: "Convite enviado - ajuste o perfil",
+        mensagem: `Convite enviado para ${inviteEmail}. Após o usuário aceitar, altere manualmente o perfil para "${getRoleLabel(inviteRole)}".`,
+        lida: false,
+        dados_extras: JSON.stringify({ email: inviteEmail, roleDesejado: inviteRole })
+      });
+    }
+    
     setInviting(false);
     setInviteEmail("");
     setInviteRole("user");
     setShowInvite(false);
-    setMsgSucesso("Convite enviado com sucesso!");
+    setMsgSucesso("Convite enviado! Se necessário, ajuste o perfil após o aceite.");
     setTimeout(() => setMsgSucesso(""), 4000);
     carregar();
+    carregarContadorNotifs();
   };
 
   const handleSaveRole = async (userId) => {
