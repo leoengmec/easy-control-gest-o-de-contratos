@@ -10,29 +10,16 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, Loader2, Plus, X } from "lucide-react";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
+const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
 
-const CATEGORIAS = [
-  { value: "Deslocamento Corretivo",  label: "Deslocamento Corretivo",  tipo: "servico" },
-  { value: "Deslocamento Preventivo", label: "Deslocamento Preventivo", tipo: "servico" },
-  { value: "Locações",                label: "Locações",                tipo: "servico" },
-  { value: "MOR Natal",               label: "MOR Natal",               tipo: "servico" },
-  { value: "MOR Mossoró",             label: "MOR Mossoró",             tipo: "servico" },
-  { value: "Serviços eventuais",      label: "Serviços eventuais",      tipo: "servico" },
-  { value: "Fornecimento de Materiais", label: "Fornecimento de Materiais", tipo: "material" },
+const SERVICE_ITEM_LABELS_FOR_OS = [
+  "Deslocamento Corretivo",
+  "Deslocamento Preventivo",
+  "Deslocamento Engenheiro",
+  "Locações",
+  "Serviços eventuais",
+  "Fornecimento de Materiais",
 ];
-
-const LOCAIS_JFRN = ["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"];
-
-const MOR_NATAL_MATCH   = ["ARTÍFICE DE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE CIVIL NATAL","ARTÍFICE CIVIL NATAL","ENGENHEIRO DE CAMPO NATAL"];
-const MOR_MOSSORO_MATCH = ["ARTÍFICE ELÉTRICA MOSSORÓ","AUXILIAR DE ARTÍFICE ELÉTRICA MOSSORÓ","AUXILIAR DE ARTÍFICE CIVIL MOSSORÓ","ARTÍFICE CIVIL MOSSORÓ"];
-
-function getItensDoGrupo(categoria, itensContrato) {
-  const up = (n) => (n || "").toUpperCase();
-  if (categoria === "MOR Natal")   return itensContrato.filter(i => MOR_NATAL_MATCH.some(m => up(i.nome).includes(m)));
-  if (categoria === "MOR Mossoró") return itensContrato.filter(i => MOR_MOSSORO_MATCH.some(m => up(i.nome).includes(m)));
-  return [];
-}
 
 const NATUREZA_LABELS = {
   "339039_servico": "NE Serviços (339039)",
@@ -151,6 +138,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     if (lancamento) {
       return [{
         item_label:      lancamento.item_label || "",
+        item_contrato_id: lancamento.item_contrato_id || null,
         nota_empenho_id: lancamento.nota_empenho_id || null,
         numero_nf:       lancamento.numero_nf || "",
         data_nf:         lancamento.data_nf || hoje,
@@ -170,7 +158,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [itensMaterialExtraidos,setItensMaterialExtraidos]= useState([]);
   const pdfInputRef = useRef(null);
 
-  const itensContrato = itens.filter(i => i.contrato_id === contratoId);
+  const itensContratoAtivos = itens.filter(i => i.contrato_id === contratoId && i.ativo);
   const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
 
   useEffect(() => {
@@ -187,8 +175,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   useEffect(() => {
     if (!empenhos.length) return;
     setItensLancamento(prev => prev.map(entry => {
-      const cat = CATEGORIAS.find(c => c.value === entry.item_label);
-      const id  = cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId;
+      const itemConfig = itensContratoAtivos.find(ic => ic.id === entry.item_contrato_id);
+      const naturezaTipo = itemConfig?.grupo_servico === 'fixo' || itemConfig?.grupo_servico === 'por_demanda' ? 'servico' : 'material';
+      const id  = naturezaTipo === "material" ? materialEmpenhoId : serviceEmpenhoId;
       return { ...entry, nota_empenho_id: id };
     }));
   }, [serviceEmpenhoId, materialEmpenhoId]);
@@ -225,8 +214,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     if (!file) return;
     setExtractingPdf(true);
 
-    const temItensMor = itensLancamento.some(entry => isMorCategoria(entry.item_label));
-    const extrairOS = itensLancamento.some(entry => !isMorCategoria(entry.item_label));
+    const extrairOS = itensLancamento.some(entry =>
+        SERVICE_ITEM_LABELS_FOR_OS.includes(entry.item_label)
+    );
 
     const osProperties = extrairOS ? {
       os_numero: {
@@ -240,8 +230,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     } : {};
 
     const isMaterialNota = itensLancamento.some(e => {
-      const cat = CATEGORIAS.find(c => c.value === e.item_label);
-      return cat?.tipo === "material";
+        const itemConfig = itensContratoAtivos.find(ic => ic.id === e.item_contrato_id);
+        return itemConfig?.grupo_servico === 'material';
     });
 
     try {
@@ -300,8 +290,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         })));
 
         const isMaterial = itensLancamento.some(e => {
-          const cat = CATEGORIAS.find(c => c.value === e.item_label);
-          return cat?.tipo === "material";
+            const itemConfig = itensContratoAtivos.find(ic => ic.id === e.item_contrato_id);
+            return itemConfig?.grupo_servico === 'material';
         });
         if (isMaterial && data.itens_material && Array.isArray(data.itens_material)) {
           setItensMaterialExtraidos(data.itens_material.map(item => ({
@@ -310,7 +300,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             numero_nf: data.numero_nf || "",
             data_nf: data.data_nf || "",
             os_numero: ordensServico[0]?.numero || "",
-            os_local: osLocais[0] || "",
+            os_local: ordensServico[0]?.locais_prestacao_servicos[0] || "",
             valor_total_nota: data.valor_total || 0,
           })));
         }
@@ -337,7 +327,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       processo_pagamento_sei: processoPagSei,
       ordem_bancaria:       ordemBancaria,
       ordens_servico:       ordensServico.filter(os => os.numero || os.descricao),
-      os_locais:            osLocais,
       data_lancamento:      dataLancamento,
       observacoes,
     };
@@ -355,6 +344,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         glosa,
         valor_pago_final: valor - retencao - glosa,
         item_label:      entry.item_label,
+        item_contrato_id: entry.item_contrato_id,
         nota_empenho_id: entry.nota_empenho_id,
         numero_nf:       entry.numero_nf,
         data_nf:         entry.data_nf,
@@ -372,6 +362,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           glosa,
           valor_pago_final: valor - retencao - glosa,
           item_label:      entry.item_label,
+          item_contrato_id: entry.item_contrato_id,
           nota_empenho_id: entry.nota_empenho_id,
           numero_nf:       entry.numero_nf,
           data_nf:         entry.data_nf,
@@ -388,14 +379,14 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           });
         }
 
-        const cat = CATEGORIAS.find(c => c.value === entry.item_label);
-        if (cat?.tipo === "material" && itensMaterialExtraidos.length > 0) {
+        const itemConfig = itensContratoAtivos.find(ic => ic.id === entry.item_contrato_id);
+        if (itemConfig?.grupo_servico === "material" && itensMaterialExtraidos.length > 0) {
           for (const itemMat of itensMaterialExtraidos) {
             await base44.entities.ItemMaterialNF.create({
               ...itemMat,
               lancamento_financeiro_id: created.id,
               os_numero: ordensServico[0]?.numero || "",
-              os_local:  osLocais[0] || "",
+              os_local:  ordensServico[0]?.locais_prestacao_servicos[0] || "",
             });
           }
         }
@@ -466,36 +457,40 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               </Label>
               {lancamento ? (
                 <Select
-                  value={itensLancamento[0]?.item_label || ""}
+                  value={itensLancamento[0]?.item_contrato_id || ""}
                   onValueChange={v => {
-                    const cat = CATEGORIAS.find(c => c.value === v);
-                    setItensLancamento([{
-                      item_label:      v,
-                      nota_empenho_id: cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
-                      numero_nf:       itensLancamento[0]?.numero_nf || "",
-                      data_nf:         itensLancamento[0]?.data_nf || hoje,
-                      valor:           itensLancamento[0]?.valor || "",
-                      retencao:        itensLancamento[0]?.retencao || "",
-                      glosa:           itensLancamento[0]?.glosa || "",
-                    }]);
+                    const selectedItem = itensContratoAtivos.find(item => item.id === v);
+                    if (selectedItem) {
+                        const naturezaTipo = selectedItem.grupo_servico === 'fixo' || selectedItem.grupo_servico === 'por_demanda' ? 'servico' : 'material';
+                        setItensLancamento([{
+                            item_label:       selectedItem.nome,
+                            item_contrato_id: selectedItem.id,
+                            nota_empenho_id:  naturezaTipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
+                            numero_nf:        itensLancamento[0]?.numero_nf || "",
+                            data_nf:          itensLancamento[0]?.data_nf || hoje,
+                            valor:            itensLancamento[0]?.valor || "",
+                            retencao:         itensLancamento[0]?.retencao || "",
+                            glosa:            itensLancamento[0]?.glosa || "",
+                        }]);
+                    }
                   }}
                 >
                   <SelectTrigger><SelectValue placeholder="Selecione o item" /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIAS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    {itensContratoAtivos.map(item => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
-                  {CATEGORIAS.map(cat => (
-                    <div key={cat.value} className="flex items-center gap-2">
+                  {itensContratoAtivos.map(item => (
+                    <div key={item.id} className="flex items-center gap-2">
                       <Checkbox
-                        id={`cat-${cat.value}`}
-                        checked={itensLancamento.some(e => e.item_label === cat.value)}
-                        onCheckedChange={() => toggleCategoria(cat.value)}
+                        id={`item-${item.id}`}
+                        checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
+                        onCheckedChange={(checked) => toggleItemContrato(item.id, item.nome)}
                       />
-                      <label htmlFor={`cat-${cat.value}`} className="text-sm cursor-pointer leading-tight">
-                        {cat.label}
+                      <label htmlFor={`item-${item.id}`} className="text-sm cursor-pointer leading-tight">
+                        {item.nome}
                       </label>
                     </div>
                   ))}
@@ -536,7 +531,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               </div>
               {itensLancamento.map((entry, idx) => (
                 <ItemNFCard
-                  key={entry.item_label}
+                  key={entry.item_contrato_id || entry.item_label}
                   entry={entry}
                   index={idx}
                   empenhos={empenhos}
@@ -558,27 +553,28 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             </div>
           </div>
 
-          {/* OS */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-[#1a2e4a]">Ordens de Serviço</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-xs"
-                onClick={() => setOrdensServico([...ordensServico, { 
-                  numero: "", 
-                  descricao: "", 
-                  valor: "", 
-                  locais_prestacao_servicos: [], 
-                  data_emissao: "", 
-                  data_execucao: "" 
-                }])}
-              >
-                <Plus className="w-3 h-3 mr-1" /> Adicionar OS
-              </Button>
-            </div>
+          {/* OS (CONDITIONAL) */}
+          {shouldShowOrdensServico && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold text-[#1a2e4a]">Ordens de Serviço</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setOrdensServico([...ordensServico, { 
+                    numero: "", 
+                    descricao: "", 
+                    valor: "", 
+                    locais_prestacao_servicos: [], 
+                    data_emissao: "", 
+                    data_execucao: "" 
+                  }])}
+                >
+                  <Plus className="w-3 h-3 mr-1" /> Adicionar OS
+                </Button>
+              </div>
             {ordensServico.map((os, idx) => (
               <div key={idx} className="border rounded-lg p-4 bg-gray-50 space-y-3">
                 <div className="flex items-center justify-between">
@@ -662,27 +658,27 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                   <div className="space-y-2 sm:col-span-2">
                     <Label className="text-xs">Locais de Prestação de Serviços para esta OS</Label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-2 bg-white">
-                      {LOCAIS_JFRN.map(local => (
-                        <div key={local} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`os-${idx}-local-${local}`}
-                            checked={(os.locais_prestacao_servicos || []).includes(local)}
-                            onCheckedChange={(checked) => {
-                              const updated = [...ordensServico];
-                              const locais = updated[idx].locais_prestacao_servicos || [];
-                              if (checked) {
-                                updated[idx].locais_prestacao_servicos = [...locais, local];
-                              } else {
-                                updated[idx].locais_prestacao_servicos = locais.filter(l => l !== local);
-                              }
-                              setOrdensServico(updated);
-                            }}
-                          />
-                          <label htmlFor={`os-${idx}-local-${local}`} className="text-xs cursor-pointer">
-                            {local}
-                          </label>
-                        </div>
-                      ))}
+                        {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(local => (
+                          <div key={local} className="flex items-center gap-2">
+                            <Checkbox
+                              id={`os-${idx}-local-${local}`}
+                              checked={(os.locais_prestacao_servicos || []).includes(local)}
+                              onCheckedChange={(checked) => {
+                                const updated = [...ordensServico];
+                                const locais = updated[idx].locais_prestacao_servicos || [];
+                                if (checked) {
+                                  updated[idx].locais_prestacao_servicos = [...locais, local];
+                                } else {
+                                  updated[idx].locais_prestacao_servicos = locais.filter(l => l !== local);
+                                }
+                                setOrdensServico(updated);
+                              }}
+                            />
+                            <label htmlFor={`os-${idx}-local-${local}`} className="text-xs cursor-pointer">
+                              {local}
+                            </label>
+                          </div>
+                        ))}
                     </div>
                   </div>
                 </div>
