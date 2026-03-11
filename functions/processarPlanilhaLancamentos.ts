@@ -1,6 +1,26 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.20';
 import * as XLSX from 'npm:xlsx@0.18.5';
 
+// Função para normalizar valores monetários brasileiros
+function normalizarValorMonetario(valor) {
+    if (valor === null || valor === undefined || valor === '') return null;
+    
+    // Se já é número, retorna
+    if (typeof valor === 'number') return valor;
+    
+    // Converte para string e remove espaços
+    let valorStr = String(valor).trim();
+    
+    // Remove "R$", pontos (separadores de milhar) e substitui vírgula por ponto
+    valorStr = valorStr
+        .replace(/R\$\s*/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+    
+    const numero = parseFloat(valorStr);
+    return isNaN(numero) ? null : numero;
+}
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -38,7 +58,6 @@ Deno.serve(async (req) => {
         const contratos = await base44.asServiceRole.entities.Contrato.list();
         const contratoMap = {};
         contratos.forEach(c => {
-            // Criar chave de busca a partir do número do contrato
             const key = c.numero ? c.numero.replace(/\s+/g, '').toLowerCase() : '';
             contratoMap[key] = c.id;
         });
@@ -48,12 +67,12 @@ Deno.serve(async (req) => {
 
         for (let i = 0; i < normalizedData.length; i++) {
             const row = normalizedData[i];
-            const linha = i + 2; // +2 porque Excel começa em 1 e tem header
+            const linha = i + 2;
             const errosLinha = [];
 
             try {
                 // Mapear Vigência para contrato_id
-                let contrato_id = contratoId; // Se foi fornecido um contratoId específico
+                let contrato_id = contratoId;
                 if (!contrato_id && row['Vigência']) {
                     const vigenciaKey = String(row['Vigência']).replace(/\s+/g, '').toLowerCase();
                     contrato_id = contratoMap[vigenciaKey];
@@ -85,11 +104,15 @@ Deno.serve(async (req) => {
                 if (!ano) errosLinha.push('ano é obrigatório');
                 if (!mes) errosLinha.push('mes é obrigatório');
 
-                // Valor
-                const valor = parseFloat(row['Valor NF']);
-                if (isNaN(valor)) {
+                // Normalizar valores monetários
+                const valor = normalizarValorMonetario(row['Valor NF']);
+                if (valor === null || isNaN(valor)) {
                     errosLinha.push('Valor NF inválido ou ausente');
                 }
+
+                const retencao = normalizarValorMonetario(row['Retenção']) || 0;
+                const glosa = normalizarValorMonetario(row['Glosa']) || 0;
+                const valor_pago_final = valor - retencao - glosa;
 
                 // Status - validar se está entre os aceitos
                 const statusValidos = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
@@ -108,11 +131,20 @@ Deno.serve(async (req) => {
                 }
 
                 // Processar data OS
-                let os_data = null;
+                let os_data_emissao = null;
                 if (row['Data da OS'] && row['Data da OS'] !== 'None') {
                     const dataOS = new Date(row['Data da OS']);
                     if (!isNaN(dataOS.getTime())) {
-                        os_data = dataOS.toISOString().split('T')[0];
+                        os_data_emissao = dataOS.toISOString().split('T')[0];
+                    }
+                }
+
+                // Processar data execução OS
+                let os_data_execucao = null;
+                if (row['Data de Execução da OS'] && row['Data de Execução da OS'] !== 'None') {
+                    const dataExec = new Date(row['Data de Execução da OS']);
+                    if (!isNaN(dataExec.getTime())) {
+                        os_data_execucao = dataExec.toISOString().split('T')[0];
                     }
                 }
 
@@ -136,6 +168,9 @@ Deno.serve(async (req) => {
                     ano,
                     mes,
                     valor,
+                    retencao,
+                    glosa,
+                    valor_pago_final,
                     status: status || 'Em instrução',
                     item_label: row['Natureza da despesa'] || null,
                     numero_nf,
@@ -143,8 +178,11 @@ Deno.serve(async (req) => {
                     processo_pagamento_sei: row['Processo SEI'] || null,
                     ordem_bancaria: row['Ordem bancária'] || null,
                     os_numero,
-                    os_data,
+                    os_data_emissao,
+                    os_data_execucao,
                     os_local: row['Local'] || null,
+                    os_descricao: row['Descrição da OS'] || null,
+                    os_valor: normalizarValorMonetario(row['Valor da OS']) || null,
                     data_lancamento,
                     observacoes: row['Observação'] || null
                 };

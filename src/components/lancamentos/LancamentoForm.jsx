@@ -22,6 +22,8 @@ const CATEGORIAS = [
   { value: "Fornecimento de Materiais", label: "Fornecimento de Materiais", tipo: "material" },
 ];
 
+const LOCAIS_JFRN = ["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"];
+
 const MOR_NATAL_MATCH   = ["ARTÍFICE DE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE ELÉTRICA NATAL","AUXILIAR DE ARTÍFICE CIVIL NATAL","ARTÍFICE CIVIL NATAL","ENGENHEIRO DE CAMPO NATAL"];
 const MOR_MOSSORO_MATCH = ["ARTÍFICE ELÉTRICA MOSSORÓ","AUXILIAR DE ARTÍFICE ELÉTRICA MOSSORÓ","AUXILIAR DE ARTÍFICE CIVIL MOSSORÓ","ARTÍFICE CIVIL MOSSORÓ"];
 
@@ -84,6 +86,38 @@ function ItemNFCard({ entry, index, empenhos, onChange }) {
             placeholder="0,00"
           />
         </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Retenção (R$)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={entry.retencao || ""}
+            onChange={e => onChange(index, "retencao", e.target.value)}
+            placeholder="0,00"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Glosa (R$)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={entry.glosa || ""}
+            onChange={e => onChange(index, "glosa", e.target.value)}
+            placeholder="0,00"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Valor Final Pago (R$)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={(parseFloat(entry.valor || 0) - parseFloat(entry.retencao || 0) - parseFloat(entry.glosa || 0)).toFixed(2)}
+            disabled
+            className="bg-gray-50"
+          />
+        </div>
       </div>
     </div>
   );
@@ -100,12 +134,19 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   const [processoPagSei,      setProcessoPagSei]      = useState(lancamento?.processo_pagamento_sei || "");
   const [ordemBancaria,       setOrdemBancaria]       = useState(lancamento?.ordem_bancaria || "");
-  const [ordensServico,       setOrdensServico]       = useState(lancamento?.ordens_servico || [{ numero: "", data: "" }]);
+  const [ordensServico,       setOrdensServico]       = useState(lancamento?.ordens_servico || [{ 
+    numero: "", 
+    descricao: "", 
+    valor: "", 
+    locais_prestacao_servicos: [], 
+    data_emissao: "", 
+    data_execucao: "" 
+  }]);
   const [osLocais,            setOsLocais]            = useState(lancamento?.os_locais || []);
   const [dataLancamento,      setDataLancamento]      = useState(lancamento?.data_lancamento || hoje);
   const [observacoes,         setObservacoes]         = useState(lancamento?.observacoes || "");
 
-  // Cada entrada: { item_label, nota_empenho_id, numero_nf, data_nf, valor }
+  // Cada entrada: { item_label, nota_empenho_id, numero_nf, data_nf, valor, retencao, glosa }
   const [itensLancamento, setItensLancamento] = useState(() => {
     if (lancamento) {
       return [{
@@ -114,6 +155,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         numero_nf:       lancamento.numero_nf || "",
         data_nf:         lancamento.data_nf || hoje,
         valor:           lancamento.valor || "",
+        retencao:        lancamento.retencao || "",
+        glosa:           lancamento.glosa || "",
       }];
     }
     return [];
@@ -141,7 +184,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       .catch(() => { setEmpenhos([]); setServiceEmpenhoId(null); setMaterialEmpenhoId(null); });
   }, [contratoId, ano]);
 
-  // Atualiza automaticamente os empenho_ids dos itens quando empenhos mudam
   useEffect(() => {
     if (!empenhos.length) return;
     setItensLancamento(prev => prev.map(entry => {
@@ -162,6 +204,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         numero_nf:       "",
         data_nf:         hoje,
         valor:           "",
+        retencao:        "",
+        glosa:           "",
       }];
     });
   };
@@ -174,7 +218,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     });
   };
 
-  // Categorias que NÃO são MOR (OS se aplica apenas a essas)
   const isMorCategoria = (label) => label === "MOR Natal" || label === "MOR Mossoró";
 
   const handlePdfUpload = async (e) => {
@@ -182,9 +225,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     if (!file) return;
     setExtractingPdf(true);
 
-    // Verifica se algum item selecionado é MOR (não possui OS)
     const temItensMor = itensLancamento.some(entry => isMorCategoria(entry.item_label));
-    // Só extrai OS se houver itens não-MOR selecionados
     const extrairOS = itensLancamento.some(entry => !isMorCategoria(entry.item_label));
 
     const osProperties = extrairOS ? {
@@ -192,13 +233,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         type: "string",
         description: "Número da Ordem de Serviço (OS), encontrado no campo 'Descrição do Serviço' do PDF, no formato 'O.S XXX.YYYY' (ex: O.S 021.2025). Extraia apenas o código numérico (ex: '021.2025'). NÃO confundir com o número do contrato. Se não encontrar, retorne null."
       },
-      os_data: {
+      os_data_emissao: {
         type: "string",
-        description: "Data da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' junto ao número da OS, geralmente indicada como mês e ano em português (ex: NOVEMBRO 2025). Retorne no formato YYYY-MM-DD usando o primeiro dia do mês. Se não encontrar, retorne null."
+        description: "Data de emissão da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' junto ao número da OS. Retorne no formato YYYY-MM-DD. Se não encontrar, retorne null."
       },
     } : {};
 
-    // Verifica se é nota de material
     const isMaterialNota = itensLancamento.some(e => {
       const cat = CATEGORIAS.find(c => c.value === e.item_label);
       return cat?.tipo === "material";
@@ -241,12 +281,17 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (result.status === "success" && result.output) {
         const data = result.output;
 
-        // Preenche OS apenas se aplicável e se foram extraídos com sucesso
-        if (extrairOS && data.os_numero && data.os_data) {
-          setOrdensServico([{ numero: data.os_numero, data: data.os_data }]);
+        if (extrairOS && data.os_numero && data.os_data_emissao) {
+          setOrdensServico([{ 
+            numero: data.os_numero, 
+            descricao: "", 
+            valor: "", 
+            locais_prestacao_servicos: [], 
+            data_emissao: data.os_data_emissao, 
+            data_execucao: "" 
+          }]);
         }
 
-        // Preenche NF em TODOS os itens selecionados (incluindo MOR)
         setItensLancamento(prev => prev.map(entry => ({
           ...entry,
           numero_nf: data.numero_nf   != null ? data.numero_nf   : entry.numero_nf,
@@ -254,13 +299,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           valor:     data.valor_total != null ? data.valor_total : entry.valor,
         })));
 
-        // Se for nota de material, salva os itens extraídos na entidade ItemMaterialNF
         const isMaterial = itensLancamento.some(e => {
           const cat = CATEGORIAS.find(c => c.value === e.item_label);
           return cat?.tipo === "material";
         });
         if (isMaterial && data.itens_material && Array.isArray(data.itens_material)) {
-          // Salva os itens; o lancamento_financeiro_id será atualizado após o save
           setItensMaterialExtraidos(data.itens_material.map(item => ({
             ...item,
             contrato_id: contratoId,
@@ -293,7 +336,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       status,
       processo_pagamento_sei: processoPagSei,
       ordem_bancaria:       ordemBancaria,
-      ordens_servico:       ordensServico.filter(os => os.numero || os.data),
+      ordens_servico:       ordensServico.filter(os => os.numero || os.descricao),
       os_locais:            osLocais,
       data_lancamento:      dataLancamento,
       observacoes,
@@ -301,9 +344,16 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
     if (lancamento?.id) {
       const entry = itensLancamento[0] || {};
+      const valor = parseFloat(entry.valor) || 0;
+      const retencao = parseFloat(entry.retencao) || 0;
+      const glosa = parseFloat(entry.glosa) || 0;
+      
       await base44.entities.LancamentoFinanceiro.update(lancamento.id, {
         ...baseData,
-        valor:           parseFloat(entry.valor) || 0,
+        valor,
+        retencao,
+        glosa,
+        valor_pago_final: valor - retencao - glosa,
         item_label:      entry.item_label,
         nota_empenho_id: entry.nota_empenho_id,
         numero_nf:       entry.numero_nf,
@@ -311,16 +361,33 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       });
     } else {
       for (const entry of itensLancamento) {
+        const valor = parseFloat(entry.valor) || 0;
+        const retencao = parseFloat(entry.retencao) || 0;
+        const glosa = parseFloat(entry.glosa) || 0;
+        
         const created = await base44.entities.LancamentoFinanceiro.create({
           ...baseData,
-          valor:           parseFloat(entry.valor) || 0,
+          valor,
+          retencao,
+          glosa,
+          valor_pago_final: valor - retencao - glosa,
           item_label:      entry.item_label,
           nota_empenho_id: entry.nota_empenho_id,
           numero_nf:       entry.numero_nf,
           data_nf:         entry.data_nf,
         });
 
-        // Se for material e houver itens extraídos, salva na entidade ItemMaterialNF
+        // Registrar histórico de retenção se houver
+        if (retencao > 0) {
+          await base44.entities.HistoricoRetencao.create({
+            lancamento_financeiro_id: created.id,
+            valor_retido: retencao,
+            valor_cancelado: 0,
+            data_acao: hoje,
+            tipo_acao: "aplicada",
+          });
+        }
+
         const cat = CATEGORIAS.find(c => c.value === entry.item_label);
         if (cat?.tipo === "material" && itensMaterialExtraidos.length > 0) {
           for (const itemMat of itensMaterialExtraidos) {
@@ -407,6 +474,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                       nota_empenho_id: cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
                       numero_nf:       itensLancamento[0]?.numero_nf || "",
                       data_nf:         itensLancamento[0]?.data_nf || hoje,
+                      valor:           itensLancamento[0]?.valor || "",
+                      retencao:        itensLancamento[0]?.retencao || "",
+                      glosa:           itensLancamento[0]?.glosa || "",
                     }]);
                   }}
                 >
@@ -497,14 +567,35 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                 variant="outline"
                 size="sm"
                 className="text-xs"
-                onClick={() => setOrdensServico([...ordensServico, { numero: "", data: "" }])}
+                onClick={() => setOrdensServico([...ordensServico, { 
+                  numero: "", 
+                  descricao: "", 
+                  valor: "", 
+                  locais_prestacao_servicos: [], 
+                  data_emissao: "", 
+                  data_execucao: "" 
+                }])}
               >
                 <Plus className="w-3 h-3 mr-1" /> Adicionar OS
               </Button>
             </div>
             {ordensServico.map((os, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <div className="flex-1 grid grid-cols-2 gap-2">
+              <div key={idx} className="border rounded-lg p-4 bg-gray-50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-[#1a2e4a]">OS #{idx + 1}</span>
+                  {ordensServico.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-red-500 hover:text-red-700"
+                      onClick={() => setOrdensServico(ordensServico.filter((_, i) => i !== idx))}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Número da OS</Label>
                     <Input
@@ -518,38 +609,92 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Data da OS</Label>
+                    <Label className="text-xs">Valor da OS (R$)</Label>
                     <Input
-                      type="date"
-                      value={os.data}
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={os.valor}
                       onChange={e => {
                         const updated = [...ordensServico];
-                        updated[idx].data = e.target.value;
+                        updated[idx].valor = e.target.value;
+                        setOrdensServico(updated);
+                      }}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">Descrição da OS</Label>
+                    <Input
+                      value={os.descricao}
+                      onChange={e => {
+                        const updated = [...ordensServico];
+                        updated[idx].descricao = e.target.value;
+                        setOrdensServico(updated);
+                      }}
+                      placeholder="Descrição detalhada"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Data de Emissão da OS</Label>
+                    <Input
+                      type="date"
+                      value={os.data_emissao}
+                      onChange={e => {
+                        const updated = [...ordensServico];
+                        updated[idx].data_emissao = e.target.value;
                         setOrdensServico(updated);
                       }}
                     />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Data de Execução da OS</Label>
+                    <Input
+                      type="date"
+                      value={os.data_execucao}
+                      onChange={e => {
+                        const updated = [...ordensServico];
+                        updated[idx].data_execucao = e.target.value;
+                        setOrdensServico(updated);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-xs">Locais de Prestação de Serviços para esta OS</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-2 bg-white">
+                      {LOCAIS_JFRN.map(local => (
+                        <div key={local} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`os-${idx}-local-${local}`}
+                            checked={(os.locais_prestacao_servicos || []).includes(local)}
+                            onCheckedChange={(checked) => {
+                              const updated = [...ordensServico];
+                              const locais = updated[idx].locais_prestacao_servicos || [];
+                              if (checked) {
+                                updated[idx].locais_prestacao_servicos = [...locais, local];
+                              } else {
+                                updated[idx].locais_prestacao_servicos = locais.filter(l => l !== local);
+                              }
+                              setOrdensServico(updated);
+                            }}
+                          />
+                          <label htmlFor={`os-${idx}-local-${local}`} className="text-xs cursor-pointer">
+                            {local}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                {ordensServico.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="mt-5 text-red-500 hover:text-red-700"
-                    onClick={() => setOrdensServico(ordensServico.filter((_, i) => i !== idx))}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
               </div>
             ))}
           </div>
 
-          {/* LOCAIS */}
+          {/* LOCAIS GLOBAIS (mantido para compatibilidade) */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#1a2e4a]">Locais de Prestação de Serviços</Label>
+            <Label className="text-sm font-semibold text-[#1a2e4a]">Locais de Prestação de Serviços (Geral)</Label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
-              {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(local => (
+              {LOCAIS_JFRN.map(local => (
                 <div key={local} className="flex items-center gap-2">
                   <Checkbox
                     id={`local-${local}`}
