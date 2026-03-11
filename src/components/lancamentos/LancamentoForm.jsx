@@ -685,14 +685,13 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                             </label>
                           </div>
                         ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-            </div>
-          )}
-          </div>
+                        </div>
+                        </div>
+                        </div>
+                        </div>
+                        ))}
+                        </div>
+                        )}
 
           {/* DATA E OBSERVAÇÕES */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
