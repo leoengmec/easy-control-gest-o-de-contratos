@@ -21,6 +21,35 @@ function normalizarValorMonetario(valor) {
     return isNaN(numero) ? null : numero;
 }
 
+// Função para processar datas do Excel
+function parseExcelDate(excelDate) {
+    if (!excelDate) return null;
+    
+    // Se já é uma string no formato ISO ou YYYY-MM-DD
+    if (typeof excelDate === 'string' && excelDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+        return excelDate.split('T')[0];
+    }
+    
+    // Se é timestamp do Excel (dias desde 1900-01-01)
+    if (typeof excelDate === 'number') {
+        const date = new Date((excelDate - 25569) * 86400 * 1000);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+        }
+        return null;
+    }
+    
+    // Tentar interpretar como string de data
+    if (typeof excelDate === 'string') {
+        const date = new Date(excelDate);
+        if (!isNaN(date.getTime())) {
+            return date.toISOString().split('T')[0];
+        }
+    }
+    
+    return null;
+}
+
 Deno.serve(async (req) => {
     try {
         const base44 = createClientFromRequest(req);
@@ -91,11 +120,11 @@ Deno.serve(async (req) => {
                 let data_lancamento = null;
 
                 if (row['Data de referência']) {
-                    const dataRef = new Date(row['Data de referência']);
-                    if (!isNaN(dataRef.getTime())) {
+                    data_lancamento = parseExcelDate(row['Data de referência']);
+                    if (data_lancamento) {
+                        const dataRef = new Date(data_lancamento);
                         ano = dataRef.getFullYear();
                         mes = dataRef.getMonth() + 1;
-                        data_lancamento = dataRef.toISOString().split('T')[0];
                     } else {
                         errosLinha.push('Data de referência inválida');
                     }
@@ -124,28 +153,19 @@ Deno.serve(async (req) => {
                 // Processar data NF
                 let data_nf = null;
                 if (row['Data de Emissão']) {
-                    const dataNF = new Date(row['Data de Emissão']);
-                    if (!isNaN(dataNF.getTime())) {
-                        data_nf = dataNF.toISOString().split('T')[0];
-                    }
+                    data_nf = parseExcelDate(row['Data de Emissão']);
                 }
 
                 // Processar data OS
                 let os_data_emissao = null;
                 if (row['Data da OS'] && row['Data da OS'] !== 'None') {
-                    const dataOS = new Date(row['Data da OS']);
-                    if (!isNaN(dataOS.getTime())) {
-                        os_data_emissao = dataOS.toISOString().split('T')[0];
-                    }
+                    os_data_emissao = parseExcelDate(row['Data da OS']);
                 }
 
                 // Processar data execução OS
                 let os_data_execucao = null;
                 if (row['Data de Execução da OS'] && row['Data de Execução da OS'] !== 'None') {
-                    const dataExec = new Date(row['Data de Execução da OS']);
-                    if (!isNaN(dataExec.getTime())) {
-                        os_data_execucao = dataExec.toISOString().split('T')[0];
-                    }
+                    os_data_execucao = parseExcelDate(row['Data de Execução da OS']);
                 }
 
                 // Converter números para string
