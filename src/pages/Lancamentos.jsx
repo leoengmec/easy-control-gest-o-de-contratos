@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Pencil, Trash2, DollarSign, Upload } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Pencil, Trash2, DollarSign, Upload, Info } from "lucide-react";
 import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
 import ImportarLancamentosLote from "@/components/lancamentos/ImportarLancamentosLote.jsx";
 
@@ -29,6 +30,7 @@ export default function Lancamentos() {
   const [editing, setEditing] = useState(null);
   const [user, setUser] = useState(null);
   const [usuarios, setUsuarios] = useState({});
+  const [historicos, setHistoricos] = useState([]);
   const anoAtual = new Date().getFullYear();
   const [filtroAno, setFiltroAno] = useState(String(anoAtual));
   const [filtroContrato, setFiltroContrato] = useState("todos");
@@ -71,6 +73,10 @@ export default function Lancamentos() {
       });
       setUsuarios(userMap);
     }
+
+    // Buscar históricos de cancelamento
+    const hists = await base44.entities.HistoricoLancamento.filter({ tipo_acao: "cancelamento" });
+    setHistoricos(hists);
     
     setLoading(false);
   };
