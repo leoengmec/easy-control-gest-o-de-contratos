@@ -129,7 +129,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     data_emissao: "", 
     data_execucao: "" 
   }]);
-  const [osLocais,            setOsLocais]            = useState(lancamento?.os_locais || []);
   const [dataLancamento,      setDataLancamento]      = useState(lancamento?.data_lancamento || hoje);
   const [observacoes,         setObservacoes]         = useState(lancamento?.observacoes || "");
 
@@ -182,19 +181,24 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     }));
   }, [serviceEmpenhoId, materialEmpenhoId]);
 
-  const toggleCategoria = (catValue) => {
-    const cat = CATEGORIAS.find(c => c.value === catValue);
+  const toggleItemContrato = (itemId, itemLabel) => {
     setItensLancamento(prev => {
-      const exists = prev.some(e => e.item_label === catValue);
-      if (exists) return prev.filter(e => e.item_label !== catValue);
+      const exists = prev.some(e => e.item_contrato_id === itemId);
+      if (exists) return prev.filter(e => e.item_contrato_id !== itemId);
+
+      const itemConfig = itensContratoAtivos.find(ic => ic.id === itemId);
+      const naturezaTipo = itemConfig?.grupo_servico === 'fixo' || itemConfig?.grupo_servico === 'por_demanda' ? 'servico' : 'material';
+      const empenhoId = naturezaTipo === "material" ? materialEmpenhoId : serviceEmpenhoId;
+
       return [...prev, {
-        item_label:      catValue,
-        nota_empenho_id: cat?.tipo === "material" ? materialEmpenhoId : serviceEmpenhoId,
-        numero_nf:       "",
-        data_nf:         hoje,
-        valor:           "",
-        retencao:        "",
-        glosa:           "",
+        item_label:       itemLabel,
+        item_contrato_id: itemId,
+        nota_empenho_id:  empenhoId,
+        numero_nf:        "",
+        data_nf:          hoje,
+        valor:            "",
+        retencao:         "",
+        glosa:            "",
       }];
     });
   };
@@ -207,7 +211,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     });
   };
 
-  const isMorCategoria = (label) => label === "MOR Natal" || label === "MOR Mossoró";
+  const shouldShowOrdensServico = itensLancamento.some(entry =>
+    SERVICE_ITEM_LABELS_FOR_OS.includes(entry.item_label)
+  );
 
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -684,31 +690,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* LOCAIS GLOBAIS (mantido para compatibilidade) */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#1a2e4a]">Locais de Prestação de Serviços (Geral)</Label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
-              {LOCAIS_JFRN.map(local => (
-                <div key={local} className="flex items-center gap-2">
-                  <Checkbox
-                    id={`local-${local}`}
-                    checked={osLocais.includes(local)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setOsLocais([...osLocais, local]);
-                      } else {
-                        setOsLocais(osLocais.filter(l => l !== local));
-                      }
-                    }}
-                  />
-                  <label htmlFor={`local-${local}`} className="text-sm cursor-pointer leading-tight">
-                    {local}
-                  </label>
-                </div>
-              ))}
             </div>
+          )}
           </div>
 
           {/* DATA E OBSERVAÇÕES */}
