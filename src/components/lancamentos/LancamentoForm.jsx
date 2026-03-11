@@ -15,12 +15,12 @@ const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
 
 const SERVICE_ITEM_LABELS_FOR_OS = [
-  "Deslocamento Corretivo",
-  "Deslocamento Preventivo",
-  "Deslocamento Engenheiro",
-  "Locações",
-  "Serviços eventuais",
-  "Fornecimento de Materiais",
+  "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
+  "SERVIÇOS DE DESLOCAMENTO PREVENTIVO",
+  "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
+  "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS",
+  "SERVIÇOS EVENTUAIS",
+  "FORNECIMENTO DE MATERIAIS",
 ];
 
 function ItemNFCard({ entry, index, empenhos, onChange }) {
@@ -243,6 +243,48 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     });
   };
 
+  const toggleGrupoMOR = (grupoNome) => {
+    const itensDoGrupo = itensContratoAtivos.filter(item => 
+      item.nome.toUpperCase().includes(grupoNome.toUpperCase()) && item.grupo_servico === 'fixo'
+    );
+    
+    const todosChecked = itensDoGrupo.every(item => 
+      itensLancamento.some(e => e.item_contrato_id === item.id)
+    );
+
+    if (todosChecked) {
+      // Desmarcar todos do grupo
+      itensDoGrupo.forEach(item => {
+        const entry = itensLancamento.find(e => e.item_contrato_id === item.id);
+        if (entry?.lancamento_id) {
+          setPendingCancellations(curr => [...curr, entry.lancamento_id]);
+        }
+      });
+      setItensLancamento(prev => prev.filter(e => 
+        !itensDoGrupo.some(item => item.id === e.item_contrato_id)
+      ));
+    } else {
+      // Marcar todos do grupo
+      const novosItens = itensDoGrupo
+        .filter(item => !itensLancamento.some(e => e.item_contrato_id === item.id))
+        .map(item => {
+          const naturezaTipo = item.grupo_servico === 'fixo' || item.grupo_servico === 'por_demanda' ? 'servico' : 'material';
+          const empenhoId = naturezaTipo === "material" ? materialEmpenhoId : serviceEmpenhoId;
+          return {
+            item_label: item.nome,
+            item_contrato_id: item.id,
+            nota_empenho_id: empenhoId,
+            numero_nf: itensLancamento[0]?.numero_nf || "",
+            data_nf: itensLancamento[0]?.data_nf || hoje,
+            valor: "",
+            retencao: "",
+            glosa: "",
+          };
+        });
+      setItensLancamento(prev => [...prev, ...novosItens]);
+    }
+  };
+
   const updateItem = (index, field, value) => {
     setItensLancamento(prev => {
       const updated = [...prev];
@@ -253,6 +295,23 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   const shouldShowOrdensServico = itensLancamento.some(entry =>
     SERVICE_ITEM_LABELS_FOR_OS.includes(entry.item_label)
+  );
+
+  const hasMaterialItem = itensLancamento.some(entry => {
+    const itemConfig = itensContratoAtivos.find(ic => ic.id === entry.item_contrato_id);
+    return itemConfig && (itemConfig.nome === "FORNECIMENTO DE MATERIAIS" || itemConfig.nome === "FORNECIMENTO DE MATERIAL");
+  });
+
+  // Agrupar itens
+  const morNatalItens = itensContratoAtivos.filter(item => 
+    item.nome.toUpperCase().includes("NATAL") && item.grupo_servico === 'fixo'
+  );
+  const morMossoroItens = itensContratoAtivos.filter(item => 
+    item.nome.toUpperCase().includes("MOSSORÓ") && item.grupo_servico === 'fixo'
+  );
+  const outrosItens = itensContratoAtivos.filter(item => 
+    !morNatalItens.some(m => m.id === item.id) && 
+    !morMossoroItens.some(m => m.id === item.id)
   );
 
   const handlePdfUpload = async (e) => {
@@ -553,25 +612,95 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             </div>
 
             {contratoId && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label>
                   Itens do Contrato
                   <span className="text-gray-400 text-xs ml-1">(selecione um ou mais)</span>
                 </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
-                  {itensContratoAtivos.map(item => (
-                    <div key={item.id} className="flex items-center gap-2">
+                
+                {morNatalItens.length > 0 && (
+                  <div className="border rounded-lg p-3 bg-blue-50/30 space-y-2">
+                    <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
                       <Checkbox
-                        id={`item-${item.id}`}
-                        checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
-                        onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
+                        id="grupo-mor-natal"
+                        checked={morNatalItens.every(item => 
+                          itensLancamento.some(e => e.item_contrato_id === item.id)
+                        )}
+                        onCheckedChange={() => toggleGrupoMOR("NATAL")}
                       />
-                      <label htmlFor={`item-${item.id}`} className="text-sm cursor-pointer leading-tight">
-                        {item.nome}
+                      <label htmlFor="grupo-mor-natal" className="text-sm font-semibold text-[#1a2e4a] cursor-pointer">
+                        MOR Natal
                       </label>
                     </div>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
+                      {morNatalItens.map(item => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`item-${item.id}`}
+                            checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
+                            onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
+                          />
+                          <label htmlFor={`item-${item.id}`} className="text-xs cursor-pointer leading-tight">
+                            {item.nome}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {morMossoroItens.length > 0 && (
+                  <div className="border rounded-lg p-3 bg-green-50/30 space-y-2">
+                    <div className="flex items-center gap-2 pb-2 border-b border-green-200">
+                      <Checkbox
+                        id="grupo-mor-mossoro"
+                        checked={morMossoroItens.every(item => 
+                          itensLancamento.some(e => e.item_contrato_id === item.id)
+                        )}
+                        onCheckedChange={() => toggleGrupoMOR("MOSSORÓ")}
+                      />
+                      <label htmlFor="grupo-mor-mossoro" className="text-sm font-semibold text-[#1a2e4a] cursor-pointer">
+                        MOR Mossoró
+                      </label>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
+                      {morMossoroItens.map(item => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`item-${item.id}`}
+                            checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
+                            onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
+                          />
+                          <label htmlFor={`item-${item.id}`} className="text-xs cursor-pointer leading-tight">
+                            {item.nome}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {outrosItens.length > 0 && (
+                  <div className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                    <div className="text-sm font-semibold text-[#1a2e4a] pb-2 border-b">
+                      Outros Itens
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {outrosItens.map(item => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`item-${item.id}`}
+                            checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
+                            onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
+                          />
+                          <label htmlFor={`item-${item.id}`} className="text-sm cursor-pointer leading-tight">
+                            {item.nome}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -692,32 +821,22 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                           placeholder="0,00"
                         />
                       </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Descrição da OS</Label>
-                        <Input
-                          value={os.descricao}
-                          onChange={e => {
-                            const updated = [...ordensServico];
-                            updated[idx].descricao = e.target.value;
-                            setOrdensServico(updated);
-                          }}
-                          placeholder="Descrição detalhada"
-                        />
-                      </div>
+                      {!hasMaterialItem && (
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label className="text-xs">Descrição resumida do serviço</Label>
+                          <Input
+                            value={os.descricao}
+                            onChange={e => {
+                              const updated = [...ordensServico];
+                              updated[idx].descricao = e.target.value;
+                              setOrdensServico(updated);
+                            }}
+                            placeholder="Descrição resumida"
+                          />
+                        </div>
+                      )}
                       <div className="space-y-1">
-                        <Label className="text-xs">Data de Emissão da OS</Label>
-                        <Input
-                          type="date"
-                          value={os.data_emissao}
-                          onChange={e => {
-                            const updated = [...ordensServico];
-                            updated[idx].data_emissao = e.target.value;
-                            setOrdensServico(updated);
-                          }}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Data de Execução da OS</Label>
+                        <Label className="text-xs">Data de prestação do serviço</Label>
                         <Input
                           type="date"
                           value={os.data_execucao}
@@ -729,7 +848,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                         />
                       </div>
                       <div className="space-y-2 sm:col-span-2">
-                        <Label className="text-xs">Locais de Prestação de Serviços para esta OS</Label>
+                        <Label className="text-xs">Local de Prestação de Serviços</Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-2 bg-white">
                           {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(local => (
                             <div key={local} className="flex items-center gap-2">
