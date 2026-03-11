@@ -219,7 +219,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (exists) {
         const entry = prev.find(e => e.item_contrato_id === itemId);
         if (entry.lancamento_id) {
-          // Adiciona à lista de pendências para cancelamento
           setPendingCancellations(curr => [...curr, entry.lancamento_id]);
         }
         return prev.filter(e => e.item_contrato_id !== itemId);
@@ -243,45 +242,32 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     });
   };
 
-  const toggleGrupoMOR = (grupoNome) => {
+  const toggleGrupoMOR = (grupoLabel, palavraChave) => {
     const itensDoGrupo = itensContratoAtivos.filter(item => 
-      item.nome.toUpperCase().includes(grupoNome.toUpperCase()) && item.grupo_servico === 'fixo'
+      item.nome.toUpperCase().includes(palavraChave.toUpperCase()) && item.grupo_servico === 'fixo'
     );
     
-    const todosChecked = itensDoGrupo.every(item => 
-      itensLancamento.some(e => e.item_contrato_id === item.id)
-    );
+    const grupoChecked = itensLancamento.some(e => e.item_label === grupoLabel);
 
-    if (todosChecked) {
-      // Desmarcar todos do grupo
-      itensDoGrupo.forEach(item => {
-        const entry = itensLancamento.find(e => e.item_contrato_id === item.id);
-        if (entry?.lancamento_id) {
-          setPendingCancellations(curr => [...curr, entry.lancamento_id]);
-        }
-      });
-      setItensLancamento(prev => prev.filter(e => 
-        !itensDoGrupo.some(item => item.id === e.item_contrato_id)
-      ));
+    if (grupoChecked) {
+      // Desmarcar grupo
+      const entry = itensLancamento.find(e => e.item_label === grupoLabel);
+      if (entry?.lancamento_id) {
+        setPendingCancellations(curr => [...curr, entry.lancamento_id]);
+      }
+      setItensLancamento(prev => prev.filter(e => e.item_label !== grupoLabel));
     } else {
-      // Marcar todos do grupo
-      const novosItens = itensDoGrupo
-        .filter(item => !itensLancamento.some(e => e.item_contrato_id === item.id))
-        .map(item => {
-          const naturezaTipo = item.grupo_servico === 'fixo' || item.grupo_servico === 'por_demanda' ? 'servico' : 'material';
-          const empenhoId = naturezaTipo === "material" ? materialEmpenhoId : serviceEmpenhoId;
-          return {
-            item_label: item.nome,
-            item_contrato_id: item.id,
-            nota_empenho_id: empenhoId,
-            numero_nf: itensLancamento[0]?.numero_nf || "",
-            data_nf: itensLancamento[0]?.data_nf || hoje,
-            valor: "",
-            retencao: "",
-            glosa: "",
-          };
-        });
-      setItensLancamento(prev => [...prev, ...novosItens]);
+      // Adicionar grupo como um único item
+      setItensLancamento(prev => [...prev, {
+        item_label: grupoLabel,
+        item_contrato_id: null,
+        nota_empenho_id: serviceEmpenhoId,
+        numero_nf: prev[0]?.numero_nf || "",
+        data_nf: prev[0]?.data_nf || hoje,
+        valor: "",
+        retencao: "",
+        glosa: "",
+      }]);
     }
   };
 
@@ -309,6 +295,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const morMossoroItens = itensContratoAtivos.filter(item => 
     item.nome.toUpperCase().includes("MOSSORÓ") && item.grupo_servico === 'fixo'
   );
+  const hasMORNatal = morNatalItens.length > 0;
+  const hasMORMossoro = morMossoroItens.length > 0;
+  
   const outrosItens = itensContratoAtivos.filter(item => 
     !morNatalItens.some(m => m.id === item.id) && 
     !morMossoroItens.some(m => m.id === item.id)
@@ -612,95 +601,49 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             </div>
 
             {contratoId && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label>
                   Itens do Contrato
                   <span className="text-gray-400 text-xs ml-1">(selecione um ou mais)</span>
                 </Label>
-                
-                {morNatalItens.length > 0 && (
-                  <div className="border rounded-lg p-3 bg-blue-50/30 space-y-2">
-                    <div className="flex items-center gap-2 pb-2 border-b border-blue-200">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
+                  {hasMORNatal && (
+                    <div className="flex items-center gap-2">
                       <Checkbox
                         id="grupo-mor-natal"
-                        checked={morNatalItens.every(item => 
-                          itensLancamento.some(e => e.item_contrato_id === item.id)
-                        )}
-                        onCheckedChange={() => toggleGrupoMOR("NATAL")}
+                        checked={itensLancamento.some(e => e.item_label === "MOR Natal")}
+                        onCheckedChange={() => toggleGrupoMOR("MOR Natal", "NATAL")}
                       />
                       <label htmlFor="grupo-mor-natal" className="text-sm font-semibold text-[#1a2e4a] cursor-pointer">
                         MOR Natal
                       </label>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
-                      {morNatalItens.map(item => (
-                        <div key={item.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`item-${item.id}`}
-                            checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
-                            onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
-                          />
-                          <label htmlFor={`item-${item.id}`} className="text-xs cursor-pointer leading-tight">
-                            {item.nome}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {morMossoroItens.length > 0 && (
-                  <div className="border rounded-lg p-3 bg-green-50/30 space-y-2">
-                    <div className="flex items-center gap-2 pb-2 border-b border-green-200">
+                  )}
+                  {hasMORMossoro && (
+                    <div className="flex items-center gap-2">
                       <Checkbox
                         id="grupo-mor-mossoro"
-                        checked={morMossoroItens.every(item => 
-                          itensLancamento.some(e => e.item_contrato_id === item.id)
-                        )}
-                        onCheckedChange={() => toggleGrupoMOR("MOSSORÓ")}
+                        checked={itensLancamento.some(e => e.item_label === "MOR Mossoró")}
+                        onCheckedChange={() => toggleGrupoMOR("MOR Mossoró", "MOSSORÓ")}
                       />
                       <label htmlFor="grupo-mor-mossoro" className="text-sm font-semibold text-[#1a2e4a] cursor-pointer">
                         MOR Mossoró
                       </label>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-6">
-                      {morMossoroItens.map(item => (
-                        <div key={item.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`item-${item.id}`}
-                            checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
-                            onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
-                          />
-                          <label htmlFor={`item-${item.id}`} className="text-xs cursor-pointer leading-tight">
-                            {item.nome}
-                          </label>
-                        </div>
-                      ))}
+                  )}
+                  {outrosItens.map(item => (
+                    <div key={item.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`item-${item.id}`}
+                        checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
+                        onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
+                      />
+                      <label htmlFor={`item-${item.id}`} className="text-sm cursor-pointer leading-tight">
+                        {item.nome}
+                      </label>
                     </div>
-                  </div>
-                )}
-
-                {outrosItens.length > 0 && (
-                  <div className="border rounded-lg p-3 bg-gray-50 space-y-2">
-                    <div className="text-sm font-semibold text-[#1a2e4a] pb-2 border-b">
-                      Outros Itens
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {outrosItens.map(item => (
-                        <div key={item.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`item-${item.id}`}
-                            checked={itensLancamento.some(e => e.item_contrato_id === item.id)}
-                            onCheckedChange={() => toggleItemContrato(item.id, item.nome)}
-                          />
-                          <label htmlFor={`item-${item.id}`} className="text-sm cursor-pointer leading-tight">
-                            {item.nome}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
               </div>
             )}
 
