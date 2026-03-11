@@ -208,9 +208,39 @@ export default function Lancamentos() {
                     <td className="p-3 text-xs text-gray-600">{contrato?.numero || "—"}</td>
                     <td className="p-3 text-xs text-gray-600">{l.item_label || item?.nome || "—"}</td>
                     <td className="p-3">
-                      <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
-                        {l.status || "—"}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
+                          {l.status || "—"}
+                        </Badge>
+                        {l.status === "Cancelado" && (() => {
+                          const hist = historicos.find(h => h.lancamento_financeiro_id === l.id && h.tipo_acao === "cancelamento");
+                          return hist?.motivo ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-3.5 h-3.5 text-amber-500 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <div className="font-semibold text-xs">Motivo do Cancelamento:</div>
+                                    <div className="text-xs">{hist.motivo}</div>
+                                    {hist.realizado_por && (
+                                      <div className="text-xs text-gray-400 mt-2">
+                                        Por: {hist.realizado_por}
+                                      </div>
+                                    )}
+                                    {hist.data_acao && (
+                                      <div className="text-xs text-gray-400">
+                                        Em: {new Date(hist.data_acao).toLocaleDateString("pt-BR")}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : null;
+                        })()}
+                      </div>
                     </td>
                     <td className="p-3 text-right font-semibold">{fmt(l.valor)}</td>
                     <td className="p-3 text-xs text-gray-500 space-y-0.5">
