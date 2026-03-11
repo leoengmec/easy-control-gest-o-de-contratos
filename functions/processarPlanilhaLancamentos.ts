@@ -23,6 +23,16 @@ Deno.serve(async (req) => {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const rawData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Normalizar chaves removendo espaços extras
+        const normalizedData = rawData.map(row => {
+            const cleanRow = {};
+            for (const key in row) {
+                const cleanKey = key.trim();
+                cleanRow[cleanKey] = row[key];
+            }
+            return cleanRow;
+        });
 
         // Buscar todos os contratos para mapear Vigência -> ID
         const contratos = await base44.asServiceRole.entities.Contrato.list();
@@ -36,8 +46,8 @@ Deno.serve(async (req) => {
         const lancamentosValidos = [];
         const erros = [];
 
-        for (let i = 0; i < rawData.length; i++) {
-            const row = rawData[i];
+        for (let i = 0; i < normalizedData.length; i++) {
+            const row = normalizedData[i];
             const linha = i + 2; // +2 porque Excel começa em 1 e tem header
             const errosLinha = [];
 
@@ -152,7 +162,7 @@ Deno.serve(async (req) => {
 
         return Response.json({
             sucesso: true,
-            totalLinhas: rawData.length,
+            totalLinhas: normalizedData.length,
             lancamentosValidos: lancamentosValidos.length,
             erros: erros.length,
             dados: lancamentosValidos,

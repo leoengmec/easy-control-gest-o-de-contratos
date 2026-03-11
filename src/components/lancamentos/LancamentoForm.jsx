@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, Plus, X } from "lucide-react";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
@@ -100,9 +100,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   const [processoPagSei,      setProcessoPagSei]      = useState(lancamento?.processo_pagamento_sei || "");
   const [ordemBancaria,       setOrdemBancaria]       = useState(lancamento?.ordem_bancaria || "");
-  const [osNumero,            setOsNumero]            = useState(lancamento?.os_numero || "");
-  const [osData,              setOsData]              = useState(lancamento?.os_data || "");
-  const [osLocal,             setOsLocal]             = useState(lancamento?.os_local || "");
+  const [ordensServico,       setOrdensServico]       = useState(lancamento?.ordens_servico || [{ numero: "", data: "" }]);
+  const [osLocais,            setOsLocais]            = useState(lancamento?.os_locais || []);
   const [dataLancamento,      setDataLancamento]      = useState(lancamento?.data_lancamento || hoje);
   const [observacoes,         setObservacoes]         = useState(lancamento?.observacoes || "");
 
@@ -243,9 +242,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         const data = result.output;
 
         // Preenche OS apenas se aplicável e se foram extraídos com sucesso
-        if (extrairOS) {
-          if (data.os_numero) setOsNumero(data.os_numero);
-          if (data.os_data)   setOsData(data.os_data);
+        if (extrairOS && data.os_numero && data.os_data) {
+          setOrdensServico([{ numero: data.os_numero, data: data.os_data }]);
         }
 
         // Preenche NF em TODOS os itens selecionados (incluindo MOR)
@@ -268,8 +266,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             contrato_id: contratoId,
             numero_nf: data.numero_nf || "",
             data_nf: data.data_nf || "",
-            os_numero: osNumero,
-            os_local: osLocal,
+            os_numero: ordensServico[0]?.numero || "",
+            os_local: osLocais[0] || "",
             valor_total_nota: data.valor_total || 0,
           })));
         }
@@ -295,9 +293,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       status,
       processo_pagamento_sei: processoPagSei,
       ordem_bancaria:       ordemBancaria,
-      os_numero:            osNumero,
-      os_data:              osData,
-      os_local:             osLocal,
+      ordens_servico:       ordensServico.filter(os => os.numero || os.data),
+      os_locais:            osLocais,
       data_lancamento:      dataLancamento,
       observacoes,
     };
@@ -330,8 +327,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             await base44.entities.ItemMaterialNF.create({
               ...itemMat,
               lancamento_financeiro_id: created.id,
-              os_numero: osNumero,
-              os_local:  osLocal,
+              os_numero: ordensServico[0]?.numero || "",
+              os_local:  osLocais[0] || "",
             });
           }
         }
@@ -492,28 +489,84 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           </div>
 
           {/* OS */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-semibold text-[#1a2e4a]">Ordens de Serviço</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                onClick={() => setOrdensServico([...ordensServico, { numero: "", data: "" }])}
+              >
+                <Plus className="w-3 h-3 mr-1" /> Adicionar OS
+              </Button>
+            </div>
+            {ordensServico.map((os, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Número da OS</Label>
+                    <Input
+                      value={os.numero}
+                      onChange={e => {
+                        const updated = [...ordensServico];
+                        updated[idx].numero = e.target.value;
+                        setOrdensServico(updated);
+                      }}
+                      placeholder="Nº da OS"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Data da OS</Label>
+                    <Input
+                      type="date"
+                      value={os.data}
+                      onChange={e => {
+                        const updated = [...ordensServico];
+                        updated[idx].data = e.target.value;
+                        setOrdensServico(updated);
+                      }}
+                    />
+                  </div>
+                </div>
+                {ordensServico.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="mt-5 text-red-500 hover:text-red-700"
+                    onClick={() => setOrdensServico(ordensServico.filter((_, i) => i !== idx))}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* LOCAIS */}
           <div className="space-y-2">
-            <Label className="text-sm font-semibold text-[#1a2e4a]">Informações da OS</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label className="text-xs">Número da OS</Label>
-                <Input value={osNumero} onChange={e => setOsNumero(e.target.value)} placeholder="Nº da OS" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Data da OS</Label>
-                <Input type="date" value={osData} onChange={e => setOsData(e.target.value)} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Local de Prestação</Label>
-                <Select value={osLocal} onValueChange={setOsLocal}>
-                  <SelectTrigger><SelectValue placeholder="Selecione o local" /></SelectTrigger>
-                  <SelectContent>
-                    {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(l => (
-                      <SelectItem key={l} value={l}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <Label className="text-sm font-semibold text-[#1a2e4a]">Locais de Prestação de Serviços</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
+              {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(local => (
+                <div key={local} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`local-${local}`}
+                    checked={osLocais.includes(local)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setOsLocais([...osLocais, local]);
+                      } else {
+                        setOsLocais(osLocais.filter(l => l !== local));
+                      }
+                    }}
+                  />
+                  <label htmlFor={`local-${local}`} className="text-sm cursor-pointer leading-tight">
+                    {local}
+                  </label>
+                </div>
+              ))}
             </div>
           </div>
 

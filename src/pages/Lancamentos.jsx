@@ -179,6 +179,7 @@ export default function Lancamentos() {
                 <th className="text-left p-3 font-medium text-gray-500">Status</th>
                 <th className="text-right p-3 font-medium text-gray-500">Valor</th>
                 <th className="text-left p-3 font-medium text-gray-500">NF / OS / SEI</th>
+                <th className="text-left p-3 font-medium text-gray-500">Cadastrado por</th>
                 {canEdit && <th className="p-3"></th>}
               </tr>
             </thead>
@@ -199,9 +200,16 @@ export default function Lancamentos() {
                     <td className="p-3 text-right font-semibold">{fmt(l.valor)}</td>
                     <td className="p-3 text-xs text-gray-500 space-y-0.5">
                       {l.numero_nf && <div>NF: {l.numero_nf}</div>}
-                      {l.os_numero && <div>OS: {l.os_numero}</div>}
+                      {l.ordens_servico?.length > 0 ? (
+                        l.ordens_servico.map((os, idx) => (
+                          <div key={idx}>OS: {os.numero}</div>
+                        ))
+                      ) : l.os_numero && <div>OS: {l.os_numero}</div>}
                       {l.processo_pagamento_sei && <div>SEI: {l.processo_pagamento_sei}</div>}
-                      {!l.numero_nf && !l.os_numero && !l.processo_pagamento_sei && "—"}
+                      {!l.numero_nf && !l.ordens_servico?.length && !l.os_numero && !l.processo_pagamento_sei && "—"}
+                    </td>
+                    <td className="p-3 text-xs text-gray-500">
+                      {l.created_by || "—"}
                     </td>
                     {canEdit && (
                       <td className="p-3">
