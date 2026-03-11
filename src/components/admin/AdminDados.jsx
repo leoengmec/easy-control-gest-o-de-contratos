@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, FileText, DollarSign, Package, AlertTriangle, Trash2, RefreshCw, Download } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Database, FileText, DollarSign, Package, AlertTriangle, Trash2, RefreshCw, Download, Upload, CheckCircle, XCircle } from "lucide-react";
 
 const ENTIDADES_SIMPLES = [
   {
@@ -236,92 +237,291 @@ function ItemMaterialNFCard() {
 export default function AdminDados() {
   const [exportando, setExportando] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
-
+  const [user, setUser] = useState(null);
+  
+  const [showModalRestore, setShowModalRestore] = useState(false);
+  const [arquivoSelecionado, setArquivoSelecionado] = useState(null);
   const [importando, setImportando] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const [importErro, setImportErro] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useState(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
 
   const handleExportarBD = async () => {
     setExportando(true);
     setExportMsg("");
-    const response = await base44.functions.invoke('exportDatabase');
-    const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `easer_control_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    a.remove();
-    setExportando(false);
-    setExportMsg("Backup exportado com sucesso!");
-    setTimeout(() => setExportMsg(""), 5000);
+    try {
+      const response = await base44.functions.invoke('exportDatabase');
+      const timestamp = new Date().toISOString().replace(/:/g, '-').slice(0, 16).replace('T', '_');
+      const filename = `backup_base44_${timestamp}.json`;
+      
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      
+      setExportMsg(`Backup exportado: ${filename}`);
+      setTimeout(() => setExportMsg(""), 5000);
+    } catch (error) {
+      setExportMsg("Erro ao exportar backup.");
+    } finally {
+      setExportando(false);
+    }
   };
 
-  const handleImportarBD = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const validarArquivo = (file) => {
+    const extensoesPermitidas = ['.json'];
+    const extensao = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+    
+    if (!extensoesPermitidas.includes(extensao)) {
+      setImportErro(`Formato inválido. Apenas arquivos ${extensoesPermitidas.join(', ')} são permitidos.`);
+      return false;
+    }
+    
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      setImportErro("Arquivo muito grande. Tamanho máximo: 50MB.");
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handleFileSelect = (file) => {
+    setImportErro("");
+    if (!validarArquivo(file)) return;
+    setArquivoSelecionado(file);
+    setShowModalRestore(true);
+  };
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFileSelect(e.target.files[0]);
+    }
+  };
+
+  const confirmarImportacao = async () => {
+    if (!arquivoSelecionado) return;
+    
+    setImportando(true);
     setImportErro("");
     setImportMsg("");
+    
     const reader = new FileReader();
     reader.onload = async (evt) => {
-      setImportando(true);
-      const db = JSON.parse(evt.target.result);
-      const response = await base44.functions.invoke('importDatabase', { db });
-      setImportando(false);
-      if (response.data?.success) {
-        const total = Object.values(response.data.resultado).reduce((acc, r) => acc + r.importados, 0);
-        setImportMsg(`Importação concluída! ${total} registro(s) importado(s).`);
-      } else {
-        setImportErro(response.data?.error || "Erro ao importar o backup.");
+      try {
+        const db = JSON.parse(evt.target.result);
+        const response = await base44.functions.invoke('importDatabase', { db });
+        
+        if (response.data?.success) {
+          const total = Object.values(response.data.resultado).reduce((acc, r) => acc + r.importados, 0);
+          setImportMsg(`✓ Importação concluída! ${total} registro(s) importado(s).`);
+          
+          // Log da operação
+          await base44.entities.NotificacaoAdmin.create({
+            tipo: "outro",
+            titulo: "Backup Restaurado",
+            mensagem: `${user?.full_name || user?.email} restaurou um backup com ${total} registros em ${new Date().toLocaleString('pt-BR')}.`,
+            lida: false,
+          });
+        } else {
+          setImportErro(response.data?.error || "Erro ao importar o backup.");
+        }
+      } catch (error) {
+        setImportErro(`Erro ao processar arquivo: ${error.message}`);
+      } finally {
+        setImportando(false);
+        setShowModalRestore(false);
+        setArquivoSelecionado(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        setTimeout(() => { setImportMsg(""); setImportErro(""); }, 8000);
       }
-      setTimeout(() => { setImportMsg(""); setImportErro(""); }, 8000);
     };
-    reader.readAsText(file);
-    e.target.value = "";
+    
+    reader.onerror = () => {
+      setImportErro("Erro ao ler o arquivo.");
+      setImportando(false);
+    };
+    
+    reader.readAsText(arquivoSelecionado);
   };
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Database className="w-4 h-4 text-[#1a2e4a]" />
-          <h2 className="text-base font-semibold text-[#1a2e4a]">Gerenciamento de Dados</h2>
-        </div>
-        <div className="flex gap-2">
-          <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border border-[#1a2e4a] text-[#1a2e4a] hover:bg-[#1a2e4a] hover:text-white transition-colors cursor-pointer ${importando ? "opacity-50 pointer-events-none" : ""}`}>
-            <Download className="w-3.5 h-3.5 rotate-180" />
-            {importando ? "Importando..." : "Importar Backup (JSON)"}
-            <input type="file" accept=".json" className="hidden" onChange={handleImportarBD} disabled={importando} />
-          </label>
-          <Button
-            size="sm"
-            className="gap-2 bg-[#1a2e4a] hover:bg-[#243d5e] text-white text-xs"
-            onClick={handleExportarBD}
-            disabled={exportando}
-          >
-            <Download className="w-3.5 h-3.5" />
-            {exportando ? "Exportando..." : "Exportar Backup (JSON)"}
-          </Button>
-        </div>
-      </div>
+      {/* Seção de Backup e Restauração */}
+      <Card className="border-blue-200 bg-blue-50/30">
+        <CardContent className="pt-5 space-y-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Database className="w-5 h-5 text-[#1a2e4a]" />
+            <h2 className="text-base font-semibold text-[#1a2e4a]">Backup e Restauração</h2>
+          </div>
 
-      {exportMsg && (
-        <div className="text-xs bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">{exportMsg}</div>
-      )}
-      {importMsg && (
-        <div className="text-xs bg-green-50 border border-green-200 text-green-700 px-4 py-2 rounded-lg">{importMsg}</div>
-      )}
-      {importErro && (
-        <div className="text-xs bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg">{importErro}</div>
-      )}
+          {/* Exportar Backup */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-[#1a2e4a] mb-1">Exportar Base de Dados</h3>
+                <p className="text-xs text-gray-500">Gera um arquivo JSON com todos os dados do sistema para backup seguro.</p>
+              </div>
+              <Button
+                size="sm"
+                className="gap-2 bg-[#1a2e4a] hover:bg-[#243d5e] text-white"
+                onClick={handleExportarBD}
+                disabled={exportando}
+              >
+                <Download className="w-4 h-4" />
+                {exportando ? "Exportando..." : "Exportar Backup"}
+              </Button>
+            </div>
+            {exportMsg && (
+              <div className="mt-3 flex items-center gap-2 text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded">
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                {exportMsg}
+              </div>
+            )}
+          </div>
 
-      <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-3 rounded-lg flex items-start gap-2">
-        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-        <span>As operações de limpeza de dados são <strong>irreversíveis</strong>. Tenha certeza antes de prosseguir.</span>
-      </div>
+          {/* Restaurar Backup */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="mb-3">
+              <h3 className="text-sm font-semibold text-[#1a2e4a] mb-1">Restaurar Backup</h3>
+              <p className="text-xs text-gray-500">Importa dados de um arquivo de backup. Apenas arquivos JSON são aceitos.</p>
+            </div>
+            
+            {/* Drag and Drop Zone */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
+                dragActive ? "border-[#1a2e4a] bg-blue-50" : "border-gray-300 bg-gray-50"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+            >
+              <div className="flex flex-col items-center justify-center gap-2 text-center">
+                <Upload className="w-8 h-8 text-gray-400" />
+                <p className="text-sm font-medium text-gray-700">
+                  Arraste o arquivo aqui ou clique para selecionar
+                </p>
+                <p className="text-xs text-gray-500">Apenas arquivos .json (máx. 50MB)</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={handleInputChange}
+                  disabled={importando}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={importando}
+                >
+                  Selecionar Arquivo
+                </Button>
+              </div>
+            </div>
+
+            {importMsg && (
+              <div className="mt-3 flex items-center gap-2 text-xs bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded">
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                {importMsg}
+              </div>
+            )}
+            {importErro && (
+              <div className="mt-3 flex items-center gap-2 text-xs bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded">
+                <XCircle className="w-4 h-4 flex-shrink-0" />
+                {importErro}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal de Confirmação de Restauração */}
+      <Dialog open={showModalRestore} onOpenChange={setShowModalRestore}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Confirmar Restauração de Backup
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2">
+              <p>
+                <strong>Atenção:</strong> Esta ação irá importar os dados do arquivo selecionado para o sistema.
+              </p>
+              <p className="text-red-600 font-semibold">
+                Os dados atuais serão mantidos e os novos registros serão adicionados ao banco de dados.
+              </p>
+              <p className="text-xs text-gray-600">
+                Arquivo: <span className="font-mono">{arquivoSelecionado?.name}</span>
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowModalRestore(false);
+                setArquivoSelecionado(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+              disabled={importando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={confirmarImportacao}
+              disabled={importando}
+              className="bg-[#1a2e4a] hover:bg-[#243d5e]"
+            >
+              {importando ? "Importando..." : "Confirmar Restauração"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Seção de Limpeza de Dados */}
       <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Trash2 className="w-4 h-4 text-[#1a2e4a]" />
+          <h2 className="text-base font-semibold text-[#1a2e4a]">Limpeza de Dados</h2>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-4 py-3 rounded-lg flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>As operações de limpeza de dados são <strong>irreversíveis</strong>. Faça backup antes de prosseguir.</span>
+        </div>
         {ENTIDADES_SIMPLES.map(e => <EntidadeCard key={e.id} entidade={e} />)}
         <ItemMaterialNFCard />
       </div>

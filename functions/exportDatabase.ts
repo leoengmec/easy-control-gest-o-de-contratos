@@ -31,13 +31,16 @@ Deno.serve(async (req) => {
       db[nome] = await base44.asServiceRole.entities[nome].list(null, 5000);
     }
 
+    const timestamp = new Date().toISOString().replace(/:/g, '-').slice(0, 16).replace('T', '_');
+    const filename = `backup_base44_${timestamp}.json`;
+    
     const json = JSON.stringify(db, null, 2);
 
     return new Response(json, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Content-Disposition': `attachment; filename="easer_control_backup_${new Date().toISOString().slice(0, 10)}.json"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

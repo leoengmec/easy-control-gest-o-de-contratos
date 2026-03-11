@@ -55,6 +55,15 @@ Deno.serve(async (req) => {
       resultado[nome] = { importados, ignorados };
     }
 
+    // Log da operação
+    await base44.asServiceRole.entities.NotificacaoAdmin.create({
+      tipo: "outro",
+      titulo: "Backup Restaurado",
+      mensagem: `Backup restaurado por ${user.full_name || user.email} em ${new Date().toLocaleString('pt-BR')}. Total importado: ${Object.values(resultado).reduce((acc, r) => acc + r.importados, 0)} registros.`,
+      lida: false,
+      dados_extras: JSON.stringify({ resultado, timestamp: new Date().toISOString() }),
+    });
+
     return Response.json({ success: true, resultado });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
