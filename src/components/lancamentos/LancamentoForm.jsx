@@ -15,6 +15,7 @@ const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
 
 const SERVICE_ITEM_LABELS_FOR_OS = [
+  "FORNECIMENTO DE MATERIAL",
   "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
   "SERVIÇOS DE DESLOCAMENTO PREVENTIVO",
   "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
@@ -750,6 +751,30 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                         />
                       </div>
                       <div className="space-y-1">
+                        <Label className="text-xs">Data de emissão da OS</Label>
+                        <Input
+                          type="date"
+                          value={os.data_emissao}
+                          onChange={e => {
+                            const updated = [...ordensServico];
+                            updated[idx].data_emissao = e.target.value;
+                            setOrdensServico(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label className="text-xs">Descrição resumida do serviço</Label>
+                        <Input
+                          value={os.descricao}
+                          onChange={e => {
+                            const updated = [...ordensServico];
+                            updated[idx].descricao = e.target.value;
+                            setOrdensServico(updated);
+                          }}
+                          placeholder="Descrição resumida"
+                        />
+                      </div>
+                      <div className="space-y-1">
                         <Label className="text-xs">Valor da OS (R$)</Label>
                         <Input
                           type="number"
@@ -764,22 +789,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                           placeholder="0,00"
                         />
                       </div>
-                      {!hasMaterialItem && (
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label className="text-xs">Descrição resumida do serviço</Label>
-                          <Input
-                            value={os.descricao}
-                            onChange={e => {
-                              const updated = [...ordensServico];
-                              updated[idx].descricao = e.target.value;
-                              setOrdensServico(updated);
-                            }}
-                            placeholder="Descrição resumida"
-                          />
-                        </div>
-                      )}
                       <div className="space-y-1">
-                        <Label className="text-xs">Data de prestação do serviço</Label>
+                        <Label className="text-xs">Data de execução do serviço</Label>
                         <Input
                           type="date"
                           value={os.data_execucao}
