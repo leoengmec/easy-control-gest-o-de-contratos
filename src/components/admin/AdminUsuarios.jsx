@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  UserPlus, Mail, Shield, Users, Trash2, Bell, CheckCheck, AlertCircle, X
+  UserPlus, Mail, Shield, Users, Trash2, Bell, CheckCheck, AlertCircle, X, Pencil
 } from "lucide-react";
 
 export const ROLES = [
@@ -411,7 +411,7 @@ export default function AdminUsuarios() {
                             setEditMatricula(u.matricula || "");
                           }}
                         >
-                          <Shield className="w-3.5 h-3.5 text-gray-400 hover:text-blue-600" />
+                          <Pencil className="w-3.5 h-3.5 text-gray-400 hover:text-blue-600" />
                         </button>
                         {confirmDelete === u.id ? (
                           <div className="flex items-center gap-1">
