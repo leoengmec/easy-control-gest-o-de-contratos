@@ -28,6 +28,7 @@ export default function Lancamentos() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [user, setUser] = useState(null);
+  const [usuarios, setUsuarios] = useState({});
   const anoAtual = new Date().getFullYear();
   const [filtroAno, setFiltroAno] = useState(String(anoAtual));
   const [filtroContrato, setFiltroContrato] = useState("todos");
@@ -57,6 +58,20 @@ export default function Lancamentos() {
     if (filtroContrato !== "todos") filter.contrato_id = filtroContrato;
     const data = await base44.entities.LancamentoFinanceiro.filter(filter, "-created_date");
     setLancamentos(data);
+    
+    // Buscar usuários únicos
+    const emailsUnicos = [...new Set(data.map(l => l.created_by).filter(Boolean))];
+    if (emailsUnicos.length > 0) {
+      const users = await base44.entities.User.list();
+      const userMap = {};
+      users.forEach(u => {
+        if (emailsUnicos.includes(u.email)) {
+          userMap[u.email] = u.full_name;
+        }
+      });
+      setUsuarios(userMap);
+    }
+    
     setLoading(false);
   };
 
@@ -208,8 +223,13 @@ export default function Lancamentos() {
                       {l.processo_pagamento_sei && <div>SEI: {l.processo_pagamento_sei}</div>}
                       {!l.numero_nf && !l.ordens_servico?.length && !l.os_numero && !l.processo_pagamento_sei && "—"}
                     </td>
-                    <td className="p-3 text-xs text-gray-500">
-                      {l.created_by || "—"}
+                    <td className="p-3 text-xs text-gray-600">
+                      <div className="font-medium">{usuarios[l.created_by] || l.created_by || "—"}</div>
+                      {l.created_date && (
+                        <div className="text-gray-400 mt-0.5">
+                          {new Date(l.created_date).toLocaleDateString("pt-BR")}
+                        </div>
+                      )}
                     </td>
                     {canEdit && (
                       <td className="p-3">
