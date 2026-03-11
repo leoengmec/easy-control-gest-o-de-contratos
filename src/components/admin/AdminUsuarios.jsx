@@ -119,6 +119,10 @@ export default function AdminUsuarios() {
   const [inviting, setInviting] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editRole, setEditRole] = useState("");
+  const [editSetor, setEditSetor] = useState("");
+  const [editVinculo, setEditVinculo] = useState("");
+  const [editVinculoOutros, setEditVinculoOutros] = useState("");
+  const [editMatricula, setEditMatricula] = useState("");
   const [saving, setSaving] = useState(false);
   const [msgSucesso, setMsgSucesso] = useState("");
   const [showNotifs, setShowNotifs] = useState(false);
@@ -176,11 +180,27 @@ export default function AdminUsuarios() {
   };
 
   const handleSaveRole = async (userId) => {
+    // Validação: matrícula obrigatória para Estagiário e Servidor
+    if ((editVinculo === "Estagiário" || editVinculo === "Servidor") && !editMatricula) {
+      setMsgSucesso("Matrícula é obrigatória para Estagiário e Servidor.");
+      setTimeout(() => setMsgSucesso(""), 3000);
+      return;
+    }
+    
     setSaving(true);
-    await base44.entities.User.update(userId, { role: editRole });
+    const dados = { 
+      role: editRole,
+      setor: editSetor,
+      vinculo: editVinculo,
+      matricula: editMatricula
+    };
+    if (editVinculo === "Outros") {
+      dados.vinculo_outros = editVinculoOutros;
+    }
+    await base44.entities.User.update(userId, dados);
     setSaving(false);
     setEditingId(null);
-    setMsgSucesso("Perfil atualizado!");
+    setMsgSucesso("Dados do usuário atualizados!");
     setTimeout(() => setMsgSucesso(""), 3000);
     carregar();
   };
@@ -303,33 +323,93 @@ export default function AdminUsuarios() {
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-gray-800 truncate">{u.full_name || "—"}</div>
                       <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                      {u.setor && <div className="text-xs text-gray-500">Setor: {u.setor}</div>}
+                      {u.vinculo && <div className="text-xs text-gray-500">Vínculo: {u.vinculo}{u.vinculo === "Outros" && u.vinculo_outros ? ` (${u.vinculo_outros})` : ""}</div>}
+                      {u.matricula && <div className="text-xs text-gray-500">Matrícula: {u.matricula}</div>}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {editingId === u.id ? (
-                      <>
-                        <Select value={editRole} onValueChange={setEditRole}>
-                          <SelectTrigger className="w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <Button size="sm" className="h-8 text-xs bg-[#1a2e4a] hover:bg-[#2a4a7a]" onClick={() => handleSaveRole(u.id)} disabled={saving}>
-                          {saving ? "..." : "Salvar"}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingId(null)}>
-                          Cancelar
-                        </Button>
-                      </>
+                      <div className="flex flex-col gap-2 w-full max-w-2xl">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Perfil</Label>
+                            <Select value={editRole} onValueChange={setEditRole}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Setor</Label>
+                            <Input
+                              className="h-8 text-xs"
+                              value={editSetor}
+                              onChange={e => setEditSetor(e.target.value)}
+                              placeholder="Ex: RH, TI..."
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Vínculo</Label>
+                            <Select value={editVinculo} onValueChange={setEditVinculo}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Estagiário">Estagiário</SelectItem>
+                                <SelectItem value="Servidor">Servidor</SelectItem>
+                                <SelectItem value="Terceirizado">Terceirizado</SelectItem>
+                                <SelectItem value="Outros">Outros</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {editVinculo === "Outros" && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Especificar</Label>
+                              <Input
+                                className="h-8 text-xs"
+                                value={editVinculoOutros}
+                                onChange={e => setEditVinculoOutros(e.target.value)}
+                                placeholder="Descreva o vínculo"
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <Label className="text-xs">Matrícula {(editVinculo === "Estagiário" || editVinculo === "Servidor") && <span className="text-red-500">*</span>}</Label>
+                            <Input
+                              className="h-8 text-xs"
+                              value={editMatricula}
+                              onChange={e => setEditMatricula(e.target.value)}
+                              placeholder="Número da matrícula"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingId(null)}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" className="h-8 text-xs bg-[#1a2e4a] hover:bg-[#2a4a7a]" onClick={() => handleSaveRole(u.id)} disabled={saving}>
+                            {saving ? "..." : "Salvar"}
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
                       <>
                         <Badge variant="outline" className={`text-xs ${getRoleStyle(u.role)}`}>
                           {getRoleLabel(u.role)}
                         </Badge>
                         <button
-                          title="Alterar perfil"
+                          title="Editar dados"
                           className="p-1.5 hover:bg-gray-100 rounded"
-                          onClick={() => { setEditingId(u.id); setEditRole(u.role || "user"); }}
+                          onClick={() => { 
+                            setEditingId(u.id); 
+                            setEditRole(u.role || "user");
+                            setEditSetor(u.setor || "");
+                            setEditVinculo(u.vinculo || "");
+                            setEditVinculoOutros(u.vinculo_outros || "");
+                            setEditMatricula(u.matricula || "");
+                          }}
                         >
                           <Shield className="w-3.5 h-3.5 text-gray-400 hover:text-blue-600" />
                         </button>
