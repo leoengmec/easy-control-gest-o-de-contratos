@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [contratoSelecionado, setContratoSelecionado] = useState("todos");
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [totalContratos, setTotalContratos] = useState(0);
+  const [totalContratosAtivos, setTotalContratosAtivos] = useState(0);
   const itensPorPagina = 10;
 
   const anoAtual = new Date().getFullYear();
@@ -61,8 +62,12 @@ export default function Dashboard() {
     const query = {};
     if (filtroStatus !== "todos") query.status = filtroStatus;
     
-    base44.entities.Contrato.filter(query).then(todosContratos => {
+    Promise.all([
+      base44.entities.Contrato.filter(query),
+      base44.entities.Contrato.filter({ status: "ativo" })
+    ]).then(([todosContratos, contratosAtivos]) => {
       setTotalContratos(todosContratos.length);
+      setTotalContratosAtivos(contratosAtivos.length);
     });
   }, [filtroStatus]);
 
