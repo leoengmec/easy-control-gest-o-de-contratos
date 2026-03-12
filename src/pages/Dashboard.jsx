@@ -25,6 +25,8 @@ export default function Dashboard() {
   const itensPorPagina = 10;
 
   const anoAtual = new Date().getFullYear();
+  const [filtroAno, setFiltroAno] = useState(String(anoAtual));
+  const [anosDisponiveis, setAnosDisponiveis] = useState([]);
 
   useEffect(() => {
     setLoading(true);
@@ -32,18 +34,19 @@ export default function Dashboard() {
     if (filtroStatus !== "todos") query.status = filtroStatus;
     
     const skip = (paginaAtual - 1) * itensPorPagina;
+    const anoFiltro = parseInt(filtroAno);
 
     Promise.all([
       base44.entities.Contrato.filter(query, "-created_date", itensPorPagina, skip),
       contratoSelecionado === "todos" 
-        ? base44.entities.LancamentoFinanceiro.filter({ ano: anoAtual })
-        : base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoSelecionado, ano: anoAtual }),
+        ? base44.entities.LancamentoFinanceiro.filter({ ano: anoFiltro })
+        : base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoSelecionado, ano: anoFiltro }),
       contratoSelecionado === "todos"
-        ? base44.entities.NotaEmpenho.filter({ ano: anoAtual })
-        : base44.entities.NotaEmpenho.filter({ contrato_id: contratoSelecionado, ano: anoAtual }),
+        ? base44.entities.NotaEmpenho.filter({ ano: anoFiltro })
+        : base44.entities.NotaEmpenho.filter({ contrato_id: contratoSelecionado, ano: anoFiltro }),
       contratoSelecionado === "todos"
-        ? base44.entities.OrcamentoContratualAnual.filter({ ano: anoAtual })
-        : base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contratoSelecionado, ano: anoAtual }),
+        ? base44.entities.OrcamentoContratualAnual.filter({ ano: anoFiltro })
+        : base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contratoSelecionado, ano: anoFiltro }),
     ])
       .then(([c, l, e, o]) => {
         setContratos(c);
@@ -56,7 +59,7 @@ export default function Dashboard() {
         console.error("Erro ao carregar dados do Dashboard:", error);
         setLoading(false);
       });
-  }, [filtroStatus, paginaAtual, contratoSelecionado, anoAtual]);
+  }, [filtroStatus, paginaAtual, contratoSelecionado, filtroAno]);
 
   useEffect(() => {
     const query = {};
@@ -64,10 +67,18 @@ export default function Dashboard() {
     
     Promise.all([
       base44.entities.Contrato.filter(query),
-      base44.entities.Contrato.filter({ status: "ativo" })
-    ]).then(([todosContratos, contratosAtivos]) => {
+      base44.entities.Contrato.filter({ status: "ativo" }),
+      base44.entities.LancamentoFinanceiro.list(),
+      base44.entities.OrcamentoContratualAnual.list()
+    ]).then(([todosContratos, contratosAtivos, todosLancamentos, todosOrcamentos]) => {
       setTotalContratos(todosContratos.length);
       setTotalContratosAtivos(contratosAtivos.length);
+      
+      // Extrair anos únicos de lançamentos e orçamentos
+      const anosLanc = todosLancamentos.map(l => l.ano).filter(Boolean);
+      const anosOrc = todosOrcamentos.map(o => o.ano).filter(Boolean);
+      const anosUnicos = [...new Set([...anosLanc, ...anosOrc])].sort((a, b) => b - a);
+      setAnosDisponiveis(anosUnicos.map(String));
     });
   }, [filtroStatus]);
 
@@ -83,10 +94,11 @@ export default function Dashboard() {
     ? orcamentosContratuais
     : orcamentosContratuais.filter(o => o.contrato_id === contratoSelecionado);
 
-  const lancamentosAno = lancamentosBase.filter(l => l.ano === anoAtual);
+  const anoFiltro = parseInt(filtroAno);
+  const lancamentosAno = lancamentosBase.filter(l => l.ano === anoFiltro);
   const totalPagoAno = lancamentosAno.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
   const totalProvisionadoAno = lancamentosAno.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalEmpenhado = empenhosFiltrados.filter(e => e.ano === anoAtual).reduce((s, e) => s + (e.valor_total || 0), 0);
+  const totalEmpenhado = empenhosFiltrados.filter(e => e.ano === anoFiltro).reduce((s, e) => s + (e.valor_total || 0), 0);
 
   const contratosFiltrados = filtroBusca
     ? contratos.filter(c =>
@@ -109,9 +121,19 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div>
           <h1 className="text-2xl font-bold text-[#1a2e4a]">Dashboard</h1>
-          <p className="text-gray-500 text-sm">Gestão de contratos de manutenção · {anoAtual}</p>
+          <p className="text-gray-500 text-sm">Gestão de contratos de manutenção</p>
         </div>
-        <div className="sm:ml-4">
+        <div className="sm:ml-auto flex gap-2">
+          <Select value={filtroAno} onValueChange={setFiltroAno}>
+            <SelectTrigger className="h-8 text-xs w-24">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {anosDisponiveis.map(a => (
+                <SelectItem key={a} value={a}>{a}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={contratoSelecionado} onValueChange={setContratoSelecionado}>
             <SelectTrigger className="h-8 text-xs w-64">
               <SelectValue placeholder="Todos os contratos" />
@@ -142,7 +164,7 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <CheckCircle2 className="w-4 h-4 text-green-500" />
-              <span className="text-xs text-gray-500 font-medium">Total Pago ({anoAtual})</span>
+              <span className="text-xs text-gray-500 font-medium">Total Pago ({filtroAno})</span>
             </div>
             <div className="text-base font-bold text-[#1a2e4a]">{fmt(totalPagoAno)}</div>
           </CardContent>
@@ -151,7 +173,7 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <Clock className="w-4 h-4 text-amber-500" />
-              <span className="text-xs text-gray-500 font-medium">Aprovisionado ({anoAtual})</span>
+              <span className="text-xs text-gray-500 font-medium">Aprovisionado ({filtroAno})</span>
             </div>
             <div className="text-base font-bold text-[#1a2e4a]">{fmt(totalProvisionadoAno)}</div>
           </CardContent>
@@ -160,7 +182,7 @@ export default function Dashboard() {
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
               <PiggyBank className="w-4 h-4 text-purple-500" />
-              <span className="text-xs text-gray-500 font-medium">Empenhado ({anoAtual})</span>
+              <span className="text-xs text-gray-500 font-medium">Empenhado ({filtroAno})</span>
             </div>
             <div className="text-base font-bold text-[#1a2e4a]">{fmt(totalEmpenhado)}</div>
           </CardContent>

@@ -13,7 +13,6 @@ import DetalhamentoOrcamentoContrato from "@/components/orcamento/DetalhamentoOr
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const anoAtual = new Date().getFullYear();
-const anos = Array.from({ length: 5 }, (_, i) => anoAtual - 2 + i);
 
 export default function Orcamento() {
   const [lancamentos, setLancamentos] = useState([]);
@@ -24,6 +23,7 @@ export default function Orcamento() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [anoSel, setAnoSel] = useState(String(anoAtual));
+  const [anosDisponiveis, setAnosDisponiveis] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showHistForm, setShowHistForm] = useState(false);
   const [editingOrc, setEditingOrc] = useState(null);
@@ -47,6 +47,13 @@ export default function Orcamento() {
     setHistorico(h);
     setContratos(c);
     setLancamentos(l);
+    
+    // Extrair anos únicos de orçamentos e lançamentos
+    const anosOrc = oc.map(o => o.ano).filter(Boolean);
+    const anosLanc = l.map(la => la.ano).filter(Boolean);
+    const anosUnicos = [...new Set([...anosOrc, ...anosLanc])].sort((a, b) => b - a);
+    setAnosDisponiveis(anosUnicos.map(String));
+    
     if (c.length > 0 && !contratoSel) setContratoSel(c[0].id);
     setLoading(false);
   };
@@ -139,7 +146,7 @@ export default function Orcamento() {
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={anoSel} onValueChange={setAnoSel}>
             <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>{anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}</SelectContent>
+            <SelectContent>{anosDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={contratoSel} onValueChange={setContratoSel}>
             <SelectTrigger className="w-72">
@@ -267,7 +274,7 @@ export default function Orcamento() {
                   <Label>Ano *</Label>
                   <Select value={String(formOrc.ano)} onValueChange={v => setFormOrc(f => ({ ...f, ano: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{anos.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}</SelectContent>
+                    <SelectContent>{anosDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">

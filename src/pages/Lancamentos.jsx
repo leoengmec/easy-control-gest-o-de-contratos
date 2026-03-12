@@ -33,6 +33,7 @@ export default function Lancamentos() {
   const [historicos, setHistoricos] = useState([]);
   const anoAtual = new Date().getFullYear();
   const [filtroAno, setFiltroAno] = useState(String(anoAtual));
+  const [anosDisponiveis, setAnosDisponiveis] = useState([]);
   const [filtroContrato, setFiltroContrato] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [showImportar, setShowImportar] = useState(false);
@@ -45,12 +46,18 @@ export default function Lancamentos() {
   useEffect(() => { loadLancamentos(); }, [filtroAno, filtroContrato]);
 
   const loadBase = async () => {
-    const [c, i] = await Promise.all([
+    const [c, i, todosLancamentos] = await Promise.all([
       base44.entities.Contrato.list(),
-      base44.entities.ItemContrato.list()
+      base44.entities.ItemContrato.list(),
+      base44.entities.LancamentoFinanceiro.list()
     ]);
     setContratos(c);
     setItens(i);
+    
+    // Extrair anos únicos dos lançamentos
+    const anosUnicos = [...new Set(todosLancamentos.map(l => l.ano).filter(Boolean))].sort((a, b) => b - a);
+    setAnosDisponiveis(anosUnicos.map(String));
+    
     loadLancamentos();
   };
 
@@ -101,8 +108,6 @@ export default function Lancamentos() {
 
   const totalFiltrado = filtered.reduce((s, l) => s + (l.valor || 0), 0);
 
-  const anos = Array.from({ length: 5 }, (_, i) => String(anoAtual - 2 + i));
-
   if (showImportar) return (
     <div className="p-6">
       <ImportarLancamentosLote
@@ -148,7 +153,7 @@ export default function Lancamentos() {
       <div className="flex flex-wrap gap-3">
         <Select value={filtroAno} onValueChange={setFiltroAno}>
           <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-          <SelectContent>{anos.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+          <SelectContent>{anosDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
         </Select>
         <Select value={filtroContrato} onValueChange={setFiltroContrato}>
           <SelectTrigger className="w-52"><SelectValue placeholder="Todos os contratos" /></SelectTrigger>
