@@ -19,23 +19,52 @@ export default function Dashboard() {
   const [filtroStatus, setFiltroStatus] = useState("ativo");
   const [filtroBusca, setFiltroBusca] = useState("");
   const [contratoSelecionado, setContratoSelecionado] = useState("todos");
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [totalContratos, setTotalContratos] = useState(0);
+  const itensPorPagina = 10;
 
   const anoAtual = new Date().getFullYear();
 
   useEffect(() => {
+    setLoading(true);
+    const query = {};
+    if (filtroStatus !== "todos") query.status = filtroStatus;
+    
+    const skip = (paginaAtual - 1) * itensPorPagina;
+
     Promise.all([
-      base44.entities.Contrato.list(),
-      base44.entities.LancamentoFinanceiro.list(),
-      base44.entities.NotaEmpenho.list(),
-      base44.entities.OrcamentoContratualAnual.filter({ ano: anoAtual }),
-    ]).then(([c, l, e, o]) => {
-      setContratos(c);
-      setLancamentos(l);
-      setEmpenhos(e);
-      setOrcamentosContratuais(o);
-      setLoading(false);
+      base44.entities.Contrato.filter(query, "-created_date", itensPorPagina, skip),
+      contratoSelecionado === "todos" 
+        ? base44.entities.LancamentoFinanceiro.filter({ ano: anoAtual })
+        : base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoSelecionado, ano: anoAtual }),
+      contratoSelecionado === "todos"
+        ? base44.entities.NotaEmpenho.filter({ ano: anoAtual })
+        : base44.entities.NotaEmpenho.filter({ contrato_id: contratoSelecionado, ano: anoAtual }),
+      contratoSelecionado === "todos"
+        ? base44.entities.OrcamentoContratualAnual.filter({ ano: anoAtual })
+        : base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contratoSelecionado, ano: anoAtual }),
+    ])
+      .then(([c, l, e, o]) => {
+        setContratos(c);
+        setLancamentos(l);
+        setEmpenhos(e);
+        setOrcamentosContratuais(o);
+        setLoading(false);
+      })
+      .catch(error => {
+        console.error("Erro ao carregar dados do Dashboard:", error);
+        setLoading(false);
+      });
+  }, [filtroStatus, paginaAtual, contratoSelecionado, anoAtual]);
+
+  useEffect(() => {
+    const query = {};
+    if (filtroStatus !== "todos") query.status = filtroStatus;
+    
+    base44.entities.Contrato.filter(query).then(todosContratos => {
+      setTotalContratos(todosContratos.length);
     });
-  }, []);
+  }, [filtroStatus]);
 
   const contratosAtivos = contratos.filter(c => c.status === "ativo");
 
@@ -56,14 +85,15 @@ export default function Dashboard() {
   const totalProvisionadoAno = lancamentosAno.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
   const totalEmpenhado = empenhosFiltrados.filter(e => e.ano === anoAtual).reduce((s, e) => s + (e.valor_total || 0), 0);
 
-  const contratosFiltrados = contratos.filter(c => {
-    const statusOk = filtroStatus === "todos" || c.status === filtroStatus;
-    const buscaOk = !filtroBusca ||
-      c.numero?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-      c.contratada?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-      c.objeto?.toLowerCase().includes(filtroBusca.toLowerCase());
-    return statusOk && buscaOk;
-  });
+  const contratosFiltrados = filtroBusca
+    ? contratos.filter(c =>
+        c.numero?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
+        c.contratada?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
+        c.objeto?.toLowerCase().includes(filtroBusca.toLowerCase())
+      )
+    : contratos;
+
+  const totalPaginas = Math.ceil(totalContratos / itensPorPagina);
 
   if (loading) return (
     <div className="p-8 flex items-center justify-center min-h-96">
@@ -168,7 +198,10 @@ export default function Dashboard() {
             variant={filtroStatus === s ? "default" : "outline"}
             size="sm"
             className="text-xs h-7 capitalize"
-            onClick={() => setFiltroStatus(s)}
+            onClick={() => {
+              setFiltroStatus(s);
+              setPaginaAtual(1);
+            }}
           >
             {s === "todos" ? "Todos" : s}
           </Button>
@@ -209,6 +242,40 @@ export default function Dashboard() {
           );
         })}
       </div>
+
+      {totalPaginas > 1 && !filtroBusca && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
+            disabled={paginaAtual === 1}
+          >
+            Anterior
+          </Button>
+          <div className="flex gap-1">
+            {[...Array(totalPaginas)].map((_, i) => (
+              <Button
+                key={i + 1}
+                variant={paginaAtual === i + 1 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setPaginaAtual(i + 1)}
+                className="w-9 h-9"
+              >
+                {i + 1}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
+            disabled={paginaAtual === totalPaginas}
+          >
+            Próxima
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
