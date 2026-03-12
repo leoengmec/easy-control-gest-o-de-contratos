@@ -27,16 +27,24 @@ function matchesKeywords(nome, keywords) {
   return keywords.some(k => upper.includes(k.toUpperCase()));
 }
 
+function calcMesesRestantesNoAno(dataInicio) {
+  if (!dataInicio) return 12;
+  const anoAtual = new Date().getFullYear();
+  const inicio = new Date(dataInicio);
+  if (inicio.getFullYear() < anoAtual) return 12;
+  if (inicio.getFullYear() > anoAtual) return 0;
+  const mesInicio = inicio.getMonth();
+  return 12 - mesInicio;
+}
+
 function calcMensal(item) {
   const vu = item.valor_unitario || 0;
   const qtd = item.quantidade_contratada || 1;
-  const prazo = item.prazo_vigencia_meses || 0;
-  const vTotal = item.valor_total_contratado || vu * qtd;
   
   if (item.periodicidade === "mensal") return vu * qtd;
   if (item.periodicidade === "anual") return (vu * qtd) / 12;
   if (item.periodicidade === "eventual" || item.periodicidade === "unico") {
-    return prazo > 0 ? vTotal / prazo : 0;
+    return vu;
   }
   return 0;
 }
@@ -64,9 +72,11 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
   const morMossoroItens = itens.filter(i => matchesKeywords(i.nome, MOR_MOSSORO_KEYWORDS));
 
   const morNatalMensal = morNatalItens.reduce((s, i) => s + calcMensal(i), 0);
+  const morNatalAnual = morNatalItens.reduce((s, i) => s + calcAnual(i, contratoDataInicio), 0);
   const morNatalVigencia = morNatalItens.reduce((s, i) => s + calcVigencia(i), 0);
 
   const morMossoroMensal = morMossoroItens.reduce((s, i) => s + calcMensal(i), 0);
+  const morMossoroAnual = morMossoroItens.reduce((s, i) => s + calcAnual(i, contratoDataInicio), 0);
   const morMossoroVigencia = morMossoroItens.reduce((s, i) => s + calcVigencia(i), 0);
 
   // Itens que não são MOR Natal nem MOR Mossoró = linhas individuais
@@ -86,6 +96,7 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
       quantidade: morNatalItens[0]?.quantidade_contratada || "—",
       unidade: morNatalItens[0]?.unidade || "Mês",
       mensal: morNatalMensal,
+      anual: morNatalAnual,
       vigencia: morNatalVigencia,
       isGrupo: true,
     });
@@ -100,6 +111,7 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
       quantidade: morMossoroItens[0]?.quantidade_contratada || "—",
       unidade: morMossoroItens[0]?.unidade || "Mês",
       mensal: morMossoroMensal,
+      anual: morMossoroAnual,
       vigencia: morMossoroVigencia,
       isGrupo: true,
     });
@@ -114,12 +126,14 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
       quantidade: item.quantidade_contratada || "—",
       unidade: item.unidade || "Mês",
       mensal: calcMensal(item),
+      anual: calcAnual(item, contratoDataInicio),
       vigencia: calcVigencia(item),
       isGrupo: false,
     });
   });
 
   const totalMensal = linhas.reduce((s, l) => s + l.mensal, 0);
+  const totalAnual = linhas.reduce((s, l) => s + l.anual, 0);
   const totalVigencia = linhas.reduce((s, l) => s + l.vigencia, 0);
 
   return (
@@ -137,6 +151,7 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
               <th className="text-center p-3 font-semibold w-20 border border-[#3a5a8a]">QUANT.</th>
               <th className="text-center p-3 font-semibold w-20 border border-[#3a5a8a]">UNID.</th>
               <th className="text-right p-3 font-semibold w-32 border border-[#3a5a8a]">V. MENSAL</th>
+              <th className="text-right p-3 font-semibold w-32 border border-[#3a5a8a]">V. ANUAL</th>
               <th className="text-right p-3 font-semibold w-36 border border-[#3a5a8a]">V. DO CONTRATO</th>
             </tr>
           </thead>
@@ -185,6 +200,9 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
                 <td className="text-right p-3 font-medium text-blue-700 border border-gray-200">
                   {linha.mensal > 0 ? fmt(linha.mensal) : "—"}
                 </td>
+                <td className="text-right p-3 font-medium text-indigo-700 border border-gray-200">
+                  {linha.anual > 0 ? fmt(linha.anual) : "—"}
+                </td>
                 <td className="text-right p-3 font-semibold text-[#1a2e4a] border border-gray-200">
                   {fmt(linha.vigencia)}
                 </td>
@@ -195,6 +213,7 @@ export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
             <tr className="bg-[#1a2e4a] text-white font-semibold">
               <td colSpan={5} className="p-3 text-right text-sm border border-[#2a4a7a]">TOTAL GERAL</td>
               <td className="p-3 text-right border border-[#2a4a7a]">{fmt(totalMensal)}</td>
+              <td className="p-3 text-right border border-[#2a4a7a]">{fmt(totalAnual)}</td>
               <td className="p-3 text-right border border-[#2a4a7a]">{fmt(totalVigencia)}</td>
             </tr>
           </tfoot>

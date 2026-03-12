@@ -9,25 +9,35 @@ const TIPO_LABELS = {
   com_mao_de_obra_residente: "Com Mão de Obra Residente"
 };
 
-function calcValores(item) {
+function calcMesesRestantesNoAno(dataInicio) {
+  if (!dataInicio) return 12;
+  const anoAtual = new Date().getFullYear();
+  const inicio = new Date(dataInicio);
+  if (inicio.getFullYear() < anoAtual) return 12;
+  if (inicio.getFullYear() > anoAtual) return 0;
+  const mesInicio = inicio.getMonth();
+  return 12 - mesInicio;
+}
+
+function calcValores(item, contratoDataInicio) {
   const vu = item.valor_unitario || 0;
   const qtd = item.quantidade_contratada || 1;
   const prazo = item.prazo_vigencia_meses || 0;
   const vTotal = item.valor_total_contratado || vu * qtd;
+  const mesesAno = calcMesesRestantesNoAno(contratoDataInicio);
 
   let mensal = 0, anual = 0, vigencia = 0;
   if (item.periodicidade === "mensal") {
     mensal = vu * qtd;
-    anual = mensal * 12;
+    anual = mensal * mesesAno;
     vigencia = prazo > 0 ? mensal * prazo : vTotal;
   } else if (item.periodicidade === "anual") {
     anual = vu * qtd;
     mensal = anual / 12;
     vigencia = vTotal;
   } else if (item.periodicidade === "eventual" || item.periodicidade === "unico") {
-    // Para itens eventuais: calcular mensal dividindo o total pelo prazo de vigência
-    mensal = prazo > 0 ? vTotal / prazo : 0;
-    anual = mensal * Math.min(prazo, 12);
+    mensal = vu;
+    anual = mensal * mesesAno;
     vigencia = vTotal;
   } else {
     mensal = 0;
@@ -37,10 +47,10 @@ function calcValores(item) {
   return { mensal, anual, vigencia };
 }
 
-function TabelaItens({ itens, canEdit, onEdit, onDelete }) {
+function TabelaItens({ itens, contratoDataInicio, canEdit, onEdit, onDelete }) {
   const totais = itens.reduce(
     (acc, item) => {
-      const v = calcValores(item);
+      const v = calcValores(item, contratoDataInicio);
       return { mensal: acc.mensal + v.mensal, anual: acc.anual + v.anual, vigencia: acc.vigencia + v.vigencia };
     },
     { mensal: 0, anual: 0, vigencia: 0 }
@@ -64,7 +74,7 @@ function TabelaItens({ itens, canEdit, onEdit, onDelete }) {
         </thead>
         <tbody>
           {itens.map((item) => {
-            const v = calcValores(item);
+            const v = calcValores(item, contratoDataInicio);
             return (
               <tr key={item.id} className="border-b hover:bg-gray-50">
                 <td className="p-3">
@@ -109,12 +119,12 @@ function TabelaItens({ itens, canEdit, onEdit, onDelete }) {
   );
 }
 
-function GrupoSection({ titulo, itens, canEdit, onEdit, onDelete, corHeader }) {
+function GrupoSection({ titulo, itens, contratoDataInicio, canEdit, onEdit, onDelete, corHeader }) {
   if (itens.length === 0) return null;
   return (
     <div className="rounded-lg border overflow-hidden">
       <div className={`px-4 py-2 font-semibold text-sm ${corHeader}`}>{titulo}</div>
-      <TabelaItens itens={itens} canEdit={canEdit} onEdit={onEdit} onDelete={onDelete} />
+      <TabelaItens itens={itens} contratoDataInicio={contratoDataInicio} canEdit={canEdit} onEdit={onEdit} onDelete={onDelete} />
     </div>
   );
 }
@@ -130,7 +140,7 @@ export default function ItensAgrupados({ itens, contratoDataInicio, canEdit, onE
         const fixos = itensTipo.filter(i => (i.grupo_servico || "fixo") === "fixo");
         const demanda = itensTipo.filter(i => i.grupo_servico === "por_demanda");
 
-        const totalGeral = itensTipo.reduce((acc, item) => acc + calcValores(item).vigencia, 0);
+        const totalGeral = itensTipo.reduce((acc, item) => acc + calcValores(item, contratoDataInicio).vigencia, 0);
 
         return (
           <div key={tipo} className="space-y-3">
@@ -144,6 +154,7 @@ export default function ItensAgrupados({ itens, contratoDataInicio, canEdit, onE
             <GrupoSection
               titulo="Serviços Fixos"
               itens={fixos}
+              contratoDataInicio={contratoDataInicio}
               canEdit={canEdit}
               onEdit={onEdit}
               onDelete={onDelete}
@@ -153,6 +164,7 @@ export default function ItensAgrupados({ itens, contratoDataInicio, canEdit, onE
             <GrupoSection
               titulo="Serviços por Demanda"
               itens={demanda}
+              contratoDataInicio={contratoDataInicio}
               canEdit={canEdit}
               onEdit={onEdit}
               onDelete={onDelete}
