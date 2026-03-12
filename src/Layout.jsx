@@ -14,7 +14,8 @@ import {
   LogOut,
   Scale,
   ShoppingCart,
-  Shield
+  Shield,
+  Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
@@ -26,6 +27,7 @@ const navItems = [
   { label: "Orçamento", page: "Orcamento", icon: PiggyBank, roles: ["admin", "gestor", "direcao"] },
   { label: "Relatórios", page: "Relatorios", icon: BarChart2, roles: ["admin", "gestor", "direcao"] },
   { label: "Controle de Materiais", page: "ControleMateriais", icon: ShoppingCart, roles: ["admin", "gestor", "fiscal"] },
+  { label: "Meus Alertas", page: "MinhasConfiguracoesAlertas", icon: Bell, roles: ["admin", "gestor", "fiscal", "direcao"] },
   { label: "Administração", page: "AdminPanel", icon: Shield, roles: ["admin"] },
 ];
 
