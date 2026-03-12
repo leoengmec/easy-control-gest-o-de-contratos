@@ -24,8 +24,12 @@ function calcValores(item) {
     anual = vu * qtd;
     mensal = anual / 12;
     vigencia = vTotal;
+  } else if (item.periodicidade === "eventual" || item.periodicidade === "unico") {
+    // Para itens eventuais: calcular mensal dividindo o total pelo prazo de vigência
+    mensal = prazo > 0 ? vTotal / prazo : 0;
+    anual = mensal * Math.min(prazo, 12);
+    vigencia = vTotal;
   } else {
-    // eventual / único
     mensal = 0;
     anual = 0;
     vigencia = vTotal;

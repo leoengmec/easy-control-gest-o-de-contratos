@@ -30,8 +30,14 @@ function matchesKeywords(nome, keywords) {
 function calcMensal(item) {
   const vu = item.valor_unitario || 0;
   const qtd = item.quantidade_contratada || 1;
+  const prazo = item.prazo_vigencia_meses || 0;
+  const vTotal = item.valor_total_contratado || vu * qtd;
+  
   if (item.periodicidade === "mensal") return vu * qtd;
   if (item.periodicidade === "anual") return (vu * qtd) / 12;
+  if (item.periodicidade === "eventual" || item.periodicidade === "unico") {
+    return prazo > 0 ? vTotal / prazo : 0;
+  }
   return 0;
 }
 
