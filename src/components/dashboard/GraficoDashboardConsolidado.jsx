@@ -17,7 +17,6 @@ const fmtK = (v) => {
 };
 
 const MESES_LABELS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-const ANOS_DISPONIVEIS = [2024, 2025, 2026, 2027];
 
 const STATUS_CORES = {
   ativo: "#22c55e",
@@ -217,6 +216,15 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
 
   const categoriasAtivas = agrupamento === "grupo" ? Object.keys(GRUPOS) : CATEGORIAS;
 
+  // Coletar anos disponíveis dinamicamente
+  const anosDisponiveis = [...new Set([
+    ...lancamentos.map(l => l.ano),
+    ...empenhos.map(e => e.ano),
+    ...orcamentosAnuais.map(o => o.ano),
+    ...orcamentosItens.map(o => o.ano),
+    new Date().getFullYear()
+  ])].filter(Boolean).sort((a, b) => a - b);
+
   // 1. Distribuição por Status (Pizza)
   const totalContratos = contratos.length;
   const distStatus = ["ativo", "encerrado", "suspenso"].map(status => {
@@ -289,7 +297,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   });
 
   // 5. Evolução do Orçamento Anual
-  const evolucaoOrcamento = ANOS_DISPONIVEIS.map(ano => {
+  const evolucaoOrcamento = anosDisponiveis.map(ano => {
     const totalOrcado = orcamentosAnuais.filter(o => o.ano === ano).reduce((s, o) => s + (o.valor_orcado || 0), 0);
     const empenhado = empenhos.filter(e => e.ano === ano).reduce((s, e) => s + (e.valor_total || 0), 0);
     const pago = lancamentos.filter(l => l.ano === ano && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
@@ -334,7 +342,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ANOS_DISPONIVEIS.map(a => (
+                    {anosDisponiveis.map(a => (
                       <SelectItem key={a} value={String(a)}>{a}</SelectItem>
                     ))}
                   </SelectContent>
