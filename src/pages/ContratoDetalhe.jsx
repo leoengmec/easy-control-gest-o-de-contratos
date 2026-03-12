@@ -200,8 +200,8 @@ export default function ContratoDetalhe() {
                 <div className="text-center py-8 text-gray-400 text-sm">Nenhum item cadastrado</div>
               ) : (
                 <>
-                  <TabelaResumoContrato itens={itens} />
-                  <ItensAgrupados itens={itens} canEdit={canEdit} onEdit={setEditingItem} onDelete={handleDeleteItem} />
+                  <TabelaResumoContrato itens={itens} contratoDataInicio={contrato.data_inicio} />
+                  <ItensAgrupados itens={itens} contratoDataInicio={contrato.data_inicio} canEdit={canEdit} onEdit={setEditingItem} onDelete={handleDeleteItem} />
                 </>
               )}
             </>

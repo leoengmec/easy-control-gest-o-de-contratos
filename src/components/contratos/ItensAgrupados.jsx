@@ -119,7 +119,7 @@ function GrupoSection({ titulo, itens, canEdit, onEdit, onDelete, corHeader }) {
   );
 }
 
-export default function ItensAgrupados({ itens, canEdit, onEdit, onDelete }) {
+export default function ItensAgrupados({ itens, contratoDataInicio, canEdit, onEdit, onDelete }) {
   // Agrupa primeiro por tipo_contrato_manutencao, depois por grupo_servico
   const tiposPresentes = [...new Set(itens.map(i => i.tipo_contrato_manutencao || "sem_mao_de_obra_residente"))];
 

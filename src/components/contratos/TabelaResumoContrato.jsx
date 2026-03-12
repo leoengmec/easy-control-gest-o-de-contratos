@@ -41,6 +41,12 @@ function calcMensal(item) {
   return 0;
 }
 
+function calcAnual(item, contratoDataInicio) {
+  const mensal = calcMensal(item);
+  const mesesAno = calcMesesRestantesNoAno(contratoDataInicio);
+  return mensal * mesesAno;
+}
+
 function calcVigencia(item) {
   const vu = item.valor_unitario || 0;
   const qtd = item.quantidade_contratada || 1;
@@ -50,7 +56,7 @@ function calcVigencia(item) {
   return vTotal;
 }
 
-export default function TabelaResumoContrato({ itens }) {
+export default function TabelaResumoContrato({ itens, contratoDataInicio }) {
   if (!itens || itens.length === 0) return null;
 
   // Separar itens MOR Natal, MOR Mossoró e demais
