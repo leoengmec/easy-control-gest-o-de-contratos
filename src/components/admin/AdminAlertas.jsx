@@ -1,370 +1,325 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import {
-  Bell, CalendarX, DollarSign, CheckCircle2, Plus, Trash2,
-  RefreshCw, Clock, Percent, AlertTriangle
-} from "lucide-react";
-
-const TIPOS = [
-  {
-    value: "vencimento_contrato",
-    label: "Vencimento de Contrato",
-    icon: CalendarX,
-    color: "text-orange-600 bg-orange-50 border-orange-200",
-    desc: "Notifica quando um contrato se aproxima da data de término.",
-    campo: "dias",
-  },
-  {
-    value: "limite_orcamento",
-    label: "Limite do Orçamento",
-    icon: Percent,
-    color: "text-red-600 bg-red-50 border-red-200",
-    desc: "Notifica quando o total executado/aprovisionado atinge um percentual do orçamento anual.",
-    campo: "percentual",
-  },
-  {
-    value: "aprovacao_lancamento",
-    label: "Lançamento Aguardando Aprovação",
-    icon: CheckCircle2,
-    color: "text-blue-600 bg-blue-50 border-blue-200",
-    desc: "Notifica quando existe lançamento com status 'Em instrução' há mais de X dias.",
-    campo: "dias",
-  },
-];
-
-function AlertaCard({ alerta, onToggle, onDelete, onSalvar }) {
-  const tipo = TIPOS.find(t => t.value === alerta.tipo);
-  if (!tipo) return null;
-  const Icon = tipo.icon;
-
-  const [dias, setDias] = useState(alerta.dias_antecedencia ?? "");
-  const [pct, setPct] = useState(alerta.percentual_orcamento ?? "");
-  const [dirty, setDirty] = useState(false);
-
-  return (
-    <Card className={`border ${tipo.color} transition-opacity ${alerta.ativo ? "" : "opacity-60"}`}>
-      <CardContent className="pt-4 pb-4 space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${tipo.color}`}>
-              <Icon className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-800">{tipo.label}</p>
-              <p className="text-xs text-gray-400">{tipo.desc}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Switch
-              checked={alerta.ativo}
-              onCheckedChange={(v) => onToggle(alerta.id, v)}
-            />
-            <button
-              onClick={() => onDelete(alerta.id)}
-              className="p-1.5 hover:bg-red-50 rounded"
-              title="Remover alerta"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500" />
-            </button>
-          </div>
-        </div>
-
-        {/* Parâmetros */}
-        {tipo.campo === "dias" && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <Label className="text-xs text-gray-600 whitespace-nowrap">
-                {alerta.tipo === "vencimento_contrato" ? "Alertar com" : "Alertar após"}
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                value={dias}
-                onChange={e => { setDias(e.target.value); setDirty(true); }}
-                className="w-20 h-8 text-xs"
-              />
-              <span className="text-xs text-gray-500">
-                {alerta.tipo === "vencimento_contrato" ? "dias de antecedência" : "dias sem movimentação"}
-              </span>
-            </div>
-            {dirty && (
-              <Button size="sm" className="h-8 text-xs bg-[#1a2e4a] hover:bg-[#2a4a7a]"
-                onClick={() => { onSalvar(alerta.id, { dias_antecedencia: Number(dias) }); setDirty(false); }}>
-                Salvar
-              </Button>
-            )}
-          </div>
-        )}
-
-        {tipo.campo === "percentual" && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Percent className="w-4 h-4 text-gray-400" />
-              <Label className="text-xs text-gray-600 whitespace-nowrap">Alertar ao atingir</Label>
-              <Input
-                type="number"
-                min={1}
-                max={100}
-                value={pct}
-                onChange={e => { setPct(e.target.value); setDirty(true); }}
-                className="w-20 h-8 text-xs"
-              />
-              <span className="text-xs text-gray-500">% do orçamento anual</span>
-            </div>
-            {dirty && (
-              <Button size="sm" className="h-8 text-xs bg-[#1a2e4a] hover:bg-[#2a4a7a]"
-                onClick={() => { onSalvar(alerta.id, { percentual_orcamento: Number(pct) }); setDirty(false); }}>
-                Salvar
-              </Button>
-            )}
-          </div>
-        )}
-
-        {alerta.ultima_verificacao && (
-          <p className="text-[11px] text-gray-300 flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" />
-            Última verificação: {new Date(alerta.ultima_verificacao).toLocaleDateString("pt-BR")}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+import { Textarea } from "@/components/ui/textarea";
+import { Bell, Plus, Trash2, Edit, Save, X } from "lucide-react";
+import { toast } from "sonner";
 
 export default function AdminAlertas() {
   const [alertas, setAlertas] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [verificando, setVerificando] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [contratos, setContratos] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [editando, setEditando] = useState(null);
+  const [criando, setCriando] = useState(false);
+  const [formData, setFormData] = useState({
+    tipo: "vencimento_contrato",
+    ativo: true,
+    dias_antecedencia: 30,
+    percentual_orcamento: 80,
+    contrato_id: "",
+    user_id: "",
+    descricao: ""
+  });
 
-  const carregar = () => {
-    setLoading(true);
-    base44.entities.ConfiguracaoAlerta.list()
-      .then(setAlertas)
-      .finally(() => setLoading(false));
-  };
+  useEffect(() => {
+    carregarDados();
+  }, []);
 
-  useEffect(() => { carregar(); }, []);
-
-  const handleToggle = async (id, ativo) => {
-    await base44.entities.ConfiguracaoAlerta.update(id, { ativo });
-    carregar();
-  };
-
-  const handleDelete = async (id) => {
-    await base44.entities.ConfiguracaoAlerta.delete(id);
-    carregar();
-  };
-
-  const handleSalvar = async (id, data) => {
-    await base44.entities.ConfiguracaoAlerta.update(id, data);
-    setMsg("Configuração salva!");
-    setTimeout(() => setMsg(""), 3000);
-    carregar();
-  };
-
-  const handleAdicionar = async (tipo) => {
-    const defaults = {
-      vencimento_contrato: { tipo, ativo: true, dias_antecedencia: 30 },
-      limite_orcamento: { tipo, ativo: true, percentual_orcamento: 80 },
-      aprovacao_lancamento: { tipo, ativo: true, dias_antecedencia: 5 },
-    };
-    await base44.entities.ConfiguracaoAlerta.create(defaults[tipo]);
-    carregar();
-  };
-
-  const tiposJaAdicionados = alertas.map(a => a.tipo);
-
-  const handleVerificarAgora = async () => {
-    setVerificando(true);
+  const carregarDados = async () => {
     try {
-      const hoje = new Date();
-      const hojeStr = hoje.toISOString().slice(0, 10);
-      const [contratos, lancamentos, orcamentos] = await Promise.all([
-        base44.entities.Contrato.filter({ status: "ativo" }),
-        base44.entities.LancamentoFinanceiro.filter({ status: "Em instrução" }),
-        base44.entities.OrcamentoContratualAnual.filter({ ano: hoje.getFullYear() }),
+      const [alertasData, contratosData, usuariosData] = await Promise.all([
+        base44.entities.ConfiguracaoAlerta.list(),
+        base44.entities.Contrato.list(),
+        base44.entities.User.list()
       ]);
-
-      const alertasAtivos = alertas.filter(a => a.ativo);
-      const notifsCriadas = [];
-
-      for (const alerta of alertasAtivos) {
-        if (alerta.tipo === "vencimento_contrato" && alerta.dias_antecedencia) {
-          const limite = new Date();
-          limite.setDate(limite.getDate() + alerta.dias_antecedencia);
-          for (const c of contratos) {
-            if (!c.data_fim) continue;
-            const fim = new Date(c.data_fim);
-            if (fim <= limite && fim >= hoje) {
-              const diasRestantes = Math.ceil((fim - hoje) / (1000 * 60 * 60 * 24));
-              const chave = `venc_${c.id}_${hoje.getFullYear()}_${hoje.getMonth()}`;
-              const existente = await base44.entities.NotificacaoAdmin.filter({ dados_extras: chave });
-              if (existente.length === 0) {
-                await base44.entities.NotificacaoAdmin.create({
-                  tipo: "outro",
-                  titulo: `⚠️ Contrato vencendo em ${diasRestantes} dias`,
-                  mensagem: `Contrato ${c.numero} (${c.contratada}) vence em ${new Date(c.data_fim).toLocaleDateString("pt-BR")}.`,
-                  lida: false,
-                  dados_extras: chave,
-                });
-                notifsCriadas.push("vencimento");
-              }
-            }
-          }
-          await base44.entities.ConfiguracaoAlerta.update(alerta.id, { ultima_verificacao: hojeStr });
-        }
-
-        if (alerta.tipo === "aprovacao_lancamento" && alerta.dias_antecedencia) {
-          const limite = new Date();
-          limite.setDate(limite.getDate() - alerta.dias_antecedencia);
-          for (const l of lancamentos) {
-            if (!l.data_lancamento) continue;
-            const dataLanc = new Date(l.data_lancamento);
-            if (dataLanc <= limite) {
-              const chave = `instrucao_${l.id}`;
-              const existente = await base44.entities.NotificacaoAdmin.filter({ dados_extras: chave });
-              if (existente.length === 0) {
-                await base44.entities.NotificacaoAdmin.create({
-                  tipo: "outro",
-                  titulo: `📋 Lançamento aguardando aprovação`,
-                  mensagem: `Lançamento NF ${l.numero_nf || l.id} está "Em instrução" há mais de ${alerta.dias_antecedencia} dias (R$ ${(l.valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}).`,
-                  lida: false,
-                  dados_extras: chave,
-                });
-                notifsCriadas.push("lancamento");
-              }
-            }
-          }
-          await base44.entities.ConfiguracaoAlerta.update(alerta.id, { ultima_verificacao: hojeStr });
-        }
-
-        if (alerta.tipo === "limite_orcamento" && alerta.percentual_orcamento) {
-          const ano = hoje.getFullYear();
-          for (const orc of orcamentos) {
-            if (!orc.valor_orcado || !orc.contrato_id) continue;
-            const totalExec = lancamentos
-              .filter(l => l.contrato_id === orc.contrato_id && l.ano === ano && ["SOF","Pago","Aprovisionado","Em execução"].includes(l.status))
-              .reduce((s, l) => s + (l.valor || 0), 0);
-            const pct = (totalExec / orc.valor_orcado) * 100;
-            if (pct >= alerta.percentual_orcamento) {
-              const chave = `orcamento_${orc.contrato_id}_${ano}_${Math.floor(pct / 5)}`;
-              const existente = await base44.entities.NotificacaoAdmin.filter({ dados_extras: chave });
-              if (existente.length === 0) {
-                const contrato = contratos.find(c => c.id === orc.contrato_id);
-                await base44.entities.NotificacaoAdmin.create({
-                  tipo: "outro",
-                  titulo: `💰 Orçamento ${pct.toFixed(0)}% consumido`,
-                  mensagem: `Contrato ${contrato?.numero || orc.contrato_id} consumiu ${pct.toFixed(1)}% do orçamento de ${ano} (R$ ${totalExec.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} de R$ ${orc.valor_orcado.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}).`,
-                  lida: false,
-                  dados_extras: chave,
-                });
-                notifsCriadas.push("orcamento");
-              }
-            }
-          }
-          await base44.entities.ConfiguracaoAlerta.update(alerta.id, { ultima_verificacao: hojeStr });
-        }
-      }
-
-      setMsg(notifsCriadas.length > 0
-        ? `✅ Verificação concluída — ${notifsCriadas.length} nova(s) notificação(ões) gerada(s).`
-        : "✅ Verificação concluída — nenhuma nova ocorrência encontrada.");
-      setTimeout(() => setMsg(""), 5000);
-      carregar();
-    } finally {
-      setVerificando(false);
+      setAlertas(alertasData);
+      setContratos(contratosData);
+      setUsuarios(usuariosData);
+    } catch (error) {
+      toast.error("Erro ao carregar dados");
     }
   };
 
+  const handleSalvar = async () => {
+    try {
+      const dados = {
+        ...formData,
+        contrato_id: formData.contrato_id || null,
+        user_id: formData.user_id || null
+      };
+
+      if (editando) {
+        await base44.entities.ConfiguracaoAlerta.update(editando.id, dados);
+        toast.success("Alerta atualizado com sucesso");
+      } else {
+        await base44.entities.ConfiguracaoAlerta.create(dados);
+        toast.success("Alerta criado com sucesso");
+      }
+
+      setEditando(null);
+      setCriando(false);
+      setFormData({
+        tipo: "vencimento_contrato",
+        ativo: true,
+        dias_antecedencia: 30,
+        percentual_orcamento: 80,
+        contrato_id: "",
+        user_id: "",
+        descricao: ""
+      });
+      carregarDados();
+    } catch (error) {
+      toast.error("Erro ao salvar alerta");
+    }
+  };
+
+  const handleEditar = (alerta) => {
+    setEditando(alerta);
+    setFormData({
+      tipo: alerta.tipo,
+      ativo: alerta.ativo,
+      dias_antecedencia: alerta.dias_antecedencia || 30,
+      percentual_orcamento: alerta.percentual_orcamento || 80,
+      contrato_id: alerta.contrato_id || "",
+      user_id: alerta.user_id || "",
+      descricao: alerta.descricao || ""
+    });
+    setCriando(false);
+  };
+
+  const handleExcluir = async (id) => {
+    if (!confirm("Tem certeza que deseja excluir este alerta?")) return;
+    try {
+      await base44.entities.ConfiguracaoAlerta.delete(id);
+      toast.success("Alerta excluído com sucesso");
+      carregarDados();
+    } catch (error) {
+      toast.error("Erro ao excluir alerta");
+    }
+  };
+
+  const handleNovo = () => {
+    setCriando(true);
+    setEditando(null);
+    setFormData({
+      tipo: "vencimento_contrato",
+      ativo: true,
+      dias_antecedencia: 30,
+      percentual_orcamento: 80,
+      contrato_id: "",
+      user_id: "",
+      descricao: ""
+    });
+  };
+
+  const handleCancelar = () => {
+    setCriando(false);
+    setEditando(null);
+    setFormData({
+      tipo: "vencimento_contrato",
+      ativo: true,
+      dias_antecedencia: 30,
+      percentual_orcamento: 80,
+      contrato_id: "",
+      user_id: "",
+      descricao: ""
+    });
+  };
+
+  const getTipoLabel = (tipo) => {
+    const tipos = {
+      vencimento_contrato: "Vencimento de Contrato",
+      aprovacao_lancamento: "Aprovação de Lançamento",
+      limite_orcamento: "Limite de Orçamento"
+    };
+    return tipos[tipo] || tipo;
+  };
+
+  const getContratoNome = (contratoId) => {
+    if (!contratoId) return "Todos os contratos";
+    const contrato = contratos.find(c => c.id === contratoId);
+    return contrato ? contrato.numero : "N/A";
+  };
+
+  const getUserNome = (userId) => {
+    if (!userId) return "Todos os usuários";
+    const usuario = usuarios.find(u => u.id === userId);
+    return usuario ? usuario.full_name : "N/A";
+  };
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-[#1a2e4a] flex items-center gap-2">
-            <Bell className="w-4 h-4" /> Configuração de Alertas
-          </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Configure regras automáticas de notificação para eventos importantes do sistema.
-          </p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bell className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-semibold">Configuração de Alertas</h2>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1.5 text-xs border-[#1a2e4a] text-[#1a2e4a] hover:bg-[#1a2e4a] hover:text-white"
-          onClick={handleVerificarAgora}
-          disabled={verificando}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${verificando ? "animate-spin" : ""}`} />
-          {verificando ? "Verificando..." : "Verificar Agora"}
+        <Button onClick={handleNovo} disabled={criando || editando}>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo Alerta
         </Button>
       </div>
 
-      {msg && (
-        <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">
-          {msg}
-        </div>
+      {(criando || editando) && (
+        <Card className="border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              {editando ? "Editar Alerta" : "Criar Novo Alerta"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tipo de Alerta *</Label>
+                <Select value={formData.tipo} onValueChange={(v) => setFormData({...formData, tipo: v})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="vencimento_contrato">Vencimento de Contrato</SelectItem>
+                    <SelectItem value="aprovacao_lancamento">Aprovação de Lançamento</SelectItem>
+                    <SelectItem value="limite_orcamento">Limite de Orçamento</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Contrato Específico</Label>
+                <Select value={formData.contrato_id} onValueChange={(v) => setFormData({...formData, contrato_id: v})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os contratos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Todos os contratos</SelectItem>
+                    {contratos.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.numero}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Usuário Específico</Label>
+                <Select value={formData.user_id} onValueChange={(v) => setFormData({...formData, user_id: v})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os usuários (global)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={null}>Todos os usuários (global)</SelectItem>
+                    {usuarios.map(u => (
+                      <SelectItem key={u.id} value={u.id}>{u.full_name} ({u.role})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.tipo === "vencimento_contrato" && (
+                <div className="space-y-2">
+                  <Label>Dias de Antecedência</Label>
+                  <Input
+                    type="number"
+                    value={formData.dias_antecedencia}
+                    onChange={(e) => setFormData({...formData, dias_antecedencia: parseInt(e.target.value)})}
+                  />
+                </div>
+              )}
+
+              {formData.tipo === "limite_orcamento" && (
+                <div className="space-y-2">
+                  <Label>Percentual do Orçamento (%)</Label>
+                  <Input
+                    type="number"
+                    value={formData.percentual_orcamento}
+                    onChange={(e) => setFormData({...formData, percentual_orcamento: parseInt(e.target.value)})}
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={formData.ativo}
+                  onCheckedChange={(checked) => setFormData({...formData, ativo: checked})}
+                />
+                <Label>Alerta Ativo</Label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea
+                value={formData.descricao}
+                onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                placeholder="Descrição opcional do alerta"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleSalvar}>
+                <Save className="w-4 h-4 mr-2" />
+                Salvar
+              </Button>
+              <Button variant="outline" onClick={handleCancelar}>
+                <X className="w-4 h-4 mr-2" />
+                Cancelar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Alertas configurados */}
-      {loading ? (
-        <div className="py-10 text-center text-gray-400 text-sm">Carregando...</div>
-      ) : alertas.length === 0 ? (
-        <div className="py-10 text-center text-gray-400">
-          <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-30" />
-          <p className="text-sm">Nenhum alerta configurado. Adicione um abaixo.</p>
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {alertas.map(a => (
-            <AlertaCard
-              key={a.id}
-              alerta={a}
-              onToggle={handleToggle}
-              onDelete={handleDelete}
-              onSalvar={handleSalvar}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid gap-4">
+        {alertas.map(alerta => (
+          <Card key={alerta.id} className={alerta.ativo ? "border-l-4 border-l-green-500" : "border-l-4 border-l-gray-300"}>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${alerta.ativo ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                      {alerta.ativo ? "Ativo" : "Inativo"}
+                    </span>
+                    <span className="text-sm font-semibold">{getTipoLabel(alerta.tipo)}</span>
+                  </div>
+                  
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <p><strong>Contrato:</strong> {getContratoNome(alerta.contrato_id)}</p>
+                    <p><strong>Usuário:</strong> {getUserNome(alerta.user_id)}</p>
+                    {alerta.dias_antecedencia && (
+                      <p><strong>Antecedência:</strong> {alerta.dias_antecedencia} dias</p>
+                    )}
+                    {alerta.percentual_orcamento && (
+                      <p><strong>Percentual:</strong> {alerta.percentual_orcamento}%</p>
+                    )}
+                    {alerta.descricao && (
+                      <p className="text-gray-500 italic">{alerta.descricao}</p>
+                    )}
+                  </div>
+                </div>
 
-      {/* Adicionar novos tipos */}
-      {TIPOS.filter(t => !tiposJaAdicionados.includes(t.value)).length > 0 && (
-        <div>
-          <p className="text-xs font-medium text-gray-500 mb-2">Adicionar tipo de alerta:</p>
-          <div className="flex flex-wrap gap-2">
-            {TIPOS.filter(t => !tiposJaAdicionados.includes(t.value)).map(t => {
-              const Icon = t.icon;
-              return (
-                <button
-                  key={t.value}
-                  onClick={() => handleAdicionar(t.value)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:opacity-80 ${t.color}`}
-                >
-                  <Plus className="w-3 h-3" />
-                  <Icon className="w-3 h-3" />
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => handleEditar(alerta)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleExcluir(alerta.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
 
-      <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 flex gap-2">
-        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-        <span>
-          A verificação automática é executada ao carregar o sistema. Use <strong>"Verificar Agora"</strong> para checar manualmente a qualquer momento.
-          Notificações duplicadas são suprimidas automaticamente.
-        </span>
+        {alertas.length === 0 && (
+          <Card>
+            <CardContent className="py-12 text-center text-gray-500">
+              Nenhum alerta configurado. Clique em "Novo Alerta" para criar.
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
