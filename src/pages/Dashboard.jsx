@@ -71,8 +71,6 @@ export default function Dashboard() {
     });
   }, [filtroStatus]);
 
-  const contratosAtivos = contratos.filter(c => c.status === "ativo");
-
   const lancamentosBase = contratoSelecionado === "todos"
     ? lancamentos
     : lancamentos.filter(l => l.contrato_id === contratoSelecionado);
@@ -137,7 +135,7 @@ export default function Dashboard() {
               <FileText className="w-4 h-4 text-blue-500" />
               <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
             </div>
-            <div className="text-2xl font-bold text-[#1a2e4a]">{contratosAtivos.length}</div>
+            <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-green-500">
@@ -186,7 +184,7 @@ export default function Dashboard() {
       ) : (
         <div className="space-y-4">
           <div className="text-sm font-semibold text-[#1a2e4a]">Visão Financeira por Contrato</div>
-          {contratosAtivos.map(c => (
+          {contratos.filter(c => c.status === "ativo").map(c => (
             <ContractFinancialOverview key={c.id} contrato={c} />
           ))}
         </div>
