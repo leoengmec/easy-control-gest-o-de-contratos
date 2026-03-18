@@ -327,8 +327,15 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
     const isMaterialNota = itensLancamento.some(e => {
         const itemConfig = itensContratoAtivos.find(ic => ic.id === e.item_contrato_id);
+        console.log("Verificando item:", e.item_label, "- Item Config:", itemConfig, "- grupo_servico:", itemConfig?.grupo_servico);
         return itemConfig?.grupo_servico === 'material';
     });
+    
+    console.log("=== VERIFICAÇÃO DE MATERIAL ===");
+    console.log("itensLancamento:", itensLancamento);
+    console.log("itensContratoAtivos:", itensContratoAtivos);
+    console.log("Resultado isMaterialNota:", isMaterialNota);
+    console.log("===============================");
 
     try {
       console.log("=== INICIANDO UPLOAD DO PDF ===");
