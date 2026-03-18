@@ -8,7 +8,6 @@ import AdminConfiguracoes from "@/components/admin/AdminConfiguracoes.jsx";
 import AdminAlertas from "@/components/admin/AdminAlertas.jsx";
 import AdminPerfisAcesso from "@/components/admin/AdminPerfisAcesso.jsx";
 import AdminStatusLancamento from "@/components/admin/AdminStatusLancamento.jsx";
-import AdminStatusLancamento from "@/components/admin/AdminStatusLancamento.jsx";
 
 const TABS = [
   { id: "usuarios",      label: "Usuários",          icon: Users,    desc: "Gerenciar usuários e permissões" },
