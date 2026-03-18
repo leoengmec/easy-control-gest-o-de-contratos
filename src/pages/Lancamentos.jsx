@@ -9,7 +9,6 @@ import { Plus, Pencil, Trash2, DollarSign, Upload, Info } from "lucide-react";
 import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
 import ImportarLancamentosLote from "@/components/lancamentos/ImportarLancamentosLote.jsx";
 import StatusEditor from "@/components/lancamentos/StatusEditor.jsx";
-import StatusEditor from "@/components/lancamentos/StatusEditor.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const mesesNomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
