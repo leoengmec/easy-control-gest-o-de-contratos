@@ -76,16 +76,24 @@ export default function Layout({ children, currentPageName }) {
           color: var(--text-primary) !important;
         }
 
-        /* 3. Limpeza de "Ruído" Visual (Cards brancos no fundo preto) */
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) main *,
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) section,
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="bg-white"],
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="shadow"] {
-          background-color: transparent !important;
-          color: inherit !important;
-          border-color: currentColor !important;
-          box-shadow: none !important;
-        }
+        /* 3. Limpeza de "Ruído" Visual - AGORA COM EXCEÇÃO PARA A BARRA */
+:root[style*="--bg-primary"]:not([style*="#ffffff"]) main *:not(.fixed *),
+:root[style*="--bg-primary"]:not([style*="#ffffff"]) section:not(.fixed *),
+:root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="bg-white"]:not(.fixed *),
+:root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="shadow"]:not(.fixed *) {
+  background-color: transparent !important;
+  color: inherit !important;
+  border-color: currentColor !important;
+  box-shadow: none !important;
+}
+
+/* 4. Forçar o fundo sólido da Barra de Acessibilidade */
+.fixed.bottom-20 {
+  background-color: var(--bg-primary, #ffffff) !important;
+  color: var(--text-primary, #1a2e4a) !important;
+  opacity: 1 !important;
+  z-index: 99999 !important;
+}
 
         /* 4. Navegação */
         .nav-active { 
