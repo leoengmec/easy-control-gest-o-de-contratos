@@ -1,5 +1,5 @@
 // ... (mantenha os imports iguais)
-
+import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
 export default function Layout({ children, currentPageName }) {
   // ... (mantenha a lógica de auth e notificações igual)
 
