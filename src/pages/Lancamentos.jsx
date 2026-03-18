@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Plus, Pencil, Trash2, DollarSign, Upload, Info } from "lucide-react";
 import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
 import ImportarLancamentosLote from "@/components/lancamentos/ImportarLancamentosLote.jsx";
+import StatusEditor from "@/components/lancamentos/StatusEditor.jsx";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const mesesNomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
@@ -220,9 +221,13 @@ export default function Lancamentos() {
                     <td className="p-3 text-xs text-gray-600">{l.item_label || item?.nome || "—"}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-1.5">
-                        <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
-                          {l.status || "—"}
-                        </Badge>
+                        {canEdit ? (
+                          <StatusEditor lancamento={l} onUpdate={loadLancamentos} />
+                        ) : (
+                          <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
+                            {l.status || "—"}
+                          </Badge>
+                        )}
                         {l.status === "Cancelado" && (() => {
                           const hist = historicos.find(h => h.lancamento_financeiro_id === l.id && h.tipo_acao === "cancelamento");
                           return hist?.motivo ? (
