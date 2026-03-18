@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Minus, Plus, RotateCcw, Volume2, VolumeX, Contrast, X, Accessibility } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Minus, Plus, RotateCcw, Volume2, VolumeX, X, Accessibility } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const FONT_SIZES = [14, 16, 18, 20, 22];
 
@@ -74,51 +74,51 @@ export default function BarraAcessibilidade() {
       <button
         onClick={() => setAberto(a => !a)}
         style={{ backgroundColor: 'var(--bg-sidebar, #1a2e4a)', color: '#ffffff' }}
-        className="fixed bottom-6 right-6 z-[9999] w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all border border-white/20"
-        aria-label="Acessibilidade"
+        className="fixed bottom-6 right-6 z-[10000] w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all border border-white/20"
       >
         {aberto ? <X /> : <Accessibility />}
       </button>
 
       {aberto && (
         <div 
-          className="fixed bottom-20 right-6 z-[9998] w-72 rounded-2xl shadow-2xl border overflow-hidden transition-colors duration-300"
+          className="fixed bottom-20 right-6 z-[10000] w-72 rounded-2xl shadow-2xl border overflow-hidden"
           style={{ 
             backgroundColor: 'var(--bg-primary, #ffffff)', 
             color: 'var(--text-primary, #1a2e4a)',
-            borderColor: 'currentColor' 
+            borderColor: 'var(--text-primary, #1a2e4a)' 
           }}
         >
-          {/* Cabeçalho */}
+          {/* Cabeçalho Sólido */}
           <div 
-            style={{ backgroundColor: 'var(--bg-sidebar, #1a2e4a)', color: '#ffffff' }}
-            className="px-4 py-3 flex items-center justify-between border-b border-white/10"
+            style={{ backgroundColor: 'var(--text-primary, #1a2e4a)', color: 'var(--bg-primary, #ffffff)' }}
+            className="px-4 py-3 flex items-center justify-between"
           >
             <span className="font-semibold text-sm">Acessibilidade</span>
-            <button onClick={resetar} className="text-xs flex items-center gap-1 opacity-80 hover:opacity-100">
+            <button onClick={resetar} className="text-xs flex items-center gap-1 opacity-90 hover:opacity-100">
               <RotateCcw className="w-3 h-3" /> Resetar
             </button>
           </div>
 
           <div className="p-4 space-y-6">
             <div>
-              <p className="text-[10px] font-bold opacity-60 uppercase mb-3 text-inherit">Tamanho da Fonte</p>
+              <p className="text-[10px] font-bold opacity-70 uppercase mb-3">Tamanho da Fonte</p>
               <div className="flex justify-between items-center p-2 rounded-lg border border-current">
-                <button onClick={() => setFontIndex(Math.max(0, fontIndex - 1))} className="p-1 hover:opacity-70 rounded"><Minus size={16}/></button>
+                <button onClick={() => setFontIndex(Math.max(0, fontIndex - 1))} className="p-1 hover:bg-black/5 rounded"><Minus size={16}/></button>
                 <span className="font-bold text-sm">{FONT_SIZES[fontIndex]}px</span>
-                <button onClick={() => setFontIndex(Math.min(FONT_SIZES.length - 1, fontIndex + 1))} className="p-1 hover:opacity-70 rounded"><Plus size={16}/></button>
+                <button onClick={() => setFontIndex(Math.min(FONT_SIZES.length - 1, fontIndex + 1))} className="p-1 hover:bg-black/5 rounded"><Plus size={16}/></button>
               </div>
             </div>
 
             <div>
-              <p className="text-[10px] font-bold opacity-60 uppercase mb-3 text-inherit">Cores e Contraste</p>
-              <div className="grid grid-cols-5 gap-2">
+              <p className="text-[10px] font-bold opacity-70 uppercase mb-3">Cores e Contraste</p>
+              <div className="flex flex-wrap gap-2 justify-between">
                 {TEMAS.map(t => (
                   <button
                     key={t.key}
                     onClick={() => setTema(t.key)}
-                    style={{ backgroundColor: t.bg, color: t.text }}
-                    className={`h-10 rounded-md border-2 transition-all ${tema === t.key ? 'border-blue-500 scale-110' : 'border-current opacity-80 hover:opacity-100'}`}
+                    title={t.label}
+                    style={{ backgroundColor: t.bg, color: t.text, borderColor: t.key === tema ? 'var(--text-primary)' : '#ccc' }}
+                    className={`h-10 w-10 rounded-md border-2 flex items-center justify-center font-bold transition-all ${tema === t.key ? 'scale-110' : 'opacity-90'}`}
                   >
                     A
                   </button>
@@ -128,8 +128,8 @@ export default function BarraAcessibilidade() {
 
             <button
               onClick={() => setLeituraAtiva(!leituraAtiva)}
-              style={{ borderColor: 'currentColor' }}
-              className={`w-full py-2 rounded-lg border-2 flex items-center justify-center gap-2 text-sm font-medium transition-all ${leituraAtiva ? "bg-blue-600 text-white border-blue-600 shadow-lg" : "bg-transparent text-inherit"}`}
+              style={{ backgroundColor: leituraAtiva ? 'var(--text-primary)' : 'transparent', color: leituraAtiva ? 'var(--bg-primary)' : 'inherit', borderColor: 'currentColor' }}
+              className="w-full py-2 rounded-lg border-2 flex items-center justify-center gap-2 text-sm font-medium transition-all"
             >
               {leituraAtiva ? <Volume2 size={18} /> : <VolumeX size={18} />}
               {leituraAtiva ? "Voz Ativa" : "Ativar Voz"}
