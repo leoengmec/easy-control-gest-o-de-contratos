@@ -1,301 +1,193 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Pencil, Trash2, DollarSign, Upload, Info } from "lucide-react";
-import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
-import ImportarLancamentosLote from "@/components/lancamentos/ImportarLancamentosLote.jsx";
-import StatusEditor from "@/components/lancamentos/StatusEditor.jsx";
+import { Loader2, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast"; // Opcional, se usar Shadcn
 
-const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
-const mesesNomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-const statusColors = {
-  "SOF": "bg-blue-100 text-blue-800",
-  "Pago": "bg-green-100 text-green-800",
-  "Cancelado": "bg-gray-100 text-gray-500",
-  "Aprovisionado": "bg-amber-100 text-amber-800",
-  "Em execução": "bg-purple-100 text-purple-800",
-  "Em instrução": "bg-sky-100 text-sky-800"
-};
-const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
+export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel }) {
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [extraido, setExtraido] = useState(null);
+  const { toast } = useToast();
 
-export default function Lancamentos() {
-  const [lancamentos, setLancamentos] = useState([]);
-  const [contratos, setContratos] = useState([]);
-  const [itens, setItens] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [user, setUser] = useState(null);
-  const [usuarios, setUsuarios] = useState({});
-  const [historicos, setHistoricos] = useState([]);
-  const anoAtual = new Date().getFullYear();
-  const [filtroAno, setFiltroAno] = useState(String(anoAtual));
-  const [anosDisponiveis, setAnosDisponiveis] = useState([]);
-  const [filtroContrato, setFiltroContrato] = useState("todos");
-  const [filtroStatus, setFiltroStatus] = useState("todos");
-  const [showImportar, setShowImportar] = useState(false);
+  const [formData, setFormData] = useState({
+    contrato_id: lancamento?.contrato_id || "",
+    item_contrato_id: lancamento?.item_contrato_id || "",
+    mes: lancamento?.mes || new Date().getMonth() + 1,
+    ano: lancamento?.ano || new Date().getFullYear(),
+    valor: lancamento?.valor || 0,
+    status: lancamento?.status || "Em instrução",
+    numero_nf: lancamento?.numero_nf || "",
+    os_numero: lancamento?.os_numero || "",
+    os_local: lancamento?.os_local || "Natal",
+    arquivo_url: lancamento?.arquivo_url || ""
+  });
 
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-    loadBase();
-  }, []);
+  // Função para processar o PDF (IA do Base44)
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  useEffect(() => { loadLancamentos(); }, [filtroAno, filtroContrato]);
-
-  const loadBase = async () => {
-    const [c, i, todosLancamentos] = await Promise.all([
-      base44.entities.Contrato.list(),
-      base44.entities.ItemContrato.list(),
-      base44.entities.LancamentoFinanceiro.list()
-    ]);
-    setContratos(c);
-    setItens(i);
-    
-    // Extrair anos únicos dos lançamentos
-    const anosUnicos = [...new Set(todosLancamentos.map(l => l.ano).filter(Boolean))].sort((a, b) => b - a);
-    setAnosDisponiveis(anosUnicos.map(String));
-    
-    loadLancamentos();
-  };
-
-  const loadLancamentos = async () => {
-    setLoading(true);
-    const filter = { ano: parseInt(filtroAno) };
-    if (filtroContrato !== "todos") filter.contrato_id = filtroContrato;
-    const data = await base44.entities.LancamentoFinanceiro.filter(filter, "-created_date");
-    setLancamentos(data);
-    
-    // Buscar usuários únicos
-    const emailsUnicos = [...new Set(data.map(l => l.created_by).filter(Boolean))];
-    if (emailsUnicos.length > 0) {
-      const users = await base44.entities.User.list();
-      const userMap = {};
-      users.forEach(u => {
-        if (emailsUnicos.includes(u.email)) {
-          userMap[u.email] = u.full_name;
-        }
+    setUploading(true);
+    try {
+      // 1. Upload do arquivo
+      const url = await base44.storage.upload(file);
+      
+      // 2. Extração via IA (Schema que vimos no seu log)
+      const result = await base44.ai.extractFromPdf(url, {
+        numero_nf: "string",
+        data_nf: "string",
+        valor_total: "number",
+        os_numero: "string",
+        itens_material: "array"
       });
-      setUsuarios(userMap);
-    }
 
-    // Buscar históricos de cancelamento
-    const hists = await base44.entities.HistoricoLancamento.filter({ tipo_acao: "cancelamento" });
-    setHistoricos(hists);
-    
-    setLoading(false);
-  };
-
-  const handleDelete = async (lancamento) => {
-    if (!confirm("Excluir este lançamento?")) return;
-    // Se for material, exclui os itens de material associados
-    const isMaterial = lancamento.item_label === "Fornecimento de Materiais";
-    if (isMaterial) {
-      const itensMat = await base44.entities.ItemMaterialNF.filter({ lancamento_financeiro_id: lancamento.id });
-      for (const item of itensMat) {
-        await base44.entities.ItemMaterialNF.delete(item.id);
+      if (result) {
+        setExtraido(result);
+        setFormData(prev => ({
+          ...prev,
+          arquivo_url: url,
+          numero_nf: result.numero_nf || prev.numero_nf,
+          valor: result.valor_total || prev.valor,
+          os_numero: result.os_numero || prev.os_numero
+        }));
       }
+    } catch (err) {
+      console.error("Erro no processamento do PDF:", err);
+    } finally {
+      setUploading(false);
     }
-    await base44.entities.LancamentoFinanceiro.delete(lancamento.id);
-    loadLancamentos();
   };
 
-  const canEdit = user?.role === "admin" || user?.role === "gestor" || user?.role === "fiscal";
+  // FUNÇÃO CRÍTICA: Salvamento Sequencial para evitar Erro 429
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
 
-  const filtered = lancamentos.filter(l => filtroStatus === "todos" || l.status === filtroStatus);
+    try {
+      // 1. Criar ou Atualizar o Lançamento Principal
+      let resLancamento;
+      if (lancamento?.id) {
+        resLancamento = await base44.entities.LancamentoFinanceiro.update(lancamento.id, formData);
+      } else {
+        resLancamento = await base44.entities.LancamentoFinanceiro.create(formData);
+      }
 
-  const totalFiltrado = filtered.reduce((s, l) => s + (l.valor || 0), 0);
+      // 2. Se for Material e houver itens extraídos, salvar um por um
+      const isMaterial = itens.find(i => i.id === formData.item_contrato_id)?.nome === "Fornecimento de Materiais" 
+                         || formData.item_contrato_id.includes("material");
 
-  if (showImportar) return (
-    <div className="p-6">
-      <ImportarLancamentosLote
-        contratos={contratos}
-        onComplete={() => { setShowImportar(false); loadLancamentos(); }}
-        onCancel={() => setShowImportar(false)}
-      />
-    </div>
-  );
+      if (isMaterial && extraido?.itens_material?.length > 0) {
+        console.log(`Iniciando gravação de ${extraido.itens_material.length} itens...`);
+        
+        for (const item of extraido.itens_material) {
+          await base44.entities.ItemMaterialNF.create({
+            descricao: item.descricao,
+            unidade: item.unidade,
+            quantidade: item.quantidade,
+            valor_unitario: item.valor_unitario,
+            valor_total_item: item.valor_total_item,
+            numero_nf: extraido.numero_nf,
+            data_nf: extraido.data_nf,
+            os_numero: extraido.os_numero || formData.os_numero,
+            os_local: formData.os_local,
+            lancamento_financeiro_id: resLancamento.id // O VÍNCULO QUE ESTAVA FALTANDO
+          });
+          
+          // Pausa técnica para respeitar o limite do servidor
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
 
-  if (showForm || editing) return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <LancamentoForm
-        lancamento={editing}
-        contratos={contratos}
-        itens={itens}
-        onSave={() => { setShowForm(false); setEditing(null); loadLancamentos(); }}
-        onCancel={() => { setShowForm(false); setEditing(null); }}
-      />
-    </div>
-  );
+      onSave();
+    } catch (err) {
+      console.error("Erro ao salvar:", err);
+      alert("Erro ao salvar dados. Verifique o console.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1a2e4a]">Lançamentos Financeiros</h1>
-          <p className="text-gray-500 text-sm">{filtered.length} lançamento(s) · Total: {fmt(totalFiltrado)}</p>
-        </div>
-        {canEdit && (
-          <div className="flex gap-2">
-            <Button onClick={() => setShowImportar(true)} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-              <Upload className="w-4 h-4 mr-2" /> Importar em Lote
-            </Button>
-            <Button onClick={() => setShowForm(true)} className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
-              <Plus className="w-4 h-4 mr-2" /> Novo Lançamento
+    <Card className="shadow-lg border-t-4 border-t-blue-600">
+      <CardContent className="pt-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <FileText className="text-blue-600" />
+            <h2 className="text-lg font-bold text-[#1a2e4a]">
+              {lancamento ? "Editar Lançamento" : "Novo Lançamento"}
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Contrato</Label>
+              <Select value={formData.contrato_id} onValueChange={v => setFormData({...formData, contrato_id: v})}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {contratos.map(c => <SelectItem key={c.id} value={c.id}>{c.numero}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo de Item</Label>
+              <Select value={formData.item_contrato_id} onValueChange={v => setFormData({...formData, item_contrato_id: v})}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {itens.map(i => <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Upload de NF com Feedback Visual */}
+          <div className="p-4 border-2 border-dashed rounded-xl bg-gray-50 flex flex-col items-center justify-center">
+            {uploading ? (
+              <div className="flex items-center gap-2 text-blue-600 font-medium">
+                <Loader2 className="animate-spin" /> Processando PDF pela IA...
+              </div>
+            ) : extraido ? (
+              <div className="flex items-center gap-2 text-green-600 font-medium">
+                <CheckCircle2 size={20} /> NF {extraido.numero_nf} lida com sucesso!
+              </div>
+            ) : (
+              <label className="cursor-pointer flex flex-col items-center">
+                <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                <span className="text-sm text-gray-500 font-medium">Clique para importar PDF da Nota Fiscal</span>
+                <input type="file" className="hidden" accept=".pdf" onChange={handleFileUpload} />
+              </label>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <Label>NF</Label>
+              <Input value={formData.numero_nf} onChange={e => setFormData({...formData, numero_nf: e.target.value})} />
+            </div>
+            <div className="space-y-1">
+              <Label>OS</Label>
+              <Input value={formData.os_numero} onChange={e => setFormData({...formData, os_numero: e.target.value})} />
+            </div>
+            <div className="space-y-1">
+              <Label>Valor</Label>
+              <Input type="number" step="0.01" value={formData.valor} onChange={e => setFormData({...formData, valor: parseFloat(e.target.value)})} />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>Cancelar</Button>
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading || uploading}>
+              {loading ? <Loader2 className="animate-spin mr-2" /> : null}
+              {lancamento ? "Atualizar" : "Salvar Lançamento"}
             </Button>
           </div>
-        )}
-      </div>
-
-      {/* Filtros */}
-      <div className="flex flex-wrap gap-3">
-        <Select value={filtroAno} onValueChange={setFiltroAno}>
-          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-          <SelectContent>{anosDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
-        </Select>
-        <Select value={filtroContrato} onValueChange={setFiltroContrato}>
-          <SelectTrigger className="w-52"><SelectValue placeholder="Todos os contratos" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os contratos</SelectItem>
-            {contratos.map(c => <SelectItem key={c.id} value={c.id}>{c.numero} – {c.contratada}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Todos os status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os status</SelectItem>
-            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Resumo por mês */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
-        {Array.from({ length: 12 }, (_, i) => {
-          const m = i + 1;
-          const total = filtered.filter(l => l.mes === m).reduce((s, l) => s + l.valor, 0);
-          return (
-            <div key={m} className={`text-center p-2 rounded-lg border ${total > 0 ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-100"}`}>
-              <div className="text-xs text-gray-500">{mesesNomes[i]}</div>
-              <div className={`text-xs font-bold mt-0.5 ${total > 0 ? "text-[#1a2e4a]" : "text-gray-300"}`}>
-                {total > 0 ? `${(total / 1000).toFixed(0)}k` : "—"}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-8 text-gray-400">Carregando...</div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <DollarSign className="w-10 h-10 mx-auto mb-3 opacity-30" />
-          <div>Nenhum lançamento encontrado</div>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left p-3 font-medium text-gray-500">Mês/Ano</th>
-                <th className="text-left p-3 font-medium text-gray-500">Contrato</th>
-                <th className="text-left p-3 font-medium text-gray-500">Item</th>
-                <th className="text-left p-3 font-medium text-gray-500">Status</th>
-                <th className="text-right p-3 font-medium text-gray-500">Valor</th>
-                <th className="text-left p-3 font-medium text-gray-500">NF / OS / SEI</th>
-                <th className="text-left p-3 font-medium text-gray-500">Cadastrado por</th>
-                {canEdit && <th className="p-3"></th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(l => {
-                const contrato = contratos.find(c => c.id === l.contrato_id);
-                const item = itens.find(i => i.id === l.item_contrato_id);
-                return (
-                  <tr key={l.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{mesesNomes[(l.mes || 1) - 1]}/{l.ano}</td>
-                    <td className="p-3 text-xs text-gray-600">{contrato?.numero || "—"}</td>
-                    <td className="p-3 text-xs text-gray-600">{l.item_label || item?.nome || "—"}</td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1.5">
-                        {canEdit ? (
-                          <StatusEditor lancamento={l} onUpdate={loadLancamentos} />
-                        ) : (
-                          <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
-                            {l.status || "—"}
-                          </Badge>
-                        )}
-                        {l.status === "Cancelado" && (() => {
-                          const hist = historicos.find(h => h.lancamento_financeiro_id === l.id && h.tipo_acao === "cancelamento");
-                          return hist?.motivo ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="w-3.5 h-3.5 text-amber-500 cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <div className="font-semibold text-xs">Motivo do Cancelamento:</div>
-                                    <div className="text-xs">{hist.motivo}</div>
-                                    {hist.realizado_por && (
-                                      <div className="text-xs text-gray-400 mt-2">
-                                        Por: {hist.realizado_por}
-                                      </div>
-                                    )}
-                                    {hist.data_acao && (
-                                      <div className="text-xs text-gray-400">
-                                        Em: {new Date(hist.data_acao).toLocaleDateString("pt-BR")}
-                                      </div>
-                                    )}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : null;
-                        })()}
-                      </div>
-                    </td>
-                    <td className="p-3 text-right font-semibold">{fmt(l.valor)}</td>
-                    <td className="p-3 text-xs text-gray-500 space-y-0.5">
-                      {l.numero_nf && <div>NF: {l.numero_nf}</div>}
-                      {l.ordens_servico?.length > 0 ? (
-                        l.ordens_servico.map((os, idx) => (
-                          <div key={idx}>OS: {os.numero}</div>
-                        ))
-                      ) : l.os_numero && <div>OS: {l.os_numero}</div>}
-                      {l.processo_pagamento_sei && <div>SEI: {l.processo_pagamento_sei}</div>}
-                      {!l.numero_nf && !l.ordens_servico?.length && !l.os_numero && !l.processo_pagamento_sei && "—"}
-                    </td>
-                    <td className="p-3 text-xs text-gray-600">
-                      <div className="font-medium">{usuarios[l.created_by] || l.created_by || "—"}</div>
-                      {l.created_date && (
-                        <div className="text-gray-400 mt-0.5">
-                          {new Date(l.created_date).toLocaleDateString("pt-BR")}
-                        </div>
-                      )}
-                    </td>
-                    {canEdit && (
-                      <td className="p-3">
-                        <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditing(l)}>
-                            <Pencil className="w-3 h-3" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(l)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
