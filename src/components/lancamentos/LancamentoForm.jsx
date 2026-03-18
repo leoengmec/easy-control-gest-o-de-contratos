@@ -369,6 +369,13 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         }
       });
 
+      console.log("=== RESULTADO DA EXTRAÇÃO DO PDF ===");
+      console.log("Status:", result.status);
+      console.log("Output completo:", result.output);
+      console.log("Details (se houver erro):", result.details);
+      console.log("isMaterialNota:", isMaterialNota);
+      console.log("=====================================");
+
       if (result.status === "success" && result.output) {
         const data = result.output;
 
@@ -415,6 +422,10 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         toast.error("Não foi possível extrair dados do PDF. Verifique se o arquivo é uma nota fiscal válida.");
       }
     } catch (error) {
+      console.error("=== ERRO NA EXTRAÇÃO DO PDF ===");
+      console.error("Mensagem:", error.message);
+      console.error("Erro completo:", error);
+      console.error("================================");
       toast.error("Erro ao processar o PDF: " + error.message);
     } finally {
       setExtractingPdf(false);
