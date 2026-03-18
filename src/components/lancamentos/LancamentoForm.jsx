@@ -46,7 +46,7 @@ function ItemNFCard({ entry, index, empenhos, onChange }) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="space-y-1">
-          <Label className="text-xs">Número da NF</Label>
+          <Label className="text-xs">Número da NF <span className="text-red-500">*</span></Label>
           <Input
             value={entry.numero_nf}
             onChange={e => onChange(index, "numero_nf", e.target.value)}
@@ -54,7 +54,7 @@ function ItemNFCard({ entry, index, empenhos, onChange }) {
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Data da NF</Label>
+          <Label className="text-xs">Data da NF <span className="text-red-500">*</span></Label>
           <Input
             type="date"
             value={entry.data_nf}
@@ -62,7 +62,7 @@ function ItemNFCard({ entry, index, empenhos, onChange }) {
           />
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Valor da NF (R$)</Label>
+          <Label className="text-xs">Valor da NF (R$) <span className="text-red-500">*</span></Label>
           <Input
             type="number"
             step="0.01"
