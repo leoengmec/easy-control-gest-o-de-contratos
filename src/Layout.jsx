@@ -62,40 +62,58 @@ export default function Layout({ children, currentPageName }) {
       <BarraAcessibilidade />
 
       <style>{`
-        /* 1. Força as cores base no corpo do site */
+        /* 1. Reset Global de Acessibilidade */
         body { 
           background-color: var(--bg-primary, #f9fafb) !important; 
           color: var(--text-primary, #1a2e4a) !important; 
           transition: background-color 0.3s, color 0.3s;
         }
 
-        /* 2. Se um tema de contraste estiver ativo, forçamos os elementos a herdarem as cores */
-        :root[style*="--bg-primary"] main, 
-        :root[style*="--bg-primary"] aside {
+        /* 2. Forçar contraste em Temas Escuros/Coloridos */
+        :root[style*="--bg-primary"] body:not([style*="#ffffff"]) main,
+        :root[style*="--bg-primary"] body:not([style*="#ffffff"]) aside {
           background-color: var(--bg-primary) !important;
           color: var(--text-primary) !important;
         }
 
-        /* 3. Garante que textos dentro de cards, tabelas e spans fiquem legíveis */
-        :root[style*="--bg-primary"] main * {
+        /* 3. Limpeza de "Ruído" Visual (Cards brancos no fundo preto) */
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) main *,
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) section,
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="bg-white"],
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="shadow"] {
           background-color: transparent !important;
           color: inherit !important;
           border-color: currentColor !important;
+          box-shadow: none !important;
         }
 
-        /* 4. Destaque visual para itens ativos na navegação */
+        /* 4. Navegação */
         .nav-active { 
           background: rgba(255,255,255,0.2) !important; 
           border-left: 4px solid currentColor !important; 
         }
 
-        /* 5. Ajuste para botões e inputs no modo contraste */
-        :root[style*="--bg-primary"] button:not(.fixed),
-        :root[style*="--bg-primary"] input,
-        :root[style*="--bg-primary"] select {
+        /* 5. Inputs, Seletor de Ano e Filtros */
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) input,
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) select,
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) button:not(.fixed) {
           border: 1px solid currentColor !important;
           background: transparent !important;
           color: currentColor !important;
+        }
+
+        /* 6. Gráficos e Tabelas */
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) table {
+          border-collapse: collapse;
+        }
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) td, 
+        :root[style*="--bg-primary"]:not([style*="#ffffff"]) th {
+          border: 1px solid currentColor !important;
+        }
+        
+        /* 7. Ajuste para o Painel de Acessibilidade não ficar invisível */
+        .fixed.bottom-20 * {
+          background-color: transparent !important;
         }
       `}</style>
 
@@ -156,26 +174,29 @@ export default function Layout({ children, currentPageName }) {
         )}
       </aside>
 
-      {/* Main */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 ml-0 lg:ml-64">
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b shadow-sm">
+        {/* Mobile Header */}
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b shadow-sm"
+                style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="font-semibold text-[#1a2e4a]">Easy Control</div>
+          <div className="font-semibold">Easy Control</div>
         </header>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 lg:p-8">
           {children}
         </main>
       </div>
 
+      {/* Sidebar Footer */}
       <footer 
         style={{ backgroundColor: 'var(--bg-sidebar, #111e30)', borderTop: '1px solid rgba(255,255,255,0.05)' }}
         className="hidden lg:flex fixed bottom-0 left-0 w-64 text-[10px] px-4 py-2 flex-col text-white/40"
       >
         <span>© {new Date().getFullYear()} Easy Control</span>
-        <span>v1.0.0</span>
+        <span>v1.0.0 · Natal/RN</span>
       </footer>
     </div>
   );
