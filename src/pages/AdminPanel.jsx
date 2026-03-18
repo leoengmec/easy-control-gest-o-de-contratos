@@ -7,11 +7,13 @@ import AdminDados from "@/components/admin/AdminDados.jsx";
 import AdminConfiguracoes from "@/components/admin/AdminConfiguracoes.jsx";
 import AdminAlertas from "@/components/admin/AdminAlertas.jsx";
 import AdminPerfisAcesso from "@/components/admin/AdminPerfisAcesso.jsx";
+import AdminStatusLancamento from "@/components/admin/AdminStatusLancamento.jsx";
 
 const TABS = [
   { id: "usuarios",      label: "Usuários",          icon: Users,    desc: "Gerenciar usuários e permissões" },
   { id: "perfis",        label: "Perfis de Acesso",  icon: UserCog,  desc: "Visualizar e editar perfis do sistema" },
   { id: "alertas",       label: "Alertas",            icon: Bell,     desc: "Configurar notificações automáticas" },
+  { id: "status",        label: "Status de Lançamento", icon: Shield, desc: "Configurar status disponíveis" },
   { id: "dados",         label: "Dados",              icon: Database, desc: "Gerenciar registros do sistema" },
   { id: "configuracoes", label: "Configurações",      icon: Settings, desc: "Configurações gerais do sistema" },
 ];
@@ -80,6 +82,7 @@ export default function AdminPanel() {
       {activeTab === "usuarios"      && <AdminUsuarios />}
       {activeTab === "perfis"        && <AdminPerfisAcesso />}
       {activeTab === "alertas"       && <AdminAlertas />}
+      {activeTab === "status"        && <AdminStatusLancamento />}
       {activeTab === "dados"         && <AdminDados />}
       {activeTab === "configuracoes" && <AdminConfiguracoes />}
     </div>
