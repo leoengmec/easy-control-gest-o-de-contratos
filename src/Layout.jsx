@@ -62,12 +62,41 @@ export default function Layout({ children, currentPageName }) {
       <BarraAcessibilidade />
 
       <style>{`
+        /* 1. Força as cores base no corpo do site */
         body { 
           background-color: var(--bg-primary, #f9fafb) !important; 
           color: var(--text-primary, #1a2e4a) !important; 
+          transition: background-color 0.3s, color 0.3s;
         }
-        main *, aside * { color: inherit !important; }
-        .nav-active { background: rgba(255,255,255,0.15); border-left: 4px solid #3b82f6; }
+
+        /* 2. Se um tema de contraste estiver ativo, forçamos os elementos a herdarem as cores */
+        :root[style*="--bg-primary"] main, 
+        :root[style*="--bg-primary"] aside {
+          background-color: var(--bg-primary) !important;
+          color: var(--text-primary) !important;
+        }
+
+        /* 3. Garante que textos dentro de cards, tabelas e spans fiquem legíveis */
+        :root[style*="--bg-primary"] main * {
+          background-color: transparent !important;
+          color: inherit !important;
+          border-color: currentColor !important;
+        }
+
+        /* 4. Destaque visual para itens ativos na navegação */
+        .nav-active { 
+          background: rgba(255,255,255,0.2) !important; 
+          border-left: 4px solid currentColor !important; 
+        }
+
+        /* 5. Ajuste para botões e inputs no modo contraste */
+        :root[style*="--bg-primary"] button:not(.fixed),
+        :root[style*="--bg-primary"] input,
+        :root[style*="--bg-primary"] select {
+          border: 1px solid currentColor !important;
+          background: transparent !important;
+          color: currentColor !important;
+        }
       `}</style>
 
       {/* Sidebar */}
