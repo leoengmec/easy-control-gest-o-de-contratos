@@ -331,7 +331,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     });
 
     try {
+      console.log("=== INICIANDO UPLOAD DO PDF ===");
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      console.log("Upload concluído. URL:", file_url);
 
       const itensMatSchema = isMaterialNota ? {
         itens_material: {
@@ -349,6 +351,20 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           }
         }
       } : {};
+
+      console.log("=== SCHEMA PARA EXTRAÇÃO ===");
+      console.log("isMaterialNota:", isMaterialNota);
+      console.log("Schema completo:", JSON.stringify({
+        type: "object",
+        properties: {
+          numero_nf: { type: "string" },
+          data_nf: { type: "string" },
+          valor_total: { type: "number" },
+          ...osProperties,
+          ...itensMatSchema,
+        }
+      }, null, 2));
+      console.log("============================");
 
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url,
