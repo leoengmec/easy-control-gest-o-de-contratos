@@ -484,7 +484,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       status,
       processo_pagamento_sei: processoPagSei,
       ordem_bancaria: ordemBancaria,
-      ordens_servico: ordensServico.filter(os => os.numero || os.descricao),
+      ordens_servico: ordensServico
+        .filter(os => os.numero || os.descricao)
+        .map(os => ({
+          ...os,
+          valor: os.valor ? parseFloat(os.valor) : null
+        })),
       data_lancamento: dataLancamento,
       observacoes,
     };
