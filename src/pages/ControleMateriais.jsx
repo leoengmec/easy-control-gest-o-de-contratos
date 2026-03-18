@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,13 +12,12 @@ const fmt = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", c
 const fmtNum = (v) => Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 const LOCAIS = ["Natal", "Mossoró", "Assú", "Caicó", "Pau dos Ferros", "Ceará Mirim"];
 
-// A LINHA ABAIXO É A QUE ESTAVA CAUSANDO O SYNTAX ERROR SE ESTIVESSE DIFERENTE
 export default function ControleMateriais() {
+  // Inicializamos como array vazio para evitar erro de .map()
   const [itens, setItens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedNFs, setExpandedNFs] = useState({});
 
-  // Estados dos Filtros
   const [filtroOS, setFiltroOS] = useState("");
   const [filtroNF, setFiltroNF] = useState("");
   const [filtroLocal, setFiltroLocal] = useState("todos");
@@ -27,11 +26,13 @@ export default function ControleMateriais() {
 
   useEffect(() => {
     base44.entities.ItemMaterialNF.list("-created_date", 1000)
-      .then(setItens)
+      .then((res) => setItens(res || []))
+      .catch(() => setItens([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const itensFiltrados = itens.filter(item => {
+  // Filtro seguro usando optional chaining
+  const itensFiltrados = itens?.filter(item => {
     const osOk    = !filtroOS    || (item.os_numero || "").toLowerCase().includes(filtroOS.toLowerCase());
     const nfOk    = !filtroNF    || (item.numero_nf || "").toLowerCase().includes(filtroNF.toLowerCase());
     const localOk = filtroLocal === "todos" || item.os_local === filtroLocal;
@@ -44,8 +45,9 @@ export default function ControleMateriais() {
       return true;
     })();
     return osOk && nfOk && localOk && dataOk;
-  });
+  }) || [];
 
+  // Agrupar itens por NF
   const nfsMap = {};
   itensFiltrados.forEach(item => {
     const key = item.numero_nf || "S-NF-" + (item.os_numero || "Geral");
@@ -75,7 +77,7 @@ export default function ControleMateriais() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
       <Loader2 className="animate-spin text-blue-600" />
-      <p className="text-gray-500 font-medium">Carregando base de materiais...</p>
+      <p className="text-gray-500 font-medium font-sans">Carregando base de materiais...</p>
     </div>
   );
 
@@ -86,13 +88,13 @@ export default function ControleMateriais() {
           <Package className="w-6 h-6 text-blue-400" />
         </div>
         <div>
-          <h1 className="text-2xl font-black text-[#1a2e4a] tracking-tight">Controle de Materiais</h1>
-          <p className="text-sm text-gray-500 font-medium">Consulta de itens extraídos por IA de notas fiscais</p>
+          <h1 className="text-2xl font-black text-[#1a2e4a] tracking-tight font-sans">Controle de Materiais</h1>
+          <p className="text-sm text-gray-500 font-medium">Itens extraídos por IA vinculados às ordens de serviço</p>
         </div>
       </div>
 
       <Card className="bg-white/50 border-none shadow-sm">
-        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end font-sans">
           <div className="space-y-1.5">
             <Label className="text-xs font-bold text-gray-400 uppercase">OS</Label>
             <div className="relative">
@@ -114,7 +116,7 @@ export default function ControleMateriais() {
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={limparFiltros} disabled={!temFiltroAtivo}>
+          <Button variant="outline" onClick={limparFiltros} disabled={!temFiltroAtivo} className="font-bold">
             <X className="w-4 h-4 mr-2" /> Limpar Filtros
           </Button>
         </CardContent>
@@ -122,11 +124,11 @@ export default function ControleMateriais() {
 
       <div className="space-y-3">
         {nfsList.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">Nenhum registro encontrado.</div>
+          <div className="text-center py-10 text-gray-400 font-sans">Nenhum registro encontrado.</div>
         ) : (
           nfsList.map(([key, nf]) => (
             <Card key={key} className="overflow-hidden border-none shadow-sm">
-              <button onClick={() => toggleNF(key)} className="w-full text-left p-4 hover:bg-gray-50 transition-colors">
+              <button onClick={() => toggleNF(key)} className="w-full text-left p-4 hover:bg-gray-50 transition-colors font-sans">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="text-blue-600">
@@ -140,7 +142,7 @@ export default function ControleMateriais() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase">Valor da Nota</div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase">Valor Total da Nota</div>
                     <div className="text-lg font-black text-[#1a2e4a]">{fmt(nf.valor_total_nota)}</div>
                   </div>
                 </div>
@@ -148,7 +150,7 @@ export default function ControleMateriais() {
 
               {expandedNFs[key] && (
                 <div className="border-t bg-gray-50/50 p-4 overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm font-sans">
                     <thead>
                       <tr className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b">
                         <th className="pb-2">Descrição</th>
