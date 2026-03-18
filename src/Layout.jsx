@@ -62,68 +62,55 @@ export default function Layout({ children, currentPageName }) {
       <BarraAcessibilidade />
 
       <style>{`
-        /* 1. Reset Global de Acessibilidade */
-        body { 
-          background-color: var(--bg-primary, #f9fafb) !important; 
-          color: var(--text-primary, #1a2e4a) !important; 
-          transition: background-color 0.3s, color 0.3s;
-        }
+  /* 1. Base do Corpo - Força o preenchimento da tela toda */
+  body { 
+    background-color: var(--bg-primary, #f9fafb) !important; 
+    color: var(--text-primary, #1a2e4a) !important; 
+    transition: background-color 0.2s, color 0.2s;
+  }
 
-        /* 2. Forçar contraste em Temas Escuros/Coloridos */
-        :root[style*="--bg-primary"] body:not([style*="#ffffff"]) main,
-        :root[style*="--bg-primary"] body:not([style*="#ffffff"]) aside {
-          background-color: var(--bg-primary) !important;
-          color: var(--text-primary) !important;
-        }
+  /* 2. REGRAS DE CONTRASTE ATIVO 
+     (Só funcionam quando a variável --bg-primary não é branca) */
+  :root[style*="--bg-primary"] body:not([style*="#ffffff"]) main,
+  :root[style*="--bg-primary"] body:not([style*="#ffffff"]) aside {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+  }
 
-        /* 3. Limpeza de "Ruído" Visual - AGORA COM EXCEÇÃO PARA A BARRA */
-:root[style*="--bg-primary"]:not([style*="#ffffff"]) main *:not(.fixed *),
-:root[style*="--bg-primary"]:not([style*="#ffffff"]) section:not(.fixed *),
-:root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="bg-white"]:not(.fixed *),
-:root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="shadow"]:not(.fixed *) {
-  background-color: transparent !important;
-  color: inherit !important;
-  border-color: currentColor !important;
-  box-shadow: none !important;
-}
+  /* 3. LIMPEZA GERAL DE COMPONENTES 
+     Isso remove o fundo branco de cards, tabelas e inputs no modo contraste */
+  :root[style*="--bg-primary"]:not([style*="#ffffff"]) main * {
+    background-color: transparent !important;
+    color: inherit !important;
+    border-color: currentColor !important;
+    box-shadow: none !important;
+  }
 
-/* 4. Forçar o fundo sólido da Barra de Acessibilidade */
-.fixed.bottom-20 {
-  background-color: var(--bg-primary, #ffffff) !important;
-  color: var(--text-primary, #1a2e4a) !important;
-  opacity: 1 !important;
-  z-index: 99999 !important;
-}
+  /* 4. AJUSTE DE GRÁFICOS E TABELAS 
+     Garante que as bordas das tabelas apareçam no preto/amarelo */
+  :root[style*="--bg-primary"]:not([style*="#ffffff"]) table, 
+  :root[style*="--bg-primary"]:not([style*="#ffffff"]) tr, 
+  :root[style*="--bg-primary"]:not([style*="#ffffff"]) td,
+  :root[style*="--bg-primary"]:not([style*="#ffffff"]) div[class*="border"] {
+    border: 1px solid currentColor !important;
+  }
 
-        /* 4. Navegação */
-        .nav-active { 
-          background: rgba(255,255,255,0.2) !important; 
-          border-left: 4px solid currentColor !important; 
-        }
+  /* 5. NAVEGAÇÃO E BOTÕES 
+     Destaque para o item que está selecionado no menu lateral */
+  .nav-active { 
+    background-color: rgba(255, 255, 255, 0.2) !important; 
+    border-left: 4px solid currentColor !important;
+    font-weight: bold;
+  }
 
-        /* 5. Inputs, Seletor de Ano e Filtros */
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) input,
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) select,
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) button:not(.fixed) {
-          border: 1px solid currentColor !important;
-          background: transparent !important;
-          color: currentColor !important;
-        }
-
-        /* 6. Gráficos e Tabelas */
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) table {
-          border-collapse: collapse;
-        }
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) td, 
-        :root[style*="--bg-primary"]:not([style*="#ffffff"]) th {
-          border: 1px solid currentColor !important;
-        }
-        
-        /* 7. Ajuste para o Painel de Acessibilidade não ficar invisível */
-        .fixed.bottom-20 * {
-          background-color: transparent !important;
-        }
-      `}</style>
+  /* 6. INPUTS E BUSCA 
+     Faz com que o campo de busca seja visível no fundo escuro */
+  :root[style*="--bg-primary"]:not([style*="#ffffff"]) input {
+    background-color: transparent !important;
+    border: 1px solid currentColor !important;
+    color: currentColor !important;
+  }
+`}</style>
 
       {/* Sidebar */}
       <aside 
