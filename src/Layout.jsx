@@ -1,7 +1,55 @@
-// ... (mantenha os imports iguais)
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { base44 } from "@/api/base44Client";
+import {
+  LayoutDashboard,
+  FileText,
+  DollarSign,
+  PiggyBank,
+  BarChart2,
+  Menu,
+  X,
+  ChevronRight,
+  LogOut,
+  Scale,
+  ShoppingCart,
+  Shield,
+  Bell,
+  CheckSquare
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
+
+const navItems = [
+  { label: "Dashboard", page: "Dashboard", icon: LayoutDashboard, roles: ["admin", "gestor", "fiscal", "direcao"] },
+  { label: "Contratos", page: "Contratos", icon: FileText, roles: ["admin", "gestor", "fiscal", "direcao"] },
+  { label: "Lançamentos", page: "Lancamentos", icon: DollarSign, roles: ["admin", "gestor", "fiscal"] },
+  { label: "Orçamento", page: "Orcamento", icon: PiggyBank, roles: ["admin", "gestor", "direcao"] },
+  { label: "Relatórios", page: "Relatorios", icon: BarChart2, roles: ["admin", "gestor", "direcao"] },
+  { label: "Controle de Materiais", page: "ControleMateriais", icon: ShoppingCart, roles: ["admin", "gestor", "fiscal"] },
+  { label: "Revisão", page: "Revisao", icon: CheckSquare, roles: ["admin", "gestor"] },
+  { label: "Meus Alertas", page: "MinhasConfiguracoesAlertas", icon: Bell, roles: ["admin", "gestor", "fiscal", "direcao"] },
+  { label: "Administração", page: "AdminPanel", icon: Shield, roles: ["admin"] },
+];
+
 export default function Layout({ children, currentPageName }) {
-  // ... (mantenha a lógica de auth e notificações igual)
+  if (currentPageName === "LandingPage") {
+    return <>{children}</>;
+  }
+
+  const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    base44.auth.me().then(u => {
+      setUser(u);
+    }).catch(() => {});
+  }, []);
+
+  const userRole = user?.role || "direcao";
+  const visibleNav = navItems.filter(item => item.roles.includes(userRole));
 
   return (
     <div 
@@ -14,17 +62,15 @@ export default function Layout({ children, currentPageName }) {
       <BarraAcessibilidade />
 
       <style>{`
-        /* Força todos os textos e fundos a herdarem as cores da acessibilidade */
         body { 
           background-color: var(--bg-primary, #f9fafb) !important; 
           color: var(--text-primary, #1a2e4a) !important; 
         }
-        /* Garante que links e cards também sigam a cor do texto */
         main *, aside * { color: inherit !important; }
         .nav-active { background: rgba(255,255,255,0.15); border-left: 4px solid #3b82f6; }
       `}</style>
 
-      {/* Sidebar - Agora usa a variável --bg-sidebar */}
+      {/* Sidebar */}
       <aside 
         style={{ backgroundColor: 'var(--bg-sidebar, #1a2e4a)' }}
         className={`fixed inset-y-0 left-0 z-50 w-64 text-white flex flex-col transform transition-transform duration-200 lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
@@ -48,6 +94,7 @@ export default function Layout({ children, currentPageName }) {
               <Link
                 key={item.page}
                 to={createPageUrl(item.page)}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? "nav-active" : "opacity-80 hover:opacity-100 hover:bg-white/5"}`}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -57,10 +104,9 @@ export default function Layout({ children, currentPageName }) {
           })}
         </nav>
 
-        {/* User Info */}
         {user && (
           <div className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold uppercase">
                 {user.full_name?.charAt(0)}
               </div>
@@ -69,18 +115,32 @@ export default function Layout({ children, currentPageName }) {
                 <div className="text-[10px] opacity-60 uppercase">{user.role}</div>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-white/70 hover:text-white hover:bg-white/10 text-xs justify-start"
+              onClick={() => base44.auth.logout()}
+            >
+              <LogOut className="w-3 h-3 mr-2" /> Sair
+            </Button>
           </div>
         )}
       </aside>
 
-      {/* Main Content */}
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 ml-0 lg:ml-64">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b shadow-sm">
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-5 h-5" />
+          </Button>
+          <div className="font-semibold text-[#1a2e4a]">Easy Control</div>
+        </header>
+
         <main className="flex-1 p-6">
           {children}
         </main>
       </div>
 
-      {/* Rodapé Dinâmico */}
       <footer 
         style={{ backgroundColor: 'var(--bg-sidebar, #111e30)', borderTop: '1px solid rgba(255,255,255,0.05)' }}
         className="hidden lg:flex fixed bottom-0 left-0 w-64 text-[10px] px-4 py-2 flex-col text-white/40"
