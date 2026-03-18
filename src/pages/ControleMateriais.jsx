@@ -1,120 +1,139 @@
-import { useState, useEffect, useCallback } from "react"; // Adicionado useCallback
-import { base44 } from "@/api/base44Client";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Package, Search, X, AlertCircle } from "lucide-react"; // Adicionado AlertCircle
+const executeSave = async () => {
+    setSaving(true);
 
-const fmt = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const fmtNum = (v) => Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+    const baseData = {
+      contrato_id: contratoId,
+      ano: parseInt(ano),
+      mes: parseInt(mes),
+      status,
+      processo_pagamento_sei: processoPagSei,
+      ordem_bancaria: ordemBancaria,
+      ordens_servico: ordensServico
+        .filter(os => os.numero || os.descricao)
+        .map(os => ({
+          ...os,
+          valor: os.valor ? parseFloat(os.valor) : null,
+          data_emissao: os.data_emissao || hoje,
+          data_execucao: os.data_execucao || ""
+        })),
+      data_lancamento: dataLancamento,
+      observacoes,
+    };
 
-const LOCAIS = ["Natal", "Mossoró", "Assú", "Caicó", "Pau dos Ferros", "Ceará Mirim"];
+    try {
+      // 1. Processar cancelamentos (Um por um)
+      for (const lancId of pendingCancellations) {
+        const lanc = lancamentosExistentes.find(l => l.id === lancId);
+        if (lanc) {
+          await base44.entities.LancamentoFinanceiro.update(lancId, {
+            status: "Cancelado",
+            valor_pago_final: 0,
+          });
 
-export default function ControleMateriais() {
-  const [itens, setItens] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState(null); // Estado para capturar falhas de carregamento
-  const [expandedNFs, setExpandedNFs] = useState({});
+          await base44.entities.HistoricoLancamento.create({
+            lancamento_financeiro_id: lancId,
+            tipo_acao: "cancelamento",
+            status_anterior: lanc.status,
+            status_novo: "Cancelado",
+            motivo: cancelJustificativa,
+            realizado_por: user?.full_name || user?.email || "Sistema",
+            realizado_por_id: user?.id || "",
+            data_acao: hoje,
+          });
+          // Pequena pausa para evitar 429
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
 
-  const [filtroOS, setFiltroOS] = useState("");
-  const [filtroNF, setFiltroNF] = useState("");
-  const [filtroLocal, setFiltroLocal] = useState("todos");
-  const [filtroDataInicio, setFiltroDataInicio] = useState("");
-  const [filtroDataFim, setFiltroDataFim] = useState("");
+      // 2. Criar ou atualizar lançamentos
+      for (const entry of itensLancamento) {
+        const valor = parseFloat(entry.valor) || 0;
+        const retencao = parseFloat(entry.retencao) || 0;
+        const glosa = parseFloat(entry.glosa) || 0;
 
-  useEffect(() => {
-    setLoading(true);
-    // Tenta carregar os dados
-    base44.entities.ItemMaterialNF.list("-created_date", 500)
-      .then(res => {
-        setItens(res || []);
-        setErro(null);
-      })
-      .catch(err => {
-        console.error("Erro ao carregar materiais:", err);
-        setErro("Não foi possível carregar os dados do banco.");
-      })
-      .finally(() => setLoading(false));
-  }, []);
+        let currentLancId = entry.lancamento_id;
 
-  const itensFiltrados = itens.filter(item => {
-    const osOk    = !filtroOS    || (item.os_numero || "").toLowerCase().includes(filtroOS.toLowerCase());
-    const nfOk    = !filtroNF    || (item.numero_nf || "").toLowerCase().includes(filtroNF.toLowerCase());
-    const localOk = filtroLocal === "todos" || item.os_local === filtroLocal;
-    const dataOk  = (() => {
-      if (!filtroDataInicio && !filtroDataFim) return true;
-      const dataNF = item.data_nf;
-      if (!dataNF) return false;
-      if (filtroDataInicio && dataNF < filtroDataInicio) return false;
-      if (filtroDataFim    && dataNF > filtroDataFim)    return false;
-      return true;
-    })();
-    return osOk && nfOk && localOk && dataOk;
-  });
+        if (currentLancId) {
+          // Atualizar existente
+          await base44.entities.LancamentoFinanceiro.update(currentLancId, {
+            ...baseData,
+            valor,
+            retencao,
+            glosa,
+            valor_pago_final: valor - retencao - glosa,
+            item_label: entry.item_label,
+            item_contrato_id: entry.item_contrato_id,
+            nota_empenho_id: entry.nota_empenho_id,
+            numero_nf: entry.numero_nf,
+            data_nf: entry.data_nf,
+          });
+        } else {
+          // Criar novo
+          const created = await base44.entities.LancamentoFinanceiro.create({
+            ...baseData,
+            valor,
+            retencao,
+            glosa,
+            valor_pago_final: valor - retencao - glosa,
+            item_label: entry.item_label,
+            item_contrato_id: entry.item_contrato_id,
+            nota_empenho_id: entry.nota_empenho_id,
+            numero_nf: entry.numero_nf,
+            data_nf: entry.data_nf,
+          });
+          currentLancId = created.id;
 
-  const nfsMap = {};
-  itensFiltrados.forEach(item => {
-    const key = item.numero_nf || "SEM-NF-" + (item.os_numero || "Geral");
-    if (!nfsMap[key]) {
-      nfsMap[key] = {
-        numero_nf: item.numero_nf || "Não Informada",
-        data_nf: item.data_nf,
-        os_numero: item.os_numero,
-        os_local: item.os_local,
-        valor_total_nota: item.valor_total_nota || 0,
-        itens: []
-      };
+          // Registrar histórico de criação
+          await base44.entities.HistoricoLancamento.create({
+            lancamento_financeiro_id: currentLancId,
+            tipo_acao: "criacao",
+            status_novo: status,
+            motivo: "Lançamento criado",
+            realizado_por: user?.full_name || user?.email || "Sistema",
+            realizado_por_id: user?.id || "",
+            data_acao: hoje,
+          });
+
+          if (retencao > 0) {
+            await base44.entities.HistoricoRetencao.create({
+              lancamento_financeiro_id: currentLancId,
+              valor_retido: retencao,
+              valor_cancelado: 0,
+              data_acao: hoje,
+              tipo_acao: "aplicada",
+            });
+          }
+        }
+
+        // 3. SE FOR MATERIAL: Salvar itens extraídos da NF vinculados a ESTE lançamento
+        const itemConfig = itensContratoAtivos.find(ic => ic.id === entry.item_contrato_id);
+        const isMaterial = itemConfig?.grupo_servico === "material" || entry.item_label?.toUpperCase().includes("MATERIAL");
+
+        if (isMaterial && itensMaterialExtraidos.length > 0) {
+          toast.info(`Salvando ${itensMaterialExtraidos.length} itens de material...`);
+          
+          for (const itemMat of itensMaterialExtraidos) {
+            await base44.entities.ItemMaterialNF.create({
+              ...itemMat,
+              lancamento_financeiro_id: currentLancId, // Vínculo com o pagamento
+              os_numero: ordensServico[0]?.numero || "", // Pega a primeira OS da lista
+              os_local: ordensServico[0]?.locais_prestacao_servicos?.[0] || "Natal", // Pega o primeiro local selecionado
+              contrato_id: contratoId
+            });
+            // Espera 150ms entre cada item para evitar erro 429
+            await new Promise(r => setTimeout(r, 150));
+          }
+        }
+        // Espera entre lançamentos
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      toast.success("Todos os dados foram salvos com sucesso!");
+      onSave();
+    } catch (error) {
+      console.error("Erro fatal no salvamento:", error);
+      toast.error("Erro ao salvar: " + (error.message || "Erro desconhecido"));
+    } finally {
+      setSaving(false);
     }
-    nfsMap[key].itens.push(item);
-  });
-
-  const nfsList = Object.entries(nfsMap);
-  const toggleNF = (key) => setExpandedNFs(prev => ({ ...prev, [key]: !prev[key] }));
-  const temFiltroAtivo = filtroOS || filtroNF || filtroLocal !== "todos" || filtroDataInicio || filtroDataFim;
-  const limparFiltros = () => {
-    setFiltroOS(""); setFiltroNF(""); setFiltroLocal("todos");
-    setFiltroDataInicio(""); setFiltroDataFim("");
   };
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700"></div>
-        <div className="text-gray-500 animate-pulse font-medium">Sincronizando materiais...</div>
-      </div>
-    );
-  }
-
-  if (erro) {
-    return (
-      <div className="p-6 text-center space-y-4">
-        <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
-        <h2 className="text-lg font-bold text-gray-800">{erro}</h2>
-        <Button onClick={() => window.location.reload()}>Tentar Novamente</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header com estilo ajustado para o novo Layout */}
-      <div className="flex items-center gap-4 border-b pb-6">
-        <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-200">
-          <Package className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-black text-[#1a2e4a] tracking-tight">Controle de Materiais</h1>
-          <p className="text-sm text-gray-500 font-medium">Monitoramento de itens por nota fiscal e ordem de serviço</p>
-        </div>
-      </div>
-
-      {/* Restante do seu código de filtros e lista (Mantenha o seu original, 
-          ele está ótimo, apenas certifique-se de usar 'nfsList' como você já faz) */}
-      
-      {/* ... (Seus cards de filtros e nfsList.map) */}
-    </div>
-  );
-}
