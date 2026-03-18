@@ -32,26 +32,34 @@ export default function StatusEditor({ lancamento, onUpdate }) {
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
-    
-    // Carregar status configurados
-    base44.entities.ConfiguracaoStatusLancamento.filter({ ativo: true })
-      .then(data => {
-        const sorted = data.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
-        setStatusOptions(sorted);
-      })
-      .catch(() => {
-        // Fallback para status padrão se não houver configuração
-        setStatusOptions([
-          { nome: "SOF", cor: "gray", ordem: 1 },
-          { nome: "Em instrução", cor: "blue", ordem: 2 },
-          { nome: "Em bloco de assinatura", cor: "yellow", ordem: 3 },
-          { nome: "Em execução", cor: "orange", ordem: 4 },
-          { nome: "Aprovisionado", cor: "purple", ordem: 5 },
-          { nome: "Pago", cor: "green", ordem: 6 },
-          { nome: "Cancelado", cor: "red", ordem: 7 },
-        ]);
-      });
+    loadStatusOptions();
   }, []);
+
+  const loadStatusOptions = async () => {
+    try {
+      const data = await base44.entities.ConfiguracaoStatusLancamento.filter({ ativo: true });
+      const sorted = data.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+      setStatusOptions(sorted);
+    } catch {
+      // Fallback para status padrão se não houver configuração
+      setStatusOptions([
+        { nome: "SOF", cor: "gray", ordem: 1 },
+        { nome: "Em instrução", cor: "blue", ordem: 2 },
+        { nome: "Em bloco de assinatura", cor: "yellow", ordem: 3 },
+        { nome: "Em execução", cor: "orange", ordem: 4 },
+        { nome: "Aprovisionado", cor: "purple", ordem: 5 },
+        { nome: "Pago", cor: "green", ordem: 6 },
+        { nome: "Cancelado", cor: "red", ordem: 7 },
+      ]);
+    }
+  };
+
+  // Recarregar status quando abrir o popover
+  useEffect(() => {
+    if (open) {
+      loadStatusOptions();
+    }
+  }, [open]);
 
   const handleStatusChange = async () => {
     if (!selectedStatus) {
