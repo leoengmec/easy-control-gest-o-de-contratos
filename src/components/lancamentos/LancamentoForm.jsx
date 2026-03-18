@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Upload, Loader2, Plus, X, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
@@ -356,7 +357,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           properties: {
             numero_nf: { type: "string", description: "Número da nota fiscal. Se não encontrar, retorne null." },
             data_nf: { type: "string", description: "Data de emissão da nota fiscal no formato YYYY-MM-DD. Se não encontrar, retorne null." },
-            valor_total: { type: "number", description: "Valor total da nota fiscal em reais. Se não encontrar, retorne null." },
+            valor_total: { 
+              type: "number", 
+              description: isMaterialNota 
+                ? "Valor total da nota fiscal em reais, extraído do campo 'V. TOTAL PRODUTOS'. Se não encontrar, retorne null." 
+                : "Valor total da nota fiscal em reais, extraído do campo 'Valor do Serviço'. Se não encontrar, retorne null."
+            },
             ...osProperties,
             ...itensMatSchema,
           }
@@ -411,9 +417,52 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validação de campos obrigatórios
+    if (!contratoId) {
+      toast.error("O campo 'Contrato' é obrigatório.");
+      return;
+    }
+    
+    if (!mes) {
+      toast.error("O campo 'Mês' é obrigatório.");
+      return;
+    }
+    
+    if (!ano) {
+      toast.error("O campo 'Ano' é obrigatório.");
+      return;
+    }
+    
+    if (!status) {
+      toast.error("O campo 'Status' é obrigatório.");
+      return;
+    }
+    
+    if (!dataLancamento) {
+      toast.error("O campo 'Data do Lançamento' é obrigatório.");
+      return;
+    }
+    
     if (itensLancamento.length === 0) { 
-      alert("Selecione ao menos um item."); 
+      toast.error("Selecione ao menos um item do contrato.");
       return; 
+    }
+
+    // Validar cada item de lançamento
+    for (let i = 0; i < itensLancamento.length; i++) {
+      const item = itensLancamento[i];
+      if (!item.numero_nf) {
+        toast.error(`Item ${i + 1}: O campo 'Número da NF' é obrigatório.`);
+        return;
+      }
+      if (!item.data_nf) {
+        toast.error(`Item ${i + 1}: O campo 'Data da NF' é obrigatório.`);
+        return;
+      }
+      if (!item.valor || parseFloat(item.valor) <= 0) {
+        toast.error(`Item ${i + 1}: O campo 'Valor da NF' é obrigatório e deve ser maior que zero.`);
+        return;
+      }
     }
 
     // Se houver cancelamentos pendentes, solicita justificativa
@@ -559,7 +608,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1">
-              <Label>Contrato *</Label>
+              <Label>Contrato <span className="text-red-500">*</span></Label>
               <Select value={contratoId} onValueChange={v => { setContratoId(v); setItensLancamento([]); }}>
                 <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
                 <SelectContent>
@@ -572,7 +621,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               <p className="text-sm font-semibold text-[#1a2e4a]">Mês de Referência da Medição</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label>Mês *</Label>
+                  <Label>Mês <span className="text-red-500">*</span></Label>
                   <Select value={String(mes)} onValueChange={v => setMes(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -581,7 +630,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Ano *</Label>
+                  <Label>Ano <span className="text-red-500">*</span></Label>
                   <Select value={String(ano)} onValueChange={v => setAno(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -590,7 +639,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label>Status</Label>
+                  <Label>Status <span className="text-red-500">*</span></Label>
                   <Select value={status} onValueChange={setStatus}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -604,7 +653,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             {contratoId && (
               <div className="space-y-2">
                 <Label>
-                  Itens do Contrato
+                  Itens do Contrato <span className="text-red-500">*</span>
                   <span className="text-gray-400 text-xs ml-1">(selecione um ou mais)</span>
                 </Label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-3 bg-gray-50">
@@ -835,7 +884,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Data do Lançamento</Label>
+                <Label>Data do Lançamento <span className="text-red-500">*</span></Label>
                 <Input type="date" value={dataLancamento} onChange={e => setDataLancamento(e.target.value)} />
               </div>
               <div className="space-y-1">
