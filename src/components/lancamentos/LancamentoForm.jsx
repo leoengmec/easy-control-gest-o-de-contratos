@@ -317,11 +317,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     const osProperties = extrairOS ? {
       os_numero: {
         type: "string",
-        description: "Número da Ordem de Serviço (OS), encontrado no campo 'Descrição do Serviço' do PDF, no formato 'O.S XXX.YYYY' (ex: O.S 021.2025). Extraia apenas o código numérico (ex: '021.2025'). NÃO confundir com o número do contrato. Se não encontrar, retorne null."
+        description: "Número da Ordem de Serviço (OS), encontrado no campo 'Descrição do Serviço' do PDF, no formato 'O.S XXX.YYYY' (ex: O.S 021.2025). Extraia apenas o código numérico (ex: '021.2025'). NÃO confundir com o número do contrato. Se não encontrar, retorne string vazia."
       },
       os_data_emissao: {
         type: "string",
-        description: "Data de emissão da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' junto ao número da OS. Retorne no formato YYYY-MM-DD. Se não encontrar, retorne null."
+        description: "Data de emissão da Ordem de Serviço, encontrada no campo 'Descrição do Serviço' junto ao número da OS. Retorne no formato YYYY-MM-DD. Se não encontrar, retorne string vazia."
       },
     } : {};
 
@@ -355,13 +355,13 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         json_schema: {
           type: "object",
           properties: {
-            numero_nf: { type: "string", description: "Número da nota fiscal. Se não encontrar, retorne null." },
-            data_nf: { type: "string", description: "Data de emissão da nota fiscal no formato YYYY-MM-DD. Se não encontrar, retorne null." },
+            numero_nf: { type: "string", description: "Número da nota fiscal. Se não encontrar, retorne string vazia." },
+            data_nf: { type: "string", description: "Data de emissão da nota fiscal no formato YYYY-MM-DD. Se não encontrar, retorne string vazia." },
             valor_total: { 
               type: "number", 
               description: isMaterialNota 
-                ? "Valor total da nota fiscal em reais, extraído do campo 'V. TOTAL PRODUTOS'. Se não encontrar, retorne null." 
-                : "Valor total da nota fiscal em reais, extraído do campo 'Valor do Serviço'. Se não encontrar, retorne null."
+                ? "Valor total da nota fiscal em reais, extraído do campo 'V. TOTAL PRODUTOS'. Se não encontrar, retorne 0." 
+                : "Valor total da nota fiscal em reais, extraído do campo 'Valor do Serviço'. Se não encontrar, retorne 0."
             },
             ...osProperties,
             ...itensMatSchema,
@@ -372,22 +372,26 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (result.status === "success" && result.output) {
         const data = result.output;
 
-        if (extrairOS && data.os_numero && data.os_data_emissao) {
+        // Garantir que datas não sejam null ou inválidas
+        const dataNfFormatada = data.data_nf && data.data_nf !== "" ? data.data_nf : hoje;
+        const osDataEmissaoFormatada = data.os_data_emissao && data.os_data_emissao !== "" ? data.os_data_emissao : hoje;
+
+        if (extrairOS && data.os_numero) {
           setOrdensServico([{ 
-            numero: data.os_numero, 
+            numero: data.os_numero || "", 
             descricao: "", 
             valor: "", 
             locais_prestacao_servicos: [], 
-            data_emissao: data.os_data_emissao, 
+            data_emissao: osDataEmissaoFormatada, 
             data_execucao: "" 
           }]);
         }
 
         setItensLancamento(prev => prev.map(entry => ({
           ...entry,
-          numero_nf: data.numero_nf != null ? data.numero_nf : entry.numero_nf,
-          data_nf: data.data_nf != null ? data.data_nf : entry.data_nf,
-          valor: data.valor_total != null ? data.valor_total : entry.valor,
+          numero_nf: data.numero_nf || entry.numero_nf || "",
+          data_nf: dataNfFormatada,
+          valor: data.valor_total || entry.valor || "",
         })));
 
         const isMaterial = itensLancamento.some(e => {
@@ -399,15 +403,19 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             ...item,
             contrato_id: contratoId,
             numero_nf: data.numero_nf || "",
-            data_nf: data.data_nf || "",
+            data_nf: dataNfFormatada,
             os_numero: ordensServico[0]?.numero || "",
             os_local: ordensServico[0]?.locais_prestacao_servicos[0] || "",
             valor_total_nota: data.valor_total || 0,
           })));
         }
+        
+        toast.success("Dados extraídos do PDF com sucesso!");
       } else {
-        alert("Não foi possível extrair dados do PDF. Verifique se o arquivo é uma nota fiscal válida.");
+        toast.error("Não foi possível extrair dados do PDF. Verifique se o arquivo é uma nota fiscal válida.");
       }
+    } catch (error) {
+      toast.error("Erro ao processar o PDF: " + error.message);
     } finally {
       setExtractingPdf(false);
       e.target.value = "";
@@ -465,6 +473,33 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       }
     }
 
+    // Validar campos obrigatórios das Ordens de Serviço
+    if (shouldShowOrdensServico) {
+      for (let i = 0; i < ordensServico.length; i++) {
+        const os = ordensServico[i];
+        if (!os.numero || !os.numero.trim()) {
+          toast.error(`OS ${i + 1}: O campo 'Número da OS' é obrigatório.`);
+          return;
+        }
+        if (!os.data_emissao) {
+          toast.error(`OS ${i + 1}: O campo 'Data de emissão da OS' é obrigatório.`);
+          return;
+        }
+        if (!os.descricao || !os.descricao.trim()) {
+          toast.error(`OS ${i + 1}: O campo 'Descrição resumida do serviço' é obrigatório.`);
+          return;
+        }
+        if (!os.valor || parseFloat(os.valor) <= 0) {
+          toast.error(`OS ${i + 1}: O campo 'Valor da OS (R$)' é obrigatório e deve ser maior que zero.`);
+          return;
+        }
+        if (!os.locais_prestacao_servicos || os.locais_prestacao_servicos.length === 0) {
+          toast.error(`OS ${i + 1}: O campo 'Local de Prestação de Serviços' é obrigatório. Selecione ao menos um local.`);
+          return;
+        }
+      }
+    }
+
     // Se houver cancelamentos pendentes, solicita justificativa
     if (pendingCancellations.length > 0) {
       setShowCancelModal(true);
@@ -485,11 +520,13 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       processo_pagamento_sei: processoPagSei,
       ordem_bancaria: ordemBancaria,
       ordens_servico: ordensServico
-        .filter(os => os.numero || os.descricao)
-        .map(os => ({
-          ...os,
-          valor: os.valor ? parseFloat(os.valor) : null
-        })),
+      .filter(os => os.numero || os.descricao)
+      .map(os => ({
+      ...os,
+      valor: os.valor ? parseFloat(os.valor) : null,
+      data_emissao: os.data_emissao || hoje,
+      data_execucao: os.data_execucao || ""
+      })),
       data_lancamento: dataLancamento,
       observacoes,
     };
@@ -793,7 +830,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs">Número da OS</Label>
+                        <Label className="text-xs">Número da OS <span className="text-red-500">*</span></Label>
                         <Input
                           value={os.numero}
                           onChange={e => {
@@ -802,10 +839,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                             setOrdensServico(updated);
                           }}
                           placeholder="Nº da OS"
+                          required
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Data de emissão da OS</Label>
+                        <Label className="text-xs">Data de emissão da OS <span className="text-red-500">*</span></Label>
                         <Input
                           type="date"
                           value={os.data_emissao}
@@ -814,10 +852,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                             updated[idx].data_emissao = e.target.value;
                             setOrdensServico(updated);
                           }}
+                          required
                         />
                       </div>
                       <div className="space-y-1 sm:col-span-2">
-                        <Label className="text-xs">Descrição resumida do serviço</Label>
+                        <Label className="text-xs">Descrição resumida do serviço <span className="text-red-500">*</span></Label>
                         <Input
                           value={os.descricao}
                           onChange={e => {
@@ -826,10 +865,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                             setOrdensServico(updated);
                           }}
                           placeholder="Descrição resumida"
+                          required
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Valor da OS (R$)</Label>
+                        <Label className="text-xs">Valor da OS (R$) <span className="text-red-500">*</span></Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -841,6 +881,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                             setOrdensServico(updated);
                           }}
                           placeholder="0,00"
+                          required
                         />
                       </div>
                       <div className="space-y-1">
@@ -856,7 +897,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                         />
                       </div>
                       <div className="space-y-2 sm:col-span-2">
-                        <Label className="text-xs">Local de Prestação de Serviços</Label>
+                        <Label className="text-xs">Local de Prestação de Serviços <span className="text-red-500">*</span></Label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-lg p-2 bg-white">
                           {["Natal","Mossoró","Assú","Caicó","Pau dos Ferros","Ceará Mirim"].map(local => (
                             <div key={local} className="flex items-center gap-2">
