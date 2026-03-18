@@ -5,14 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, FileText, CheckCircle2, AlertTriangle } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast"; // Opcional, se usar Shadcn
+import { Loader2, FileText, CheckCircle2, Upload } from "lucide-react";
 
 export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [extraido, setExtraido] = useState(null);
-  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     contrato_id: lancamento?.contrato_id || "",
@@ -27,17 +25,13 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     arquivo_url: lancamento?.arquivo_url || ""
   });
 
-  // Função para processar o PDF (IA do Base44)
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setUploading(true);
     try {
-      // 1. Upload do arquivo
       const url = await base44.storage.upload(file);
-      
-      // 2. Extração via IA (Schema que vimos no seu log)
       const result = await base44.ai.extractFromPdf(url, {
         numero_nf: "string",
         data_nf: "string",
@@ -63,13 +57,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     }
   };
 
-  // FUNÇÃO CRÍTICA: Salvamento Sequencial para evitar Erro 429
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 1. Criar ou Atualizar o Lançamento Principal
       let resLancamento;
       if (lancamento?.id) {
         resLancamento = await base44.entities.LancamentoFinanceiro.update(lancamento.id, formData);
@@ -77,13 +69,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         resLancamento = await base44.entities.LancamentoFinanceiro.create(formData);
       }
 
-      // 2. Se for Material e houver itens extraídos, salvar um por um
-      const isMaterial = itens.find(i => i.id === formData.item_contrato_id)?.nome === "Fornecimento de Materiais" 
-                         || formData.item_contrato_id.includes("material");
+      // Proteção: usa ?.find para evitar erro se 'itens' for nulo
+      const itemSelecionado = itens?.find(i => i.id === formData.item_contrato_id);
+      const isMaterial = itemSelecionado?.nome === "Fornecimento de Materiais" 
+                         || formData.item_contrato_id?.includes("material");
 
       if (isMaterial && extraido?.itens_material?.length > 0) {
-        console.log(`Iniciando gravação de ${extraido.itens_material.length} itens...`);
-        
         for (const item of extraido.itens_material) {
           await base44.entities.ItemMaterialNF.create({
             descricao: item.descricao,
@@ -95,10 +86,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             data_nf: extraido.data_nf,
             os_numero: extraido.os_numero || formData.os_numero,
             os_local: formData.os_local,
-            lancamento_financeiro_id: resLancamento.id // O VÍNCULO QUE ESTAVA FALTANDO
+            lancamento_financeiro_id: resLancamento.id
           });
-          
-          // Pausa técnica para respeitar o limite do servidor
           await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
@@ -106,7 +95,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       onSave();
     } catch (err) {
       console.error("Erro ao salvar:", err);
-      alert("Erro ao salvar dados. Verifique o console.");
+      alert("Erro ao salvar dados.");
     } finally {
       setLoading(false);
     }
@@ -114,7 +103,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   return (
     <Card className="shadow-lg border-t-4 border-t-blue-600">
-      <CardContent className="pt-6">
+      <CardContent className="pt-6 font-sans">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center gap-2 mb-4">
             <FileText className="text-blue-600" />
@@ -129,7 +118,10 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               <Select value={formData.contrato_id} onValueChange={v => setFormData({...formData, contrato_id: v})}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {contratos.map(c => <SelectItem key={c.id} value={c.id}>{c.numero}</SelectItem>)}
+                  {/* PROTEÇÃO: contratos?.map evita erro se a lista for undefined */}
+                  {contratos?.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.numero}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -139,17 +131,19 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               <Select value={formData.item_contrato_id} onValueChange={v => setFormData({...formData, item_contrato_id: v})}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {itens.map(i => <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>)}
+                  {/* PROTEÇÃO: itens?.map evita erro se a lista for undefined */}
+                  {itens?.map(i => (
+                    <SelectItem key={i.id} value={i.id}>{i.nome}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Upload de NF com Feedback Visual */}
           <div className="p-4 border-2 border-dashed rounded-xl bg-gray-50 flex flex-col items-center justify-center">
             {uploading ? (
               <div className="flex items-center gap-2 text-blue-600 font-medium">
-                <Loader2 className="animate-spin" /> Processando PDF pela IA...
+                <Loader2 className="animate-spin" /> Processando PDF...
               </div>
             ) : extraido ? (
               <div className="flex items-center gap-2 text-green-600 font-medium">
@@ -158,32 +152,22 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             ) : (
               <label className="cursor-pointer flex flex-col items-center">
                 <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500 font-medium">Clique para importar PDF da Nota Fiscal</span>
+                <span className="text-sm text-gray-500 font-medium">Importar PDF da Nota Fiscal</span>
                 <input type="file" className="hidden" accept=".pdf" onChange={handleFileUpload} />
               </label>
             )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <Label>NF</Label>
-              <Input value={formData.numero_nf} onChange={e => setFormData({...formData, numero_nf: e.target.value})} />
-            </div>
-            <div className="space-y-1">
-              <Label>OS</Label>
-              <Input value={formData.os_numero} onChange={e => setFormData({...formData, os_numero: e.target.value})} />
-            </div>
-            <div className="space-y-1">
-              <Label>Valor</Label>
-              <Input type="number" step="0.01" value={formData.valor} onChange={e => setFormData({...formData, valor: parseFloat(e.target.value)})} />
-            </div>
+            <div className="space-y-1"><Label>NF</Label><Input value={formData.numero_nf} onChange={e => setFormData({...formData, numero_nf: e.target.value})} /></div>
+            <div className="space-y-1"><Label>OS</Label><Input value={formData.os_numero} onChange={e => setFormData({...formData, os_numero: e.target.value})} /></div>
+            <div className="space-y-1"><Label>Valor</Label><Input type="number" step="0.01" value={formData.valor} onChange={e => setFormData({...formData, valor: parseFloat(e.target.value)})} /></div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>Cancelar</Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loading || uploading}>
-              {loading ? <Loader2 className="animate-spin mr-2" /> : null}
-              {lancamento ? "Atualizar" : "Salvar Lançamento"}
+            <Button type="submit" className="bg-[#1a2e4a] hover:bg-[#2a4a7a] text-white" disabled={loading || uploading}>
+              {loading ? <Loader2 className="animate-spin mr-2" /> : "Salvar Lançamento"}
             </Button>
           </div>
         </form>
