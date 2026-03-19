@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Upload, Loader2, Plus, X, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, Plus, X, AlertTriangle, CheckCircle2, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -25,32 +25,65 @@ const SERVICE_ITEM_LABELS_FOR_OS = [
   "FORNECIMENTO DE MATERIAIS",
 ];
 
+const formatarMoeda = (valor) => {
+  if (!valor) return "0,00";
+  const apenasNumeros = valor.toString().replace(/\D/g, "");
+  const valorDecimal = Number(apenasNumeros) / 100;
+  return valorDecimal.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 function ItemNFCard({ entry, index, empenhos, onChange }) {
+  const handleChangeValor = (e) => {
+    const rawValue = e.target.value.replace(/\D/g, "");
+    const numericValue = Number(rawValue) / 100;
+    const formattedValue = formatarMoeda(rawValue);
+    
+    onChange(index, "valor_formatado", formattedValue);
+    onChange(index, "valor", numericValue);
+  };
+
   return (
-    <div className="border rounded-lg p-4 bg-white space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="font-semibold text-sm text-[#1a2e4a]">{entry.item_label}</span>
+    <div className="border rounded-lg p-5 bg-white shadow-sm space-y-4">
+      <div className="flex items-center justify-between border-b pb-2">
+        <span className="font-black text-sm text-[#1a2e4a] uppercase">{entry.item_label || "Novo Lançamento"}</span>
         {entry.nota_empenho_id && (() => {
           const ne = empenhos?.find(e => e.id === entry.nota_empenho_id);
           return ne ? (
-            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-              {ne.numero_empenho}
+            <Badge variant="outline" className="text-[10px] font-black bg-blue-50 text-blue-700 border-blue-200 uppercase px-3 py-1">
+              Empenho: {ne.numero_empenho}
             </Badge>
           ) : null;
         })()}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="space-y-1">
-          <Label className="text-xs">Número da NF *</Label>
-          <Input value={entry.numero_nf} onChange={e => onChange(index, "numero_nf", e.target.value)} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase text-gray-500">Número da NF *</Label>
+          <Input 
+            className="font-black text-[#1a2e4a]" 
+            value={entry.numero_nf || ""} 
+            onChange={e => onChange(index, "numero_nf", e.target.value)} 
+          />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Data da NF *</Label>
-          <Input type="date" value={entry.data_nf} onChange={e => onChange(index, "data_nf", e.target.value)} />
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase text-gray-500">Data da NF *</Label>
+          <Input 
+            type="date" 
+            className="font-bold text-gray-700"
+            value={entry.data_nf || ""} 
+            onChange={e => onChange(index, "data_nf", e.target.value)} 
+          />
         </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Valor da NF (R$) *</Label>
-          <Input type="number" step="0.01" value={entry.valor} onChange={e => onChange(index, "valor", e.target.value)} />
+        <div className="space-y-2">
+          <Label className="text-xs font-bold uppercase text-gray-500">Valor da NF (R$) *</Label>
+          <Input 
+            type="text" 
+            className="font-black text-2xl text-right text-green-700 h-12"
+            value={entry.valor_formatado || formatarMoeda(entry.valor || 0)} 
+            onChange={handleChangeValor} 
+          />
         </div>
       </div>
     </div>
@@ -71,17 +104,14 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     numero: "", descricao: "", valor: "", locais_prestacao_servicos: [], data_emissao: "", data_execucao: "" 
   }]);
   
-  const [itensLancamento, setItensLancamento] = useState([]);
+  const [itensLancamento, setItensLancamento] = useState(lancamento ? [lancamento] : [{ item_label: "Lançamento Avulso", valor: 0, valor_formatado: "0,00" }]);
   const [empenhos, setEmpenhos] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
   const [extractingPdf, setExtractingPdf] = useState(false);
   const [itensMaterialExtraidos, setItensMaterialExtraidos] = useState([]);
   const [user, setUser] = useState(null);
   const pdfInputRef = useRef(null);
-
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelJustificativa, setCancelJustificativa] = useState("");
-  const [pendingCancellations, setPendingCancellations] = useState([]);
 
   const itensContratoAtivos = itens?.filter(i => i.contrato_id === contratoId && i.ativo) || [];
 
@@ -89,7 +119,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  // Busca empenhos
   useEffect(() => {
     if (!contratoId) return;
     base44.entities.NotaEmpenho.filter({ contrato_id: contratoId, ano: parseInt(ano) })
@@ -133,85 +162,106 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (result.status === "success" && result.output) {
         const data = result.output;
         setItensMaterialExtraidos(data.itens_material || []);
+        
         setItensLancamento(prev => prev.map(entry => ({
           ...entry,
           numero_nf: data.numero_nf || entry.numero_nf,
           data_nf: data.data_nf || hoje,
-          valor: data.valor_total || entry.valor
+          valor: data.valor_total || entry.valor,
+          valor_formatado: formatarMoeda((data.valor_total * 100).toFixed(0))
         })));
-        toast.success("Dados da NF extraídos!");
+        toast.success("Dados processados com sucesso pela IA.");
       }
     } catch (error) {
-      toast.error("Erro no PDF: " + error.message);
+      toast.error("Erro na leitura do PDF.");
     } finally {
       setExtractingPdf(false);
     }
   };
 
   const executeSave = async () => {
+    if (!contratoId) {
+      toast.error("Selecione um contrato antes de salvar.");
+      return;
+    }
+
     setSaving(true);
+    setSavingProgress({ current: 1, total: itensLancamento.length });
+
     try {
+      let currentIndex = 1;
       for (const entry of (itensLancamento || [])) {
-        const valor = parseFloat(entry.valor) || 0;
+        setSavingProgress({ current: currentIndex, total: itensLancamento.length });
+        const valorReal = parseFloat(entry.valor) || 0;
         
-        // Salva Lançamento Financeiro
         const created = await base44.entities.LancamentoFinanceiro.create({
           contrato_id: contratoId,
           ano: parseInt(ano),
           mes: parseInt(mes),
           status,
-          valor,
+          valor: valorReal,
           numero_nf: entry.numero_nf,
           data_nf: entry.data_nf,
           item_label: entry.item_label,
           item_contrato_id: entry.item_contrato_id,
           processo_pagamento_sei: processoPagSei,
-          ordens_servico: ordensServico
+          ordens_servico: ordensServico,
+          alterado_por: user?.full_name || "Sistema",
+          data_update: new Date().toISOString()
         });
 
-        // Se for material, salva os itens da IA vinculados a este lançamento
         if (entry.item_label?.toUpperCase().includes("MATERIAL") && itensMaterialExtraidos?.length > 0) {
           for (const itemMat of itensMaterialExtraidos) {
             await base44.entities.ItemMaterialNF.create({
               ...itemMat,
               lancamento_financeiro_id: created.id,
               os_numero: ordensServico[0]?.numero || "",
-              os_local: ordensServico[0]?.locais_prestacao_servicos?.[0] || "Natal",
+              os_local: ordensServico[0]?.locais_prestacao_servicos?.[0] || "Sede",
               contrato_id: contratoId
             });
             await new Promise(r => setTimeout(r, 150));
           }
         }
-        await new Promise(r => setTimeout(r, 200));
+        
+        currentIndex++;
+        await new Promise(r => setTimeout(r, 300));
       }
-      onSave();
+      
+      toast.success("Lançamento efetuado com sucesso.");
+      if (onSave) onSave();
+      
     } catch (err) {
-      toast.error("Erro ao salvar.");
+      toast.error("Falha de comunicação com o banco de dados.");
     } finally {
       setSaving(false);
+      setSavingProgress({ current: 0, total: 0 });
     }
   };
 
   return (
-    <Card className="font-sans">
-      <CardHeader>
-        <CardTitle className="text-[#1a2e4a]">Lançamento de Nota Fiscal</CardTitle>
+    <Card className="font-sans border-none shadow-2xl">
+      <CardHeader className="bg-[#1a2e4a] rounded-t-xl text-white">
+        <CardTitle className="text-xl font-black uppercase tracking-wide flex items-center gap-2">
+          <ListChecks size={24} />
+          Painel de Entrada de Notas Fiscais
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <Label>Contrato *</Label>
+      <CardContent className="space-y-8 p-8 bg-gray-50/50">
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+          <div className="space-y-2">
+            <Label className="font-black uppercase text-xs text-gray-500">Contrato Vinculado *</Label>
             <Select value={contratoId} onValueChange={setContratoId}>
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+              <SelectTrigger className="h-12 font-bold text-sm bg-gray-50"><SelectValue placeholder="Selecione o contrato..." /></SelectTrigger>
               <SelectContent>
                 {contratos?.map(c => <SelectItem key={c.id} value={c.id}>{c.numero} – {c.contratada}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
-            <Label>Status *</Label>
+          <div className="space-y-2">
+            <Label className="font-black uppercase text-xs text-gray-500">Status Inicial *</Label>
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-12 font-bold text-sm bg-gray-50"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_OPTIONS?.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
@@ -219,27 +269,71 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           </div>
         </div>
 
-        <div className="p-6 border-2 border-dashed rounded-xl bg-gray-50 flex flex-col items-center">
-            <input ref={pdfInputRef} type="file" className="hidden" onChange={handlePdfUpload} />
-            <Button variant="outline" onClick={() => pdfInputRef.current?.click()} disabled={extractingPdf}>
-              {extractingPdf ? <Loader2 className="animate-spin mr-2" /> : <Upload className="mr-2" />}
-              Importar Nota Fiscal (PDF)
+        <div className="p-8 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 flex flex-col items-center justify-center transition-all hover:bg-blue-50">
+            <input ref={pdfInputRef} type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
+            <Button 
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 font-black uppercase tracking-widest text-xs px-8 h-14 shadow-lg" 
+              onClick={() => pdfInputRef.current?.click()} 
+              disabled={extractingPdf}
+            >
+              {extractingPdf ? <Loader2 className="animate-spin mr-3 h-5 w-5" /> : <Upload className="mr-3 h-5 w-5" />}
+              {extractingPdf ? "Lendo documento..." : "Importar Nota Fiscal (PDF)"}
             </Button>
-            <p className="text-[10px] text-gray-400 mt-2 uppercase font-bold tracking-widest">IA do Base44 processará os itens</p>
+            <p className="text-[11px] text-gray-400 mt-4 uppercase font-bold tracking-widest text-center max-w-md">
+              A inteligência artificial fará a leitura ótica (OCR) e preencherá os valores automaticamente.
+            </p>
         </div>
 
-        {itensLancamento?.map((entry, idx) => (
-          <ItemNFCard key={idx} entry={entry} index={idx} empenhos={empenhos} onChange={(i, f, v) => {
-            const up = [...itensLancamento];
-            up[i][f] = v;
-            setItensLancamento(up);
-          }} />
-        ))}
+        {itensMaterialExtraidos.length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-5 shadow-sm">
+            <h4 className="text-green-800 font-black uppercase text-xs flex items-center gap-2 mb-4">
+              <CheckCircle2 size={16} /> Auditoria da IA: Itens Detectados na NF
+            </h4>
+            <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
+              {itensMaterialExtraidos.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center text-sm bg-white p-3 rounded border border-green-100">
+                  <span className="font-bold text-gray-700 truncate pr-4">{item.quantidade}x {item.descricao}</span>
+                  <span className="font-black text-green-700 whitespace-nowrap">
+                    {formatarMoeda((item.valor_total_item * 100).toFixed(0))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <div className="flex justify-end gap-3">
-          <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-          <Button onClick={executeSave} disabled={saving || !contratoId} className="bg-[#1a2e4a] text-white">
-            {saving ? "Processando fila..." : "Confirmar Lançamento"}
+        <div className="space-y-4">
+          {itensLancamento?.map((entry, idx) => (
+            <ItemNFCard 
+              key={idx} 
+              entry={entry} 
+              index={idx} 
+              empenhos={empenhos} 
+              onChange={(i, f, v) => {
+                const up = [...itensLancamento];
+                up[i][f] = v;
+                setItensLancamento(up);
+              }} 
+            />
+          ))}
+        </div>
+
+        <div className="flex justify-end gap-4 pt-6 border-t">
+          <Button variant="outline" className="font-bold uppercase text-xs h-12 px-8" onClick={onCancel} disabled={saving}>
+            Cancelar Lançamento
+          </Button>
+          <Button 
+            onClick={executeSave} 
+            disabled={saving || !contratoId} 
+            className="bg-[#1a2e4a] hover:bg-[#2a4a7a] text-white font-black uppercase text-xs h-12 px-10 shadow-xl transition-all"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="animate-spin mr-3 h-4 w-4" /> 
+                Gravando {savingProgress.current} de {savingProgress.total}...
+              </>
+            ) : "Confirmar e Gravar"}
           </Button>
         </div>
       </CardContent>
