@@ -6,12 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2, Plus } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
-const CIDADES_OS = ["Natal", "Mossoró", "Assú", "Caicó", "Pau dos Ferros", "Ceará Mirim"];
 
 const AGLUTINADORES = [
   { 
@@ -31,7 +30,7 @@ const formatarMoeda = (v) => {
   return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel }) {
+export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel, onDelete }) {
   const hoje = new Date().toISOString().split("T")[0];
 
   const [contratoId, setContratoId] = useState("");
@@ -47,10 +46,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [observacoes, setObservacoes] = useState("");
 
   const [listaContratos, setListaContratos] = useState(contratos || []);
-  const [empenhos, setEmpenhos] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [extractingPdf, setExtractingPdf] = useState(false);
-  const pdfInputRef = useRef(null);
+  const [deleting, setDeleting] = useState(false);
 
   const subitensIgnorar = AGLUTINADORES.flatMap(a => a.subitens).concat(["SERVICOS DE AUXILIAR ADMINISTRATIVO NATAL"]);
   const itensFiltrados = itens?.filter(i => String(i.contrato_id) === contratoId && !subitensIgnorar.includes(i.nome?.toUpperCase())) || [];
@@ -62,12 +59,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     }
   }, [contratos]);
 
-  useEffect(() => {
-    if (contratoId) {
-      base44.entities.NotaEmpenho.filter({ contrato_id: contratoId, ano: parseInt(ano) }).then(setEmpenhos).catch(() => {});
-    }
-  }, [contratoId, ano]);
-
   const toggleItem = (itemId) => {
     const idStr = String(itemId);
     setSelectedItems(prev => {
@@ -76,6 +67,31 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (!idStr.includes("mor-")) setOrdensServico(o => ({ ...o, [idStr]: [{ id: Date.now(), numero_os: "", locais: [] }]}));
       return [...prev, idStr];
     });
+  };
+
+  const handleDeletar = async () => {
+    if (!lancamento?.id) return;
+    
+    const confirmar = window.confirm("Tem certeza que deseja excluir este lançamento permanentemente?");
+    if (!confirmar) return;
+
+    setDeleting(true);
+    try {
+      await base44.entities.LancamentoFinanceiro.delete(lancamento.id);
+      toast.success("Lançamento excluído com sucesso.");
+      
+      // Limpa a tela após deletar
+      setContratoId(""); 
+      setSelectedItems([]); 
+      setNfsData({});
+      
+      if (onDelete) onDelete();
+      if (onCancel) onCancel();
+    } catch (err) {
+      toast.error("Erro ao excluir o lançamento.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const executeSave = async () => {
@@ -103,7 +119,21 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     <div className="bg-white rounded-xl shadow-lg border p-8 max-w-4xl mx-auto font-sans text-gray-700">
       <div className="flex justify-between items-center mb-6 border-b pb-4">
         <h2 className="text-xl font-bold text-[#1a2e4a]">Novo Lançamento</h2>
-        <Badge className="bg-[#1a2e4a] text-white uppercase text-[10px]">ADM</Badge>
+        <div className="flex gap-2">
+          {lancamento?.id && (
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={handleDeletar} 
+              disabled={deleting}
+              className="bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-red-200"
+            >
+              {deleting ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Excluir
+            </Button>
+          )}
+          <Badge className="bg-[#1a2e4a] text-white uppercase text-[10px]">ADM</Badge>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -129,11 +159,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
         <div className="space-y-2">
           <Label className="font-bold">Itens do Contrato *</Label>
-          <div className="grid grid-cols-2 gap-3 p-4 border rounded-md bg-white max-h-48 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3 p-4 border rounded-md bg-white max-h-48 overflow-y-auto text-gray-700">
             {opcoesEscolha.map(opcao => (
               <div key={opcao.id} className="flex items-center space-x-3 p-1 hover:bg-gray-50 rounded">
                 <Checkbox checked={selectedItems.includes(String(opcao.id))} onCheckedChange={() => toggleItem(opcao.id)} />
-                <label className="text-sm font-medium uppercase text-gray-600">{opcao.nome}</label>
+                <label className="text-sm font-medium uppercase">{opcao.nome}</label>
               </div>
             ))}
           </div>
