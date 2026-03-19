@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2, CheckCircle2, ListChecks } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
@@ -36,7 +36,7 @@ function ItemNFCard({ entry, index, empenhos, onChange }) {
       <div className="flex items-center justify-between border-b pb-2">
         <span className="font-black text-sm text-[#1a2e4a] uppercase">{entry.item_label || "Novo Lançamento"}</span>
         {entry.nota_empenho_id && (() => {
-          const ne = empenhos?.find(e => e.id === entry.nota_empenho_id);
+          const ne = empenhos?.find(e => String(e.id) === String(entry.nota_empenho_id));
           return ne ? (
             <Badge variant="outline" className="text-[10px] font-black bg-blue-50 text-blue-700 border-blue-200 uppercase px-3 py-1">
               Empenho: {ne.numero_empenho}
@@ -80,8 +80,10 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const anoAtual = new Date().getFullYear();
   const hoje = new Date().toISOString().split("T")[0];
 
-  const [listaContratos, setListaContratos] = useState(contratos || []);
-  const [contratoId, setContratoId] = useState(lancamento?.contrato_id || "");
+  const [listaContratos, setListaContratos] = useState([]);
+  const [loadingContratos, setLoadingContratos] = useState(false);
+  
+  const [contratoId, setContratoId] = useState(lancamento?.contrato_id ? String(lancamento.contrato_id) : "");
   const [ano, setAno] = useState(lancamento?.ano || anoAtual);
   const [mes, setMes] = useState(lancamento?.mes || new Date().getMonth() + 1);
   const [status, setStatus] = useState(lancamento?.status || "Em instrução");
@@ -104,11 +106,28 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   }, []);
 
   useEffect(() => {
-    if (!contratos || contratos.length === 0) {
-      base44.entities.Contrato.list().then(setListaContratos).catch(() => {});
-    } else {
+    if (contratos && contratos.length > 0) {
       setListaContratos(contratos);
+      return;
     }
+    
+    let isMounted = true;
+    setLoadingContratos(true);
+    
+    base44.entities.Contrato.list()
+      .then((res) => {
+        if (isMounted) {
+          setListaContratos(res || []);
+        }
+      })
+      .catch(() => {
+        if (isMounted) toast.error("Erro ao buscar a lista de contratos");
+      })
+      .finally(() => {
+        if (isMounted) setLoadingContratos(false);
+      });
+
+    return () => { isMounted = false; };
   }, [contratos]);
 
   useEffect(() => {
@@ -169,7 +188,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         throw new Error("A IA não conseguiu ler os dados do PDF");
       }
     } catch (error) {
-      toast.error("Erro no PDF: " + (error.message || "Tente novamente"));
+      toast.error("Erro no PDF, motivo: " + (error.message || "Tente novamente"));
     } finally {
       setExtractingPdf(false);
       if (pdfInputRef.current) pdfInputRef.current.value = "";
@@ -247,10 +266,19 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <div className="space-y-2">
             <Label className="font-black uppercase text-xs text-gray-500">Contrato Vinculado *</Label>
-            <Select value={contratoId} onValueChange={setContratoId}>
-              <SelectTrigger className="h-12 font-bold text-sm bg-gray-50"><SelectValue placeholder="Selecione o contrato..." /></SelectTrigger>
+            <Select value={contratoId || undefined} onValueChange={setContratoId}>
+              <SelectTrigger className="h-12 font-bold text-sm bg-gray-50">
+                <SelectValue placeholder={loadingContratos ? "Buscando contratos no banco..." : "Selecione o contrato..."} />
+              </SelectTrigger>
               <SelectContent>
-                {listaContratos?.map(c => <SelectItem key={c.id} value={c.id}>{c.numero}  {c.contratada}</SelectItem>)}
+                {listaContratos.length === 0 && !loadingContratos && (
+                  <SelectItem value="empty" disabled>Nenhum contrato localizado</SelectItem>
+                )}
+                {listaContratos?.map(c => (
+                  <SelectItem key={c.id} value={String(c.id)}>
+                    {c.numero} | {c.contratada}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
