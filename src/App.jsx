@@ -6,6 +6,8 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+
+// Importação das Páginas para Rotas Explícitas
 import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
 import Revisao from './pages/Revisao';
 import ExtratoPagamentos from './pages/ExtratoPagamentos';
@@ -21,34 +23,35 @@ const LayoutWrapper = ({ children, currentPageName }) => Layout ?
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  // Show loading spinner while checking app public settings or auth
+  // Exibe spinner de carregamento durante a verificação de autenticação
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  // Handle authentication errors
+  // Tratamento de erros de autenticação
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      // Redirect to login automatically
       navigateToLogin();
       return null;
     }
   }
 
-  // Render the main app
   return (
     <Routes>
+      {/* Rota Principal */}
       <Route path="/" element={
         <LayoutWrapper currentPageName={mainPageKey}>
           <MainPage />
         </LayoutWrapper>
       } />
+
+      {/* Mapeamento Automático de Páginas do pagesConfig */}
       {Object.entries(Pages).map(([path, Page]) => (
         <Route
           key={path}
@@ -60,6 +63,8 @@ const AuthenticatedApp = () => {
           }
         />
       ))}
+
+      {/* Rotas Explícitas de Funcionalidades Específicas */}
       <Route
         path="/MinhasConfiguracoesAlertas"
         element={
@@ -84,14 +89,14 @@ const AuthenticatedApp = () => {
           </LayoutWrapper>
         }
       />
+
+      {/* Rota para páginas não encontradas */}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 };
 
-
 function App() {
-
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
