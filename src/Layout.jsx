@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, DollarSign, PiggyBank, BarChart2,
   LogOut, Scale, ShoppingCart, Shield, Bell,
   CheckSquare, ChevronLeft, ChevronRight, FilePlus, ChevronDown,
-  ChevronsDownUp, ChevronsUpDown
+  ChevronsDownUp, ChevronsUpDown, Landmark
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
@@ -23,16 +23,19 @@ const menuGroups = [
     title: "Fiscalização Contratual",
     items: [
       { label: "Contratos", page: "Contratos", icon: FileText, roles: ["admin", "gestor", "fiscal", "direcao"] },
-      { label: "Pagamentos", page: "Lancamentos", icon: DollarSign, roles: ["admin", "gestor", "fiscal"] },
-      { label: "Pedidos e Autorizações", page: "Pedidos", icon: FilePlus, roles: ["admin", "gestor", "fiscal"], future: true },
       { label: "Controle de Materiais", page: "ControleMateriais", icon: ShoppingCart, roles: ["admin", "gestor", "fiscal"] },
+      { label: "Pedidos e Autorizações", page: "Pedidos", icon: FilePlus, roles: ["admin", "gestor", "fiscal"], future: true },
       { label: "Revisão", page: "Revisao", icon: CheckSquare, roles: ["admin", "gestor"] },
     ]
   },
   {
-    title: "Planejamento",
+    title: "Controle Financeiro",
     items: [
-      { label: "Orçamento", page: "Orcamento", icon: PiggyBank, roles: ["admin", "gestor", "direcao"] },
+      { label: "Extrato de Pagamentos", page: "ExtratoPagamentos", icon: BarChart2, roles: ["admin", "gestor", "fiscal", "direcao"] },
+      { label: "Novo Lançamento", page: "Lancamentos", icon: DollarSign, roles: ["admin", "gestor", "fiscal"] },
+      { label: "Notas de Empenho", page: "Orcamento", icon: Landmark, roles: ["admin", "gestor", "direcao"] },
+      { label: "Aditivos e Vigências", page: "AditivosVigencias", icon: Scale, roles: ["admin", "gestor", "direcao"], future: true },
+      { label: "Repactuações (ACT)", page: "Repactuacoes", icon: FileText, roles: ["admin", "gestor", "direcao"], future: true },
     ]
   },
   {
@@ -57,7 +60,8 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [openGroups, setOpenGroups] = useState({
     "Gestão Inteligente": true,
-    "Fiscalização Contratual": true
+    "Fiscalização Contratual": true,
+    "Controle Financeiro": true
   });
 
   const location = useLocation();
@@ -70,7 +74,6 @@ export default function Layout({ children, currentPageName }) {
     setOpenGroups(prev => ({ ...prev, [title]: !prev[title] }));
   };
 
-  // Função para Expandir/Fechar tudo
   const toggleAll = (expand) => {
     const newState = {};
     menuGroups.forEach(g => newState[g.title] = expand);
@@ -99,7 +102,6 @@ export default function Layout({ children, currentPageName }) {
           </button>
         </div>
 
-        {/* Botão Global Expandir/Recolher */}
         {sidebarOpen && (
           <div className="px-6 py-2 flex justify-end gap-2 border-b border-white/5 bg-black/10">
             <button onClick={() => toggleAll(true)} title="Expandir todos" className="hover:text-blue-400 transition-colors">
@@ -141,10 +143,15 @@ export default function Layout({ children, currentPageName }) {
                       <Link
                         key={item.page}
                         to={item.future ? "#" : createPageUrl(item.page)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${isActive ? "bg-white/15 border-l-4 border-white font-semibold" : "opacity-60 hover:opacity-100 hover:bg-white/5"} ${item.future ? "cursor-not-allowed opacity-20" : ""}`}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all 
+                          ${isActive ? "bg-white/15 border-l-4 border-white font-semibold" : "opacity-60 hover:opacity-100 hover:bg-white/5"} 
+                          ${item.future ? "cursor-not-allowed grayscale" : ""}`}
                       >
-                        <item.icon className="w-5 h-5 flex-shrink-0" />
-                        {sidebarOpen && <span className="truncate">{item.label}</span>}
+                        <item.icon className={`w-5 h-5 flex-shrink-0 ${item.future ? "text-gray-500" : ""}`} />
+                        {sidebarOpen && <span className={`truncate ${item.future ? "text-gray-500" : ""}`}>{item.label}</span>}
+                        {item.future && sidebarOpen && (
+                          <span className="ml-auto text-[8px] bg-white/10 px-1 rounded uppercase">Breve</span>
+                        )}
                       </Link>
                     );
                   })}
@@ -154,7 +161,6 @@ export default function Layout({ children, currentPageName }) {
           })}
         </nav>
 
-        {/* Perfil e Logout */}
         {user && sidebarOpen && (
           <div className="p-4 border-t border-white/10 bg-black/10">
             <div className="flex items-center gap-3 mb-3">
