@@ -23,7 +23,7 @@ export default function ExtratoPagamentos() {
   const [user, setUser] = useState(null);
   
   const [filtroContrato, setFiltroContrato] = useState("todos");
-  const [filtroAno, setFiltroAno] = useState("2025"); 
+  const [filtroAno, setFiltroAno] = useState("2026"); 
   const [filtroMes, setFiltroMes] = useState("0"); 
   const [filtroStatus, setFiltroStatus] = useState("Todos");
   const [buscaNF, setBuscaNF] = useState("");
@@ -76,7 +76,6 @@ export default function ExtratoPagamentos() {
     return matchContrato && matchAno && matchMes && matchStatus && matchNF;
   });
 
-  // Cálculos dos Cards
   const orcamentoDoAno = orcamentosAnuais.find(o => o.ano?.toString() === filtroAno);
   const valorOrcadoGlobal = Number(orcamentoDoAno?.valor_dotacao_atual || orcamentoDoAno?.valor_dotacao_inicial || 0);
   const totalEmpenhadoNoAno = empenhos.filter(e => e.ano?.toString() === filtroAno && (filtroContrato === "todos" || e.contrato_id === filtroContrato)).reduce((acc, curr) => acc + (Number(curr.valor_total || curr.valor || 0)), 0);
@@ -123,7 +122,6 @@ export default function ExtratoPagamentos() {
         </Card>
       </div>
 
-      {/* Filtros */}
       <Card className="bg-white border-none shadow-md ring-1 ring-black/5 p-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
           <div className="space-y-2"><Label className="font-black uppercase text-[#1a2e4a] text-xs">Contrato</Label>
@@ -165,7 +163,6 @@ export default function ExtratoPagamentos() {
         </div>
       </Card>
 
-      {/* Tabela Refatorada: Agora com 7 colunas e tipografia grande */}
       <div className="border border-gray-200 rounded-2xl bg-white overflow-hidden shadow-2xl overflow-x-auto">
         <Table className="min-w-[1500px]">
           <TableHeader className="bg-[#1a2e4a]">
@@ -175,7 +172,7 @@ export default function ExtratoPagamentos() {
               <TableHead className="text-white font-black uppercase text-[10px]">Empresa Contratada</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px]">Responsável por lançamento</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px]">Status (Clique p/ alterar)</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Responsável/Data Alteração Status</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px]">Responsável / Data Alteração Status</TableHead>
               <TableHead className="text-right text-white font-black uppercase text-[10px] px-12">Valor Pago</TableHead>
             </TableRow>
           </TableHeader>
@@ -195,18 +192,16 @@ export default function ExtratoPagamentos() {
                     </TableCell>
                     <TableCell>
                       <div className="font-black text-blue-800 text-[11px] mb-1 uppercase bg-blue-50 px-2 py-0.5 rounded inline-block">
-                        {contrato?.numero || "---"}
+                        {contrato?.numero || "N/A"}
                       </div>
                       <div className="text-sm font-bold text-gray-600 uppercase block truncate max-w-[200px] leading-tight">{l.item_label}</div>
                     </TableCell>
-                    {/* Coluna: Empresa Contratada */}
                     <TableCell>
                       <div className="flex items-center gap-2 text-[12px] font-black text-[#1a2e4a] uppercase leading-tight">
                         <Building2 size={16} className="text-blue-500 flex-shrink-0" />
-                        {contrato?.contratada || "N/A"}
+                        {contrato?.contratada || "Não Informada"}
                       </div>
                     </TableCell>
-                    {/* Coluna: Responsável por lançamento */}
                     <TableCell>
                       <div className="flex items-center gap-2 text-[12px] font-black text-gray-700 uppercase">
                         <User size={15} className="text-gray-400 flex-shrink-0" /> 
@@ -233,14 +228,13 @@ export default function ExtratoPagamentos() {
                         </PopoverContent>
                       </Popover>
                     </TableCell>
-                    {/* Coluna: Responsável/Data Alteração Status */}
                     <TableCell>
                       <div className="text-[12px] font-black text-gray-800 uppercase leading-tight">
                         {l.responsavel_alteracao_status || "Sem registro"}
                       </div>
                       <div className="text-[11px] text-gray-400 font-black uppercase mt-1 flex items-center gap-1 italic">
                         <History size={12}/> 
-                        {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "---"}
+                        {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A"}
                       </div>
                     </TableCell>
                     <TableCell className="text-right font-black text-[#1a2e4a] px-12">
