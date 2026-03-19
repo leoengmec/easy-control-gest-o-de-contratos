@@ -5,25 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Upload, Loader2, Plus, X, AlertTriangle } from "lucide-react";
+import { Upload, Loader2, CheckCircle2, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 
-const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
-
-const SERVICE_ITEM_LABELS_FOR_OS = [
-  "FORNECIMENTO DE MATERIAL",
-  "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
-  "SERVIÇOS DE DESLOCAMENTO PREVENTIVO",
-  "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
-  "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS",
-  "SERVIÇOS EVENTUAIS",
-  "FORNECIMENTO DE MATERIAIS",
-];
 
 const formatarMoeda = (valor) => {
   if (!valor) return "0,00";
@@ -94,12 +80,12 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const anoAtual = new Date().getFullYear();
   const hoje = new Date().toISOString().split("T")[0];
 
+  const [listaContratos, setListaContratos] = useState(contratos || []);
   const [contratoId, setContratoId] = useState(lancamento?.contrato_id || "");
   const [ano, setAno] = useState(lancamento?.ano || anoAtual);
   const [mes, setMes] = useState(lancamento?.mes || new Date().getMonth() + 1);
   const [status, setStatus] = useState(lancamento?.status || "Em instrução");
   const [processoPagSei, setProcessoPagSei] = useState(lancamento?.processo_pagamento_sei || "");
-  const [ordemBancaria, setOrdemBancaria] = useState(lancamento?.ordem_bancaria || "");
   const [ordensServico, setOrdensServico] = useState(lancamento?.ordens_servico || [{ 
     numero: "", descricao: "", valor: "", locais_prestacao_servicos: [], data_emissao: "", data_execucao: "" 
   }]);
@@ -113,11 +99,17 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [user, setUser] = useState(null);
   const pdfInputRef = useRef(null);
 
-  const itensContratoAtivos = itens?.filter(i => i.contrato_id === contratoId && i.ativo) || [];
-
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!contratos || contratos.length === 0) {
+      base44.entities.Contrato.list().then(setListaContratos).catch(() => {});
+    } else {
+      setListaContratos(contratos);
+    }
+  }, [contratos]);
 
   useEffect(() => {
     if (!contratoId) return;
@@ -132,9 +124,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     setExtractingPdf(true);
 
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const uploadRes = await base44.integrations.Core.UploadFile({ file });
+      if (!uploadRes || !uploadRes.file_url) throw new Error("Falha no envio do arquivo para o servidor");
+
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
-        file_url,
+        file_url: uploadRes.file_url,
         json_schema: {
           type: "object",
           properties: {
@@ -168,14 +162,17 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           numero_nf: data.numero_nf || entry.numero_nf,
           data_nf: data.data_nf || hoje,
           valor: data.valor_total || entry.valor,
-          valor_formatado: formatarMoeda((data.valor_total * 100).toFixed(0))
+          valor_formatado: formatarMoeda(((data.valor_total || 0) * 100).toFixed(0))
         })));
         toast.success("Dados processados com sucesso pela IA.");
+      } else {
+        throw new Error("A IA não conseguiu ler os dados do PDF");
       }
     } catch (error) {
-      toast.error("Erro na leitura do PDF.");
+      toast.error("Erro no PDF: " + (error.message || "Tente novamente"));
     } finally {
       setExtractingPdf(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
     }
   };
 
@@ -227,11 +224,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         await new Promise(r => setTimeout(r, 300));
       }
       
-      toast.success("Lancamento efetuado com sucesso.");
+      toast.success("Lançamento efetuado com sucesso.");
       if (onSave) onSave();
       
     } catch (err) {
-      toast.error("Falha de comunicacao com o banco de dados.");
+      toast.error("Falha de comunicação com o banco de dados.");
     } finally {
       setSaving(false);
       setSavingProgress({ current: 0, total: 0 });
@@ -253,7 +250,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
             <Select value={contratoId} onValueChange={setContratoId}>
               <SelectTrigger className="h-12 font-bold text-sm bg-gray-50"><SelectValue placeholder="Selecione o contrato..." /></SelectTrigger>
               <SelectContent>
-                {contratos?.map(c => <SelectItem key={c.id} value={c.id}>{c.numero} – {c.contratada}</SelectItem>)}
+                {listaContratos?.map(c => <SelectItem key={c.id} value={c.id}>{c.numero}  {c.contratada}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -280,7 +277,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               {extractingPdf ? "Lendo documento..." : "Importar Nota Fiscal (PDF)"}
             </Button>
             <p className="text-[11px] text-gray-400 mt-4 uppercase font-bold tracking-widest text-center max-w-md">
-              A inteligencia artificial fara a leitura otica (OCR) e preenchera os valores automaticamente.
+              A inteligência artificial fará a leitura ótica (OCR) e preencherá os valores automaticamente.
             </p>
         </div>
 
@@ -294,7 +291,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                 <div key={idx} className="flex justify-between items-center text-sm bg-white p-3 rounded border border-green-100">
                   <span className="font-bold text-gray-700 truncate pr-4">{item.quantidade}x {item.descricao}</span>
                   <span className="font-black text-green-700 whitespace-nowrap">
-                    {formatarMoeda((item.valor_total_item * 100).toFixed(0))}
+                    {formatarMoeda(((item.valor_total_item || 0) * 100).toFixed(0))}
                   </span>
                 </div>
               ))}
@@ -320,7 +317,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
         <div className="flex justify-end gap-4 pt-6 border-t">
           <Button variant="outline" className="font-bold uppercase text-xs h-12 px-8" onClick={onCancel} disabled={saving}>
-            Cancelar Lancamento
+            Cancelar Lançamento
           </Button>
           <Button 
             onClick={executeSave} 
