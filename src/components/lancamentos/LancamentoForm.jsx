@@ -25,8 +25,8 @@ const SERVICE_ITEM_LABELS_FOR_OS = [
 ];
 
 const formatarMoeda = (valorNumerico) => {
-  if (valorNumerico === undefined || valorNumerico === null) return "0,00";
-  return valorNumerico.toLocaleString("pt-BR", {
+  if (valorNumerico === undefined || valorNumerico === null || isNaN(valorNumerico)) return "0,00";
+  return Number(valorNumerico).toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -67,7 +67,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     data_emissao: "",
     descricao: "",
     valor: 0,
-    valor_formatado: "0,00",
     data_execucao: "",
     locais: []
   }]);
@@ -125,12 +124,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   const handleOSMoneyChange = (osIndex, rawValue) => {
     const numericValue = Number(rawValue.replace(/\D/g, "")) / 100;
-    const formattedValue = formatarMoeda(rawValue);
-    
     setOrdensServico(prev => {
       const up = [...prev];
       up[osIndex].valor = numericValue;
-      up[osIndex].valor_formatado = formattedValue;
       return up;
     });
   };
@@ -150,7 +146,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   const addOS = () => {
     setOrdensServico(prev => [...prev, {
-      id: Date.now(), numero_os: "", data_emissao: "", descricao: "", valor: 0, valor_formatado: "0,00", data_execucao: "", locais: []
+      id: Date.now(), numero_os: "", data_emissao: "", descricao: "", valor: 0, data_execucao: "", locais: []
     }]);
   };
 
@@ -408,7 +404,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600 font-semibold">Valor da NF (R$) <span className="text-red-500">*</span></Label>
                   <Input 
-                    value={formatarMoeda(nfData.valor * 100 || 0)} 
+                    value={formatarMoeda(nfData.valor)} 
                     onChange={(e) => handleNFMoneyChange("valor", e.target.value)}
                     placeholder="0,00"
                   />
@@ -419,7 +415,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600 font-semibold">Retenção (R$)</Label>
                   <Input 
-                    value={formatarMoeda(nfData.retencao * 100 || 0)} 
+                    value={formatarMoeda(nfData.retencao)} 
                     onChange={(e) => handleNFMoneyChange("retencao", e.target.value)}
                     placeholder="0,00"
                   />
@@ -427,7 +423,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                 <div className="space-y-1">
                   <Label className="text-xs text-gray-600 font-semibold">Glosa (R$)</Label>
                   <Input 
-                    value={formatarMoeda(nfData.glosa * 100 || 0)} 
+                    value={formatarMoeda(nfData.glosa)} 
                     onChange={(e) => handleNFMoneyChange("glosa", e.target.value)}
                     placeholder="0,00"
                   />
@@ -437,7 +433,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                   <Input 
                     disabled
                     className="bg-gray-100 font-bold"
-                    value={formatarMoeda(nfData.valor_final * 100 || 0)} 
+                    value={formatarMoeda(nfData.valor_final)} 
                     placeholder="0,00"
                   />
                 </div>
@@ -514,7 +510,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                       <div className="space-y-1">
                         <Label className="text-xs text-gray-600 font-semibold">Valor da OS (R$) <span className="text-red-500">*</span></Label>
                         <Input 
-                          value={os.valor_formatado} 
+                          value={formatarMoeda(os.valor)} 
                           onChange={(e) => handleOSMoneyChange(index, e.target.value)}
                           placeholder="0,00"
                         />
