@@ -22,7 +22,6 @@ export default function ExtratoPagamentos() {
   const [orcamentos, setOrcamentos] = useState([]);
   const [user, setUser] = useState(null);
   
-  // FILTRO INICIAL: Começa em 2025 ou busca o ano mais recente com dados
   const [filtroContrato, setFiltroContrato] = useState("todos");
   const [filtroVigencia, setFiltroVigencia] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("2025"); 
@@ -56,7 +55,6 @@ export default function ExtratoPagamentos() {
     }
   }
 
-  // FUNÇÃO DE MÁSCARA SOLICITADA: 1018621 -> 10.826,21
   const formatMoneyInput = (value) => {
     const cleanValue = value.replace(/\D/g, "");
     const numberValue = Number(cleanValue) / 100;
@@ -71,7 +69,7 @@ export default function ExtratoPagamentos() {
       await base44.entities.LancamentoFinanceiro.update(id, { 
         status: novoStatus,
         data_ultima_alteracao_status: new Date().toISOString(),
-        alterado_por: user?.full_name || "Sistema"
+        responsavel_alteracao_status: user?.full_name || "Sistema"
       });
       toast.success(`Status alterado para ${novoStatus}`);
       carregarDados();
@@ -119,7 +117,6 @@ export default function ExtratoPagamentos() {
         </Button>
       </div>
 
-      {/* Grid de Orçamento (Sprints anteriores) */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="border-t-8 border-t-slate-400 shadow-xl bg-white">
           <CardHeader className="pb-1 text-slate-500 text-[11px] font-black uppercase flex items-center gap-2"><Landmark size={14}/> Orçado Anual</CardHeader>
@@ -198,57 +195,85 @@ export default function ExtratoPagamentos() {
             <TableRow className="hover:bg-[#1a2e4a] border-none">
               <TableHead className="text-white font-black py-7 uppercase text-xs">NF / Emissão</TableHead>
               <TableHead className="text-white font-black uppercase text-xs">Contrato / Item</TableHead>
-              <TableHead className="text-white font-black uppercase text-xs">Auditoria (Quem Lançou)</TableHead>
+              <TableHead className="text-white font-black uppercase text-xs">Empresa Contratada</TableHead>
+              <TableHead className="text-white font-black uppercase text-xs">Responsável por lançamento</TableHead>
               <TableHead className="text-white font-black uppercase text-xs">Status (Clique p/ alterar)</TableHead>
+              <TableHead className="text-white font-black uppercase text-xs">Responsável / Data Alteração Status</TableHead>
               <TableHead className="text-right text-white font-black uppercase text-xs px-10">Valor Pago</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {dadosFiltrados.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-40 text-gray-300 font-black uppercase text-lg">Troque o filtro de ANO para visualizar os dados</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-40 text-gray-300 font-black uppercase text-lg">Troque o filtro de ANO para visualizar os dados</TableCell></TableRow>
             ) : (
-              dadosFiltrados.map((l) => (
-                <TableRow key={l.id} className="hover:bg-blue-50/40 border-b border-gray-100 transition-all">
-                  <TableCell className="py-8 px-6">
-                    <div className="font-black text-[#1a2e4a] text-xl">NF {l.numero_nf}</div>
-                    <div className="text-[11px] text-gray-400 font-black uppercase flex items-center gap-1"><Clock size={12}/> {l.data_nf}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-black text-blue-800 text-[10px] mb-1 uppercase bg-blue-50 px-2 py-0.5 rounded inline-block">
-                      {contratos.find(c => c.id === l.contrato_id)?.numero || "N/A"}
-                    </div>
-                    <div className="text-sm font-bold text-gray-600 uppercase block truncate max-w-[200px]">{l.item_label}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-sm font-black text-gray-700"><User size={14} className="text-blue-400" /> {l.alterado_por || "Lançador Original"}</div>
-                    <div className="text-[10px] text-gray-400 font-black mt-1 uppercase flex items-center gap-1"><History size={10}/> Alt: {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString() : "---"}</div>
-                  </TableCell>
-                  <TableCell>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="focus:outline-none cursor-pointer">
-                          <Badge className={`text-[11px] font-black uppercase px-5 py-2 transition-all shadow-lg hover:scale-105 ${l.status === 'Pago' ? 'bg-green-600' : 'bg-[#1a2e4a]'}`}>
-                            {l.status}
-                          </Badge>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-56 p-2 bg-white shadow-2xl border-gray-200">
-                        <div className="grid gap-1">
-                          {STATUS_OPTIONS.map((status) => (
-                            <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
-                              {status}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </TableCell>
-                  <TableCell className="text-right font-black text-[#1a2e4a] px-10">
-                    <div className="text-xs text-gray-300 line-through font-bold">{formatBRL(l.valor)}</div>
-                    <div className="text-2xl">{formatBRL(l.valor_pago_final)}</div>
-                  </TableCell>
-                </TableRow>
-              ))
+              dadosFiltrados.map((l) => {
+                const contratoVinculado = contratos.find(c => c.id === l.contrato_id);
+                
+                return (
+                  <TableRow key={l.id} className="hover:bg-blue-50/40 border-b border-gray-100 transition-all">
+                    
+                    <TableCell className="py-8 px-6">
+                      <div className="font-black text-[#1a2e4a] text-xl">NF {l.numero_nf}</div>
+                      <div className="text-[11px] text-gray-400 font-black uppercase flex items-center gap-1"><Clock size={12}/> {l.data_nf}</div>
+                    </TableCell>
+                    
+                    <TableCell>
+                      <div className="font-black text-blue-800 text-[10px] mb-1 uppercase bg-blue-50 px-2 py-0.5 rounded inline-block">
+                        {contratoVinculado?.numero || "N/A"}
+                      </div>
+                      <div className="text-sm font-bold text-gray-600 uppercase block truncate max-w-[200px]">{l.item_label}</div>
+                    </TableCell>
+                    
+                    <TableCell>
+                      <div className="text-xs font-black text-[#1a2e4a] uppercase">
+                        {contratoVinculado?.contratada || "Não Informada"}
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm font-black text-gray-700">
+                        <User size={14} className="text-blue-400" /> {l.alterado_por || "Lançador Original"}
+                      </div>
+                    </TableCell>
+
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="focus:outline-none cursor-pointer">
+                            <Badge className={`text-[11px] font-black uppercase px-5 py-2 transition-all shadow-lg hover:scale-105 ${l.status === 'Pago' ? 'bg-green-600' : 'bg-[#1a2e4a]'}`}>
+                              {l.status}
+                            </Badge>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2 bg-white shadow-2xl border-gray-200">
+                          <div className="grid gap-1">
+                            {STATUS_OPTIONS.map((status) => (
+                              <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
+                                {status}
+                              </button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    
+                    <TableCell>
+                      <div className="text-xs font-black text-gray-800 uppercase leading-tight">
+                        {l.responsavel_alteracao_status || "Sem registro"}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-black mt-1 uppercase flex items-center gap-1">
+                        <History size={10}/> Alt: {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString('pt-BR') : "---"}
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="text-right font-black text-[#1a2e4a] px-10">
+                      <div className="text-xs text-gray-300 line-through font-bold">{formatBRL(l.valor)}</div>
+                      <div className="text-2xl">{formatBRL(l.valor_pago_final)}</div>
+                    </TableCell>
+                    
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
