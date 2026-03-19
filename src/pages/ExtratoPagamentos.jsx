@@ -37,11 +37,10 @@ export default function ExtratoPagamentos() {
   async function carregarDados() {
     setLoading(true);
     try {
-      // Listagem com fallback para array vazio caso a entidade não exista ou falhe
       const [resLanc, resCont, resVig, resOrc] = await Promise.all([
         base44.entities.LancamentoFinanceiro.list("-created_date", 2000).catch(() => []),
         base44.entities.Contrato.list().catch(() => []),
-        base44.entities.Aditivo.list().catch(() => []), // Usando Aditivo como proxy de Vigência se necessário
+        base44.entities.Aditivo.list().catch(() => []),
         base44.entities.OrcamentoAnual.list().catch(() => [])
       ]);
       
@@ -50,12 +49,21 @@ export default function ExtratoPagamentos() {
       setVigencias(resVig || []);
       setOrcamentos(resOrc || []);
     } catch (err) {
-      console.error("Erro na carga:", err);
       toast.error("Erro ao sincronizar base de dados.");
     } finally {
       setLoading(false);
     }
   }
+
+  // FUNÇÃO DE MÁSCARA MONETÁRIA (1 -> 0,01)
+  const formatCurrencyInput = (value) => {
+    const digits = value.replace(/\D/g, "");
+    const numberValue = Number(digits) / 100;
+    return numberValue.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   const handleStatusChange = async (id, novoStatus) => {
     try {
@@ -71,7 +79,6 @@ export default function ExtratoPagamentos() {
     }
   };
 
-  // FILTRAGEM SEGURA
   const dadosFiltrados = (lancamentos || []).filter(l => {
     if (!l) return false;
     const matchContrato = filtroContrato === "todos" || l.contrato_id === filtroContrato;
@@ -83,7 +90,6 @@ export default function ExtratoPagamentos() {
     return matchContrato && matchVigencia && matchAno && matchMes && matchStatus && matchNF;
   });
 
-  // CÁLCULOS ROBUSTOS (Evita NaN)
   const orcamentoAno = (orcamentos || []).find(o => o.ano?.toString() === filtroAno && (filtroContrato === "todos" || o.contrato_id === filtroContrato));
   const valorOrcado = Number(orcamentoAno?.valor_orcado || orcamentoAno?.valor_dotacao_inicial || 0);
   const valorEmpenhado = Number(orcamentoAno?.valor_empenhado || orcamentoAno?.valor_dotacao_atual || 0);
@@ -101,7 +107,7 @@ export default function ExtratoPagamentos() {
   if (loading) return (
     <div className="flex h-[80vh] items-center justify-center flex-col gap-4">
       <Loader2 className="animate-spin text-[#1a2e4a] w-12 h-12" />
-      <p className="font-black text-[#1a2e4a] uppercase tracking-widest text-lg">Processando Dados...</p>
+      <p className="font-black text-[#1a2e4a] uppercase tracking-widest text-lg">Atualizando Valores...</p>
     </div>
   );
 
@@ -110,10 +116,10 @@ export default function ExtratoPagamentos() {
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-3xl font-black text-[#1a2e4a] tracking-tight uppercase">Extrato de Pagamentos</h1>
-          <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Acompanhamento Orçamentário JFRN</p>
+          <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Gestão Financeira e Orçamentária JFRN</p>
         </div>
         <Button className="bg-[#1a2e4a] hover:bg-[#2a4a7a] font-bold py-6 px-8 text-sm uppercase">
-          <Download className="mr-3 h-5 w-5" /> Exportar SEI
+          <Download className="mr-3 h-5 w-5" /> Exportar Relatório
         </Button>
       </div>
 
@@ -131,7 +137,7 @@ export default function ExtratoPagamentos() {
           <CardContent><div className="text-xl font-black text-orange-700">{formatBRL(valorEmpenhado)}</div></CardContent>
         </Card>
         <Card className="border-t-8 border-t-green-600 shadow-lg bg-white">
-          <CardHeader className="pb-1 text-green-600 text-[11px] font-black uppercase">Executado (Pago)</CardHeader>
+          <CardHeader className="pb-1 text-green-600 text-[11px] font-black uppercase font-bold">Executado (Pago)</CardHeader>
           <CardContent><div className="text-xl font-black text-green-800">{formatBRL(totalLiquido)}</div></CardContent>
         </Card>
         <Card className={`border-t-8 shadow-lg bg-white ${saldoEmpenho < 0 ? 'border-t-red-600' : 'border-t-blue-600'}`}>
@@ -143,7 +149,7 @@ export default function ExtratoPagamentos() {
       </div>
 
       <Card className="bg-white border-none shadow-md ring-1 ring-black/5 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end text-lg">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
           <div className="space-y-2">
             <Label className="font-black uppercase text-[#1a2e4a] text-xs">Contrato</Label>
             <Select value={filtroContrato} onValueChange={setFiltroContrato}>
@@ -195,10 +201,10 @@ export default function ExtratoPagamentos() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label className="font-black uppercase text-[#1a2e4a] text-xs">Busca</Label>
+            <Label className="font-black uppercase text-[#1a2e4a] text-xs">Busca NF</Label>
             <div className="relative">
               <Search className="absolute left-3 top-4 h-4 w-4 text-gray-400" />
-              <Input className="h-12 pl-10 bg-gray-50 border-gray-100 font-bold text-sm" placeholder="NF..." value={buscaNF} onChange={e => setBuscaNF(e.target.value)} />
+              <Input className="h-12 pl-10 bg-gray-50 border-gray-100 font-bold text-sm" placeholder="Pesquisar..." value={buscaNF} onChange={e => setBuscaNF(e.target.value)} />
             </div>
           </div>
         </div>
