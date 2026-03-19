@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -44,17 +45,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [ano, setAno] = useState(lancamento?.ano ? String(lancamento.ano) : String(anoAtual));
   const [status, setStatus] = useState(lancamento?.status || "Em instrução");
   
-  const [selectedItemId, setSelectedItemId] = useState("");
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [nfsData, setNfsData] = useState({});
   const [empenhos, setEmpenhos] = useState([]);
-  
-  const [nfData, setNfData] = useState({
-    numero_nf: "",
-    data_nf: hoje,
-    valor: 0,
-    retencao: 0,
-    glosa: 0,
-    valor_final: 0
-  });
 
   const [processoPagSei, setProcessoPagSei] = useState(lancamento?.processo_pagamento_sei || "");
   const [ordemBancaria, setOrdemBancaria] = useState(lancamento?.ordem_bancaria || "");
@@ -78,9 +71,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const pdfInputRef = useRef(null);
 
   const itensContratoAtivos = itens?.filter(i => String(i.contrato_id) === String(contratoId)) || [];
-  const selectedItemObj = itensContratoAtivos.find(i => String(i.id) === String(selectedItemId));
-  const exigeOS = selectedItemObj && SERVICE_ITEM_LABELS_FOR_OS.includes(selectedItemObj.nome?.toUpperCase().trim());
-  const empenhoSelecionado = empenhos?.find(e => String(e.item_contrato_id) === String(selectedItemId));
+  
+  const exigeOS = selectedItems.some(itemId => {
+    const itemObj = itensContratoAtivos.find(i => String(i.id) === String(itemId));
+    return itemObj && SERVICE_ITEM_LABELS_FOR_OS.includes(itemObj.nome?.toUpperCase().trim());
+  });
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -102,7 +97,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
   useEffect(() => {
     if (!contratoId) {
-      setSelectedItemId("");
+      setSelectedItems([]);
+      setNfsData({});
       return;
     }
     base44.entities.NotaEmpenho.filter({ contrato_id: contratoId, ano: parseInt(ano) })
@@ -110,16 +106,38 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       .catch(() => setEmpenhos([]));
   }, [contratoId, ano]);
 
-  const handleNFMoneyChange = (field, rawValue) => {
+  const toggleItem = (itemId) => {
+    setSelectedItems(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        setNfsData(current => ({
+          ...current,
+          [itemId]: current[itemId] || { numero_nf: "", data_nf: hoje, valor: 0, retencao: 0, glosa: 0, valor_final: 0 }
+        }));
+        return [...prev, itemId];
+      }
+    });
+  };
+
+  const handleNFMoneyChange = (itemId, field, rawValue) => {
     const numericValue = Number(rawValue.replace(/\D/g, "")) / 100;
-    setNfData(prev => {
-      const updated = { ...prev, [field]: numericValue };
+    setNfsData(prev => {
+      const current = prev[itemId] || {};
+      const updated = { ...current, [field]: numericValue };
       const val = updated.valor || 0;
       const ret = updated.retencao || 0;
       const glo = updated.glosa || 0;
       updated.valor_final = val - ret - glo;
-      return updated;
+      return { ...prev, [itemId]: updated };
     });
+  };
+
+  const handleNFTextChange = (itemId, field, value) => {
+    setNfsData(prev => ({
+      ...prev,
+      [itemId]: { ...(prev[itemId] || {}), [field]: value }
+    }));
   };
 
   const handleOSMoneyChange = (osIndex, rawValue) => {
@@ -195,13 +213,21 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           if (partes.length === 3) dataFormatada = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
         }
 
-        setNfData(prev => ({
-          ...prev,
-          numero_nf: data.numero_nf || prev.numero_nf,
-          data_nf: dataFormatada,
-          valor: data.valor_total || prev.valor,
-          valor_final: (data.valor_total || prev.valor) - prev.retencao - prev.glosa
-        }));
+        setNfsData(prev => {
+          const nextState = { ...prev };
+          selectedItems.forEach((itemId, idx) => {
+            const current = nextState[itemId] || {};
+            nextState[itemId] = {
+              ...current,
+              numero_nf: data.numero_nf || current.numero_nf,
+              data_nf: dataFormatada,
+              // Aplica o valor total apenas no primeiro item para não duplicar o pagamento acidentalmente
+              valor: idx === 0 && data.valor_total ? data.valor_total : current.valor,
+              valor_final: idx === 0 && data.valor_total ? (data.valor_total - (current.retencao || 0) - (current.glosa || 0)) : current.valor_final
+            };
+          });
+          return nextState;
+        });
 
         if (data.os_numero && ordensServico.length === 1 && !ordensServico[0].numero_os) {
            setOrdensServico([{ ...ordensServico[0], numero_os: data.os_numero }]);
@@ -218,46 +244,52 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   };
 
   const executeSave = async () => {
-    if (!contratoId || !selectedItemId) {
-      toast.error("Selecione o contrato e o item.");
+    if (!contratoId || selectedItems.length === 0) {
+      toast.error("Selecione o contrato e pelo menos um item.");
       return;
     }
 
     setSaving(true);
     try {
-      const created = await base44.entities.LancamentoFinanceiro.create({
-        contrato_id: contratoId,
-        item_contrato_id: selectedItemId,
-        item_label: selectedItemObj?.nome || "Item",
-        ano: parseInt(ano),
-        mes: mesesNomes.indexOf(mes) + 1,
-        status,
-        numero_nf: nfData.numero_nf,
-        data_nf: nfData.data_nf,
-        valor: nfData.valor || 0,
-        retencao: nfData.retencao || 0,
-        glosa: nfData.glosa || 0,
-        valor_pago_final: nfData.valor_final || 0,
-        processo_pagamento_sei: processoPagSei,
-        ordem_bancaria: ordemBancaria,
-        data_lancamento: dataLancamento,
-        observacoes: observacoes,
-        ordens_servico: exigeOS ? ordensServico : [],
-        alterado_por: user?.full_name || "Sistema",
-        data_update: new Date().toISOString()
-      });
+      for (const itemId of selectedItems) {
+        const itemData = nfsData[itemId];
+        const itemObj = itensContratoAtivos.find(i => String(i.id) === String(itemId));
+        
+        const created = await base44.entities.LancamentoFinanceiro.create({
+          contrato_id: contratoId,
+          item_contrato_id: itemId,
+          item_label: itemObj?.nome || "Item",
+          ano: parseInt(ano),
+          mes: mesesNomes.indexOf(mes) + 1,
+          status,
+          numero_nf: itemData.numero_nf,
+          data_nf: itemData.data_nf,
+          valor: itemData.valor || 0,
+          retencao: itemData.retencao || 0,
+          glosa: itemData.glosa || 0,
+          valor_pago_final: itemData.valor_final || 0,
+          processo_pagamento_sei: processoPagSei,
+          ordem_bancaria: ordemBancaria,
+          data_lancamento: dataLancamento,
+          observacoes: observacoes,
+          ordens_servico: exigeOS ? ordensServico : [],
+          alterado_por: user?.full_name || "Sistema",
+          data_update: new Date().toISOString()
+        });
 
-      const isMaterial = selectedItemObj?.nome?.toUpperCase().includes("MATERIAL");
-      if (isMaterial && itensMaterialExtraidos?.length > 0) {
-        for (const mat of itensMaterialExtraidos) {
-          await base44.entities.ItemMaterialNF.create({
-            ...mat,
-            lancamento_financeiro_id: created.id,
-            os_numero: ordensServico[0]?.numero_os || "",
-            contrato_id: contratoId
-          });
-          await new Promise(r => setTimeout(r, 100));
+        const isMaterial = itemObj?.nome?.toUpperCase().includes("MATERIAL");
+        if (isMaterial && itensMaterialExtraidos?.length > 0) {
+          for (const mat of itensMaterialExtraidos) {
+            await base44.entities.ItemMaterialNF.create({
+              ...mat,
+              lancamento_financeiro_id: created.id,
+              os_numero: ordensServico[0]?.numero_os || "",
+              contrato_id: contratoId
+            });
+            await new Promise(r => setTimeout(r, 100));
+          }
         }
+        await new Promise(r => setTimeout(r, 200));
       }
       
       toast.success("Lançamento salvo com sucesso.");
@@ -329,29 +361,43 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
         {contratoId && (
           <div className="space-y-2">
-            <Label className="font-semibold text-gray-700">Item do Contrato <span className="text-red-500">*</span></Label>
-            <Select value={selectedItemId || undefined} onValueChange={setSelectedItemId}>
-              <SelectTrigger className="h-10 text-sm bg-white border-gray-300">
-                <SelectValue placeholder="Selecione o item sendo pago" />
-              </SelectTrigger>
-              <SelectContent>
+            <Label className="font-semibold text-gray-700">Itens do Contrato <span className="text-red-500">*</span></Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between h-10 font-normal bg-white border-gray-300 text-gray-700">
+                  {selectedItems.length === 0 
+                    ? "Selecione os itens a serem pagos..." 
+                    : `${selectedItems.length} item(s) selecionado(s)`}
+                  <span className="opacity-50 text-[10px]">▼</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-2 bg-white shadow-xl" align="start">
                 {itensContratoAtivos.length === 0 ? (
-                  <SelectItem value="empty" disabled>Nenhum item vinculado a este contrato</SelectItem>
+                  <p className="text-sm text-gray-500 text-center py-2">Nenhum item vinculado a este contrato</p>
                 ) : (
-                  itensContratoAtivos.map(item => (
-                    <SelectItem key={item.id} value={String(item.id)} className="uppercase">
-                      {item.nome}
-                    </SelectItem>
-                  ))
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {itensContratoAtivos.map(item => (
+                      <div key={item.id} className="flex items-center space-x-3 p-1 hover:bg-gray-50 rounded">
+                        <Checkbox 
+                          id={`popover-item-${item.id}`} 
+                          checked={selectedItems.includes(String(item.id))}
+                          onCheckedChange={() => toggleItem(String(item.id))}
+                        />
+                        <label htmlFor={`popover-item-${item.id}`} className="text-sm font-medium text-gray-700 leading-tight cursor-pointer uppercase w-full">
+                          {item.nome}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </SelectContent>
-            </Select>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
 
-        {selectedItemId && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b pb-2">
+        {selectedItems.length > 0 && (
+          <div className="space-y-6 pt-4 border-t">
+            <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[#1a2e4a]">Notas Fiscais</h3>
               <div>
                 <input ref={pdfInputRef} type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
@@ -374,71 +420,79 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               </div>
             )}
 
-            <div className="border border-gray-200 rounded-lg p-5 bg-white">
-              <div className="flex justify-between items-center mb-6">
-                <span className="font-semibold text-sm text-[#1a2e4a] uppercase">{selectedItemObj?.nome}</span>
-                {empenhoSelecionado && (
-                  <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">
-                    {empenhoSelecionado.numero_empenho}
-                  </Badge>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600 font-semibold">Número da NF <span className="text-red-500">*</span></Label>
-                  <Input 
-                    value={nfData.numero_nf || ""} 
-                    onChange={(e) => setNfData({...nfData, numero_nf: e.target.value})}
-                    placeholder="Nº da NF"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600 font-semibold">Data da NF <span className="text-red-500">*</span></Label>
-                  <Input 
-                    type="date" 
-                    value={nfData.data_nf || ""} 
-                    onChange={(e) => setNfData({...nfData, data_nf: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600 font-semibold">Valor da NF (R$) <span className="text-red-500">*</span></Label>
-                  <Input 
-                    value={formatarMoeda(nfData.valor)} 
-                    onChange={(e) => handleNFMoneyChange("valor", e.target.value)}
-                    placeholder="0,00"
-                  />
-                </div>
-              </div>
+            {selectedItems.map(itemId => {
+              const itemObj = itensContratoAtivos.find(i => String(i.id) === String(itemId));
+              const data = nfsData[itemId] || {};
+              const empenhoSelecionado = empenhos?.find(e => String(e.item_contrato_id) === String(itemId));
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600 font-semibold">Retenção (R$)</Label>
-                  <Input 
-                    value={formatarMoeda(nfData.retencao)} 
-                    onChange={(e) => handleNFMoneyChange("retencao", e.target.value)}
-                    placeholder="0,00"
-                  />
+              return (
+                <div key={itemId} className="border border-gray-200 rounded-lg p-5 bg-white">
+                  <div className="flex justify-between items-center mb-6">
+                    <span className="font-semibold text-sm text-[#1a2e4a] uppercase">{itemObj?.nome}</span>
+                    {empenhoSelecionado && (
+                      <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">
+                        {empenhoSelecionado.numero_empenho}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Número da NF <span className="text-red-500">*</span></Label>
+                      <Input 
+                        value={data.numero_nf || ""} 
+                        onChange={(e) => handleNFTextChange(itemId, "numero_nf", e.target.value)}
+                        placeholder="Nº da NF"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Data da NF <span className="text-red-500">*</span></Label>
+                      <Input 
+                        type="date" 
+                        value={data.data_nf || ""} 
+                        onChange={(e) => handleNFTextChange(itemId, "data_nf", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Valor da NF (R$) <span className="text-red-500">*</span></Label>
+                      <Input 
+                        value={formatarMoeda(data.valor * 100)} 
+                        onChange={(e) => handleNFMoneyChange(itemId, "valor", e.target.value)}
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Retenção (R$)</Label>
+                      <Input 
+                        value={formatarMoeda(data.retencao * 100)} 
+                        onChange={(e) => handleNFMoneyChange(itemId, "retencao", e.target.value)}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Glosa (R$)</Label>
+                      <Input 
+                        value={formatarMoeda(data.glosa * 100)} 
+                        onChange={(e) => handleNFMoneyChange(itemId, "glosa", e.target.value)}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Valor Final Pago (R$)</Label>
+                      <Input 
+                        disabled
+                        className="bg-gray-100 font-bold"
+                        value={formatarMoeda(data.valor_final * 100)} 
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600 font-semibold">Glosa (R$)</Label>
-                  <Input 
-                    value={formatarMoeda(nfData.glosa)} 
-                    onChange={(e) => handleNFMoneyChange("glosa", e.target.value)}
-                    placeholder="0,00"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-gray-600 font-semibold">Valor Final Pago (R$)</Label>
-                  <Input 
-                    disabled
-                    className="bg-gray-100 font-bold"
-                    value={formatarMoeda(nfData.valor_final)} 
-                    placeholder="0,00"
-                  />
-                </div>
-              </div>
-            </div>
+              );
+            })}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -510,7 +564,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                       <div className="space-y-1">
                         <Label className="text-xs text-gray-600 font-semibold">Valor da OS (R$) <span className="text-red-500">*</span></Label>
                         <Input 
-                          value={formatarMoeda(os.valor)} 
+                          value={formatarMoeda(os.valor * 100)} 
                           onChange={(e) => handleOSMoneyChange(index, e.target.value)}
                           placeholder="0,00"
                         />
