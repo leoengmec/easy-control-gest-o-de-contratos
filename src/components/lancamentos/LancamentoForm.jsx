@@ -4,107 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
+const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
 
-const formatarMoeda = (valor) => {
-  if (!valor) return "0,00";
-  const apenasNumeros = valor.toString().replace(/\D/g, "");
-  const valorDecimal = Number(apenasNumeros) / 100;
-  return valorDecimal.toLocaleString("pt-BR", {
+const formatarMoeda = (valorNumerico) => {
+  if (valorNumerico === undefined || valorNumerico === null) return "0,00";
+  return valorNumerico.toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 };
-
-function ItemNFCard({ entry, index, empenhos, onChange }) {
-  const handleChangeValor = (e) => {
-    const rawValue = e.target.value.replace(/\D/g, "");
-    const numericValue = Number(rawValue) / 100;
-    const formattedValue = formatarMoeda(rawValue);
-    
-    onChange(index, "valor_formatado", formattedValue);
-    onChange(index, "valor", numericValue);
-  };
-
-  return (
-    <div className="border rounded-lg p-5 bg-white shadow-sm space-y-4">
-      <div className="flex items-center justify-between border-b pb-2">
-        <span className="font-black text-sm text-[#1a2e4a] uppercase">{entry.item_label || "Detalhes da Nota Fiscal"}</span>
-        {entry.nota_empenho_id && (() => {
-          const ne = empenhos?.find(e => String(e.id) === String(entry.nota_empenho_id));
-          return ne ? (
-            <Badge variant="outline" className="text-[10px] font-black bg-blue-50 text-blue-700 border-blue-200 uppercase px-3 py-1">
-              Empenho: {ne.numero_empenho}
-            </Badge>
-          ) : null;
-        })()}
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase text-gray-500">Número da NF *</Label>
-          <Input 
-            className="font-black text-[#1a2e4a] h-10" 
-            value={entry.numero_nf || ""} 
-            onChange={e => onChange(index, "numero_nf", e.target.value)} 
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase text-gray-500">Data da NF *</Label>
-          <Input 
-            type="date" 
-            className="font-bold text-gray-700 h-10"
-            value={entry.data_nf || ""} 
-            onChange={e => onChange(index, "data_nf", e.target.value)} 
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase text-gray-500">Valor da NF (R$) *</Label>
-          <Input 
-            type="text" 
-            className="font-black text-xl text-right text-green-700 h-10"
-            value={entry.valor_formatado || formatarMoeda(entry.valor || 0)} 
-            onChange={handleChangeValor} 
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase text-gray-500">Tipo de Lançamento *</Label>
-          <Select value={entry.tipo_lancamento || "Pagamento"} onValueChange={v => onChange(index, "tipo_lancamento", v)}>
-            <SelectTrigger className="font-bold text-gray-700 h-10"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Pagamento">Pagamento</SelectItem>
-              <SelectItem value="Medição">Medição</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase text-gray-500">Ordem de Serviço (OS)</Label>
-          <Input 
-            className="font-bold text-gray-700 h-10" 
-            value={entry.os_numero || ""} 
-            placeholder="Ex: OS 123/2026"
-            onChange={e => onChange(index, "os_numero", e.target.value)} 
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-xs font-bold uppercase text-gray-500">Descrição / Objeto</Label>
-          <Input 
-            className="font-bold text-gray-700 h-10" 
-            value={entry.descricao || ""} 
-            placeholder="Resumo do material ou serviço"
-            onChange={e => onChange(index, "descricao", e.target.value)} 
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel }) {
   const anoAtual = new Date().getFullYear();
@@ -114,27 +29,26 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [loadingContratos, setLoadingContratos] = useState(false);
   
   const [contratoId, setContratoId] = useState(lancamento?.contrato_id ? String(lancamento.contrato_id) : "");
-  const [ano, setAno] = useState(lancamento?.ano || anoAtual);
-  const [mes, setMes] = useState(lancamento?.mes || new Date().getMonth() + 1);
+  const [mes, setMes] = useState(lancamento?.mes || mesesNomes[new Date().getMonth()]);
+  const [ano, setAno] = useState(lancamento?.ano ? String(lancamento.ano) : String(anoAtual));
   const [status, setStatus] = useState(lancamento?.status || "Em instrução");
+  
   const [processoPagSei, setProcessoPagSei] = useState(lancamento?.processo_pagamento_sei || "");
-  
-  const [itensLancamento, setItensLancamento] = useState(lancamento ? [lancamento] : [{ 
-    item_label: "Lançamento Avulso", 
-    valor: 0, 
-    valor_formatado: "0,00",
-    tipo_lancamento: "Pagamento",
-    os_numero: "",
-    descricao: ""
-  }]);
-  
+  const [ordemBancaria, setOrdemBancaria] = useState(lancamento?.ordem_bancaria || "");
+  const [dataLancamento, setDataLancamento] = useState(hoje);
+  const [observacoes, setObservacoes] = useState(lancamento?.observacoes || "");
+
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [nfsData, setNfsData] = useState({});
   const [empenhos, setEmpenhos] = useState([]);
+  
   const [saving, setSaving] = useState(false);
-  const [savingProgress, setSavingProgress] = useState({ current: 0, total: 0 });
   const [extractingPdf, setExtractingPdf] = useState(false);
   const [itensMaterialExtraidos, setItensMaterialExtraidos] = useState([]);
   const [user, setUser] = useState(null);
   const pdfInputRef = useRef(null);
+
+  const itensContratoAtivos = itens?.filter(i => String(i.contrato_id) === String(contratoId)) || [];
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -145,42 +59,73 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       setListaContratos(contratos);
       return;
     }
-    
     let isMounted = true;
     setLoadingContratos(true);
-    
     base44.entities.Contrato.list()
-      .then((res) => {
-        if (isMounted) {
-          setListaContratos(res || []);
-        }
-      })
-      .catch(() => {
-        if (isMounted) toast.error("Erro ao buscar a lista de contratos");
-      })
-      .finally(() => {
-        if (isMounted) setLoadingContratos(false);
-      });
-
+      .then((res) => { if (isMounted) setListaContratos(res || []); })
+      .catch(() => { if (isMounted) toast.error("Erro ao buscar a lista de contratos"); })
+      .finally(() => { if (isMounted) setLoadingContratos(false); });
     return () => { isMounted = false; };
   }, [contratos]);
 
   useEffect(() => {
-    if (!contratoId) return;
+    if (!contratoId) {
+      setSelectedItems([]);
+      setNfsData({});
+      return;
+    }
     base44.entities.NotaEmpenho.filter({ contrato_id: contratoId, ano: parseInt(ano) })
       .then(setEmpenhos)
       .catch(() => setEmpenhos([]));
   }, [contratoId, ano]);
 
+  const toggleItem = (itemId) => {
+    setSelectedItems(prev => {
+      const isSelected = prev.includes(itemId);
+      if (isSelected) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        setNfsData(currentNfs => ({
+          ...currentNfs,
+          [itemId]: currentNfs[itemId] || { numero_nf: "", data_nf: hoje, valor: 0, retencao: 0, glosa: 0, valor_final: 0 }
+        }));
+        return [...prev, itemId];
+      }
+    });
+  };
+
+  const handleMoneyChange = (itemId, field, rawValue) => {
+    const numericValue = Number(rawValue.replace(/\D/g, "")) / 100;
+    
+    setNfsData(prev => {
+      const current = prev[itemId] || {};
+      const updated = { ...current, [field]: numericValue };
+      
+      const val = updated.valor || 0;
+      const ret = updated.retencao || 0;
+      const glo = updated.glosa || 0;
+      updated.valor_final = val - ret - glo;
+      
+      return { ...prev, [itemId]: updated };
+    });
+  };
+
+  const handleTextChange = (itemId, field, value) => {
+    setNfsData(prev => ({
+      ...prev,
+      [itemId]: { ...(prev[itemId] || {}), [field]: value }
+    }));
+  };
+
   const handlePdfUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setExtractingPdf(true);
-    toast.info("Enviando para IA. Isso pode levar até 20 segundos dependendo do tamanho do PDF.");
+    toast.info("Processando PDF com Inteligência Artificial...");
 
     try {
       const uploadRes = await base44.integrations.Core.UploadFile({ file });
-      if (!uploadRes || !uploadRes.file_url) throw new Error("Falha no envio do arquivo para o servidor");
+      if (!uploadRes || !uploadRes.file_url) throw new Error("Falha no upload");
 
       const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
         file_url: uploadRes.file_url,
@@ -188,10 +133,8 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           type: "object",
           properties: {
             numero_nf: { type: "string" },
-            data_nf: { type: "string", description: "Data no formato DD/MM/YYYY" },
+            data_nf: { type: "string" },
             valor_total: { type: "number" },
-            os_numero: { type: "string" },
-            descricao_geral: { type: "string" },
             itens_material: {
               type: "array",
               items: {
@@ -200,7 +143,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                   descricao: { type: "string" },
                   unidade: { type: "string" },
                   quantidade: { type: "number" },
-                  valor_unitario: { type: "number" },
                   valor_total_item: { type: "number" }
                 }
               }
@@ -214,33 +156,30 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         setItensMaterialExtraidos(data.itens_material || []);
         
         let dataFormatada = hoje;
-        if (data.data_nf) {
-          if (data.data_nf.includes("/")) {
-            const partes = data.data_nf.split("/");
-            if (partes.length === 3) {
-              dataFormatada = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
-            }
-          } else if (data.data_nf.includes("-")) {
-             dataFormatada = data.data_nf;
-          }
+        if (data.data_nf && data.data_nf.includes("/")) {
+          const partes = data.data_nf.split("/");
+          if (partes.length === 3) dataFormatada = `${partes[2]}-${partes[1].padStart(2, '0')}-${partes[0].padStart(2, '0')}`;
         }
+
+        setNfsData(prev => {
+          const nextState = { ...prev };
+          selectedItems.forEach((itemId, idx) => {
+            const current = nextState[itemId] || {};
+            nextState[itemId] = {
+              ...current,
+              numero_nf: data.numero_nf || current.numero_nf,
+              data_nf: dataFormatada,
+              valor: idx === 0 && data.valor_total ? data.valor_total : current.valor,
+              valor_final: idx === 0 && data.valor_total ? (data.valor_total - (current.retencao || 0) - (current.glosa || 0)) : current.valor_final
+            };
+          });
+          return nextState;
+        });
         
-        setItensLancamento(prev => prev.map(entry => ({
-          ...entry,
-          numero_nf: data.numero_nf || entry.numero_nf,
-          data_nf: dataFormatada,
-          valor: data.valor_total || entry.valor,
-          valor_formatado: formatarMoeda(((data.valor_total || 0) * 100).toFixed(0)),
-          os_numero: data.os_numero || entry.os_numero,
-          descricao: data.descricao_geral || entry.descricao
-        })));
-        
-        toast.success("Leitura da Nota Fiscal concluída.");
-      } else {
-        throw new Error("A IA não conseguiu ler os dados do PDF");
+        toast.success("Dados preenchidos automaticamente.");
       }
     } catch (error) {
-      toast.error("Erro no processamento. O PDF pode ser muito pesado ou o tempo limite foi atingido.");
+      toast.error("A inteligência artificial não conseguiu ler este arquivo.");
     } finally {
       setExtractingPdf(false);
       if (pdfInputRef.current) pdfInputRef.current.value = "";
@@ -248,171 +187,290 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   };
 
   const executeSave = async () => {
-    if (!contratoId) {
-      toast.error("Selecione um contrato antes de salvar.");
+    if (!contratoId || selectedItems.length === 0) {
+      toast.error("Selecione o contrato e pelo menos um item.");
       return;
     }
 
     setSaving(true);
-    setSavingProgress({ current: 1, total: itensLancamento.length });
-
     try {
-      let currentIndex = 1;
-      for (const entry of (itensLancamento || [])) {
-        setSavingProgress({ current: currentIndex, total: itensLancamento.length });
-        const valorReal = parseFloat(entry.valor) || 0;
+      for (const itemId of selectedItems) {
+        const itemData = nfsData[itemId];
+        const itemObj = itensContratoAtivos.find(i => String(i.id) === String(itemId));
         
         const created = await base44.entities.LancamentoFinanceiro.create({
           contrato_id: contratoId,
+          item_contrato_id: itemId,
+          item_label: itemObj?.nome || "Item",
           ano: parseInt(ano),
-          mes: parseInt(mes),
+          mes: mesesNomes.indexOf(mes) + 1,
           status,
-          valor: valorReal,
-          numero_nf: entry.numero_nf,
-          data_nf: entry.data_nf,
-          item_label: entry.item_label,
-          tipo_lancamento: entry.tipo_lancamento,
-          os_numero: entry.os_numero,
-          descricao: entry.descricao,
+          numero_nf: itemData.numero_nf,
+          data_nf: itemData.data_nf,
+          valor: itemData.valor || 0,
+          retencao: itemData.retencao || 0,
+          glosa: itemData.glosa || 0,
+          valor_pago_final: itemData.valor_final || 0,
           processo_pagamento_sei: processoPagSei,
+          ordem_bancaria: ordemBancaria,
+          data_lancamento: dataLancamento,
+          observacoes: observacoes,
           alterado_por: user?.full_name || "Sistema",
           data_update: new Date().toISOString()
         });
 
-        if (itensMaterialExtraidos?.length > 0) {
-          for (const itemMat of itensMaterialExtraidos) {
+        const isMaterial = itemObj?.nome?.toUpperCase().includes("MATERIAL");
+        if (isMaterial && itensMaterialExtraidos?.length > 0) {
+          for (const mat of itensMaterialExtraidos) {
             await base44.entities.ItemMaterialNF.create({
-              ...itemMat,
+              ...mat,
               lancamento_financeiro_id: created.id,
-              os_numero: entry.os_numero || "",
               contrato_id: contratoId
             });
-            await new Promise(r => setTimeout(r, 150));
+            await new Promise(r => setTimeout(r, 100));
           }
         }
-        
-        currentIndex++;
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 200));
       }
       
-      toast.success("Lançamento efetuado com sucesso.");
+      toast.success("Lançamento salvo com sucesso.");
       if (onSave) onSave();
       
     } catch (err) {
-      toast.error("Falha de comunicação com o banco de dados.");
+      toast.error("Erro ao salvar no banco de dados.");
     } finally {
       setSaving(false);
-      setSavingProgress({ current: 0, total: 0 });
     }
   };
 
   return (
-    <Card className="font-sans border-none shadow-2xl">
-      <CardHeader className="bg-[#1a2e4a] rounded-t-xl text-white">
-        <CardTitle className="text-xl font-black uppercase tracking-wide flex items-center gap-2">
-          Painel de Entrada de Notas Fiscais
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-8 p-8 bg-gray-50/50">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-w-4xl mx-auto font-sans">
+      <h2 className="text-xl font-bold text-[#1a2e4a] mb-6">
+        {lancamento ? "Editar Lançamento" : "Novo Lançamento"}
+      </h2>
+
+      <div className="space-y-6">
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-          <div className="space-y-2">
-            <Label className="font-black uppercase text-xs text-gray-500">Contrato Vinculado *</Label>
-            <Select value={contratoId || undefined} onValueChange={setContratoId}>
-              <SelectTrigger className="h-12 font-bold text-sm bg-gray-50">
-                <SelectValue placeholder={loadingContratos ? "Buscando contratos no banco..." : "Selecione o contrato..."} />
-              </SelectTrigger>
-              <SelectContent>
-                {listaContratos.length === 0 && !loadingContratos && (
-                  <SelectItem value="empty" disabled>Nenhum contrato localizado</SelectItem>
-                )}
-                {listaContratos?.map(c => (
-                  <SelectItem key={c.id} value={String(c.id)}>
-                    {c.numero} | {c.contratada}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="font-black uppercase text-xs text-gray-500">Status Inicial *</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="h-12 font-bold text-sm bg-gray-50"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS?.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="p-8 border-2 border-dotted border-blue-200 rounded-2xl bg-blue-50/30 flex flex-col items-center justify-center transition-all hover:bg-blue-50">
-            <input ref={pdfInputRef} type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
-            <Button 
-              size="lg"
-              className="bg-blue-600 hover:bg-blue-700 font-black uppercase tracking-widest text-xs px-8 h-14 shadow-lg" 
-              onClick={() => pdfInputRef.current?.click()} 
-              disabled={extractingPdf}
-            >
-              {extractingPdf ? <Loader2 className="animate-spin mr-3 h-5 w-5" /> : <Upload className="mr-3 h-5 w-5" />}
-              {extractingPdf ? "Lendo documento..." : "Importar Nota Fiscal (PDF)"}
-            </Button>
-            <p className="text-[11px] text-gray-400 mt-4 uppercase font-bold tracking-widest text-center max-w-md">
-              A inteligência artificial fará a leitura ótica e preencherá os valores e itens de material automaticamente.
-            </p>
-        </div>
-
-        {itensMaterialExtraidos.length > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-5 shadow-sm">
-            <h4 className="text-green-800 font-black uppercase text-xs flex items-center gap-2 mb-4">
-              Auditoria da IA: Materiais Detectados
-            </h4>
-            <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
-              {itensMaterialExtraidos.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm bg-white p-3 rounded border border-green-100">
-                  <span className="font-bold text-gray-700 truncate pr-4">{item.quantidade}x {item.descricao}</span>
-                  <span className="font-black text-green-700 whitespace-nowrap">
-                    {formatarMoeda(((item.valor_total_item || 0) * 100).toFixed(0))}
-                  </span>
-                </div>
+        <div className="space-y-2">
+          <Label className="font-semibold text-gray-700">Contrato <span className="text-red-500">*</span></Label>
+          <Select value={contratoId || undefined} onValueChange={setContratoId}>
+            <SelectTrigger className="h-10 text-sm bg-white border-gray-300">
+              <SelectValue placeholder={loadingContratos ? "Carregando..." : "Selecione o contrato"} />
+            </SelectTrigger>
+            <SelectContent>
+              {listaContratos?.map(c => (
+                <SelectItem key={c.id} value={String(c.id)}>
+                  {c.numero} | {c.contratada}
+                </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="p-5 border border-gray-200 rounded-lg bg-gray-50/30">
+          <h3 className="text-sm font-semibold text-gray-700 mb-4">Mês de Referência da Medição</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-600">Mês <span className="text-red-500">*</span></Label>
+              <Select value={mes} onValueChange={setMes}>
+                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {mesesNomes.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-600">Ano <span className="text-red-500">*</span></Label>
+              <Select value={ano} onValueChange={setAno}>
+                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["2024", "2025", "2026", "2027"].map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-gray-600">Status <span className="text-red-500">*</span></Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {contratoId && (
+          <div className="p-5 border border-gray-200 rounded-lg bg-white">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">Itens do Contrato <span className="text-red-500">*</span> <span className="text-gray-400 font-normal text-xs">(selecione um ou mais)</span></h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {itensContratoAtivos.length === 0 ? (
+                <p className="text-sm text-gray-400">Nenhum item vinculado a este contrato.</p>
+              ) : (
+                itensContratoAtivos.map(item => (
+                  <div key={item.id} className="flex items-start space-x-3">
+                    <Checkbox 
+                      id={`item-${item.id}`} 
+                      checked={selectedItems.includes(item.id)}
+                      onCheckedChange={() => toggleItem(item.id)}
+                    />
+                    <label htmlFor={`item-${item.id}`} className="text-sm font-medium text-gray-700 leading-tight cursor-pointer uppercase">
+                      {item.nome}
+                    </label>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
 
-        <div className="space-y-4">
-          {itensLancamento?.map((entry, idx) => (
-            <ItemNFCard 
-              key={idx} 
-              entry={entry} 
-              index={idx} 
-              empenhos={empenhos} 
-              onChange={(i, f, v) => {
-                const up = [...itensLancamento];
-                up[i][f] = v;
-                setItensLancamento(up);
-              }} 
+        {selectedItems.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="text-sm font-semibold text-[#1a2e4a]">Notas Fiscais</h3>
+              <div>
+                <input ref={pdfInputRef} type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                  onClick={() => pdfInputRef.current?.click()}
+                  disabled={extractingPdf}
+                >
+                  {extractingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                  Importar PDF da NF
+                </Button>
+              </div>
+            </div>
+
+            {itensMaterialExtraidos.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded p-3 text-sm flex items-center gap-2 text-green-700 font-medium">
+                <CheckCircle2 size={16} /> A IA detectou e vinculou {itensMaterialExtraidos.length} materiais a este lançamento.
+              </div>
+            )}
+
+            {selectedItems.map(itemId => {
+              const itemObj = itensContratoAtivos.find(i => String(i.id) === String(itemId));
+              const data = nfsData[itemId] || {};
+              const empenho = empenhos?.find(e => String(e.item_contrato_id) === String(itemId));
+
+              return (
+                <div key={itemId} className="border border-gray-200 rounded-lg p-5 bg-gray-50/20">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="font-semibold text-sm text-[#1a2e4a] uppercase">{itemObj?.nome}</span>
+                    {empenho && (
+                      <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 bg-blue-50">
+                        {empenho.numero_empenho}
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Número da NF <span className="text-red-500">*</span></Label>
+                      <Input 
+                        value={data.numero_nf || ""} 
+                        onChange={(e) => handleTextChange(itemId, "numero_nf", e.target.value)}
+                        placeholder="Nº da NF"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Data da NF <span className="text-red-500">*</span></Label>
+                      <Input 
+                        type="date" 
+                        value={data.data_nf || ""} 
+                        onChange={(e) => handleTextChange(itemId, "data_nf", e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Valor da NF (R$) <span className="text-red-500">*</span></Label>
+                      <Input 
+                        value={formatarMoeda(data.valor * 100 || 0)} 
+                        onChange={(e) => handleMoneyChange(itemId, "valor", e.target.value)}
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Retenção (R$)</Label>
+                      <Input 
+                        value={formatarMoeda(data.retencao * 100 || 0)} 
+                        onChange={(e) => handleMoneyChange(itemId, "retencao", e.target.value)}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Glosa (R$)</Label>
+                      <Input 
+                        value={formatarMoeda(data.glosa * 100 || 0)} 
+                        onChange={(e) => handleMoneyChange(itemId, "glosa", e.target.value)}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-600 font-semibold">Valor Final Pago (R$)</Label>
+                      <Input 
+                        disabled
+                        className="bg-gray-100 font-bold"
+                        value={formatarMoeda(data.valor_final * 100 || 0)} 
+                        placeholder="0,00"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700">Processo de Pagamento SEI</Label>
+            <Input 
+              value={processoPagSei} 
+              onChange={e => setProcessoPagSei(e.target.value)} 
+              placeholder="Nº do processo SEI"
             />
-          ))}
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700">Ordem Bancária</Label>
+            <Input 
+              value={ordemBancaria} 
+              onChange={e => setOrdemBancaria(e.target.value)} 
+              placeholder="Nº da ordem bancária"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700">Data do Lançamento <span className="text-red-500">*</span></Label>
+            <Input 
+              type="date"
+              value={dataLancamento} 
+              onChange={e => setDataLancamento(e.target.value)} 
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold text-gray-700">Observações</Label>
+            <Input 
+              value={observacoes} 
+              onChange={e => setObservacoes(e.target.value)} 
+              placeholder="Observações..."
+            />
+          </div>
         </div>
 
-        <div className="flex justify-end gap-4 pt-6 border-t">
-          <Button variant="outline" className="font-bold uppercase text-xs h-12 px-8" onClick={onCancel} disabled={saving}>
-            Cancelar Lançamento
+        <div className="flex justify-end gap-3 pt-6">
+          <Button variant="outline" onClick={onCancel} disabled={saving} className="font-semibold text-gray-600">
+            Cancelar
           </Button>
-          <Button 
-            onClick={executeSave} 
-            disabled={saving || !contratoId} 
-            className="bg-[#1a2e4a] hover:bg-[#2a4a7a] text-white font-black uppercase text-xs h-12 px-10 shadow-xl transition-all"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="animate-spin mr-3 h-4 w-4" /> 
-                Gravando Lançamento...
-              </>
-            ) : "Confirmar e Gravar"}
+          <Button onClick={executeSave} disabled={saving} className="bg-[#1a2e4a] hover:bg-[#2a4a7a] font-semibold">
+            {saving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
+            {saving ? "Salvando..." : "Salvar lançamento"}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+
+      </div>
+    </div>
   );
 }
