@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Search, Download, Clock, User, Landmark, TrendingUp, AlertCircle, History, Building2 } from "lucide-react";
+import { Loader2, Search, Download, Clock, Landmark, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 const mesesNomes = ["Todos", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -95,7 +95,10 @@ export default function ExtratoPagamentos() {
     <div className="space-y-8 font-sans pb-10">
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h1 className="text-4xl font-black text-[#1a2e4a] tracking-tight uppercase leading-none">Extrato de Pagamentos</h1>
+          <div className="flex items-center gap-4">
+             <h1 className="text-4xl font-black text-[#1a2e4a] tracking-tight uppercase leading-none">Extrato de Pagamentos</h1>
+             <Badge className="bg-red-600 text-white">VERSÃO ATUALIZADA</Badge>
+          </div>
           <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-2">Fiscalização e Auditoria Orçamentária</p>
         </div>
         <Button className="bg-[#1a2e4a] hover:bg-[#2a4a7a] font-bold py-8 px-10 text-base shadow-xl uppercase">
@@ -198,13 +201,11 @@ export default function ExtratoPagamentos() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-[12px] font-black text-[#1a2e4a] uppercase leading-tight">
-                        <Building2 size={16} className="text-blue-500 flex-shrink-0" />
                         {contrato?.contratada || "Não Informada"}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2 text-[12px] font-black text-gray-700 uppercase">
-                        <User size={15} className="text-gray-400 flex-shrink-0" /> 
                         {l.alterado_por || "Lançador Original"}
                       </div>
                     </TableCell>
@@ -233,7 +234,6 @@ export default function ExtratoPagamentos() {
                         {l.responsavel_alteracao_status || "Sem registro"}
                       </div>
                       <div className="text-[11px] text-gray-400 font-black uppercase mt-1 flex items-center gap-1 italic">
-                        <History size={12}/> 
                         {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "N/A"}
                       </div>
                     </TableCell>
