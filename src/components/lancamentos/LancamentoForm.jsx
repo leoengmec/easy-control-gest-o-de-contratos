@@ -31,7 +31,6 @@ const formatarMoeda = (v) => {
 export default function LancamentoForm({ lancamento, contratos, itens, onSave, onCancel }) {
   const hoje = new Date().toISOString().split("T")[0];
 
-  // Estados do Formulário - Recuperando TODOS os campos das imagens
   const [contratoId, setContratoId] = useState("");
   const [mes, setMes] = useState(mesesNomes[new Date().getMonth()]);
   const [ano, setAno] = useState("2026");
@@ -49,7 +48,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   const [listaContratos, setListaContratos] = useState(contratos || []);
   const [empenhos, setEmpenhos] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [extractingPdf, setExtractingPdf] = useState(false);
   const pdfInputRef = useRef(null);
 
   useEffect(() => {
@@ -64,6 +62,22 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         .then(setEmpenhos).catch(() => setEmpenhos([]));
     }
   }, [contratoId, ano]);
+
+  // Função que estava faltando e causava o erro ReferenceError
+  const toggleItem = (itemId) => {
+    const idStr = String(itemId);
+    setSelectedItems(prev => {
+      if (prev.includes(idStr)) {
+        return prev.filter(id => id !== idStr);
+      } else {
+        setNfsData(current => ({
+          ...current,
+          [idStr]: current[idStr] || { numero_nf: "", data_nf: hoje, valor: 0, retencao: 0, glosa: 0, valor_final: 0 }
+        }));
+        return [...prev, idStr];
+      }
+    });
+  };
 
   const handleNFMoneyChange = (itemId, field, raw) => {
     const val = Number(raw.replace(/\D/g, "")) / 100;
@@ -118,7 +132,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
       toast.success("Lançamento salvo com sucesso!");
       
-      // RESET DA TELA: Volta para o estado inicial após salvar
+      // Limpeza completa para voltar à tela inicial [cite: 115]
       setContratoId("");
       setSelectedItems([]);
       setNfsData({});
@@ -167,7 +181,16 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           <Label className="font-bold">Itens do Contrato *</Label>
           <Popover>
             <PopoverTrigger asChild><Button variant="outline" className="w-full justify-between h-10 border-gray-300 text-gray-700">{selectedItems.length === 0 ? "Selecione os itens..." : `${selectedItems.length} selecionado(s)`}</Button></PopoverTrigger>
-            <PopoverContent className="w-[400px] p-2 bg-white shadow-xl"><div className="space-y-2 max-h-60 overflow-y-auto">{itens?.filter(i => String(i.contrato_id) === contratoId).map(item => (<div key={item.id} className="flex items-center space-x-3 p-1 hover:bg-gray-50 rounded"><Checkbox id={`it-${item.id}`} checked={selectedItems.includes(String(item.id))} onCheckedChange={() => toggleItem(item.id)} /><label htmlFor={`it-${item.id}`} className="text-sm font-medium uppercase cursor-pointer">{item.nome}</label></div>))}</div></PopoverContent>
+            <PopoverContent className="w-[400px] p-2 bg-white shadow-xl">
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {itens?.filter(i => String(i.contrato_id) === contratoId).map(item => (
+                  <div key={item.id} className="flex items-center space-x-3 p-1 hover:bg-gray-50 rounded">
+                    <Checkbox id={`it-${item.id}`} checked={selectedItems.includes(String(item.id))} onCheckedChange={() => toggleItem(item.id)} />
+                    <label htmlFor={`it-${item.id}`} className="text-sm font-medium uppercase cursor-pointer">{item.nome}</label>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
           </Popover>
         </div>
 
