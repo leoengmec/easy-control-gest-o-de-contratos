@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Upload, Loader2, Plus, X, AlertTriangle, CheckCircle2, ListChecks } from "lucide-react";
+import { Upload, Loader2, Plus, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
@@ -227,11 +227,11 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         await new Promise(r => setTimeout(r, 300));
       }
       
-      toast.success("Lançamento efetuado com sucesso.");
+      toast.success("Lancamento efetuado com sucesso.");
       if (onSave) onSave();
       
     } catch (err) {
-      toast.error("Falha de comunicação com o banco de dados.");
+      toast.error("Falha de comunicacao com o banco de dados.");
     } finally {
       setSaving(false);
       setSavingProgress({ current: 0, total: 0 });
@@ -242,7 +242,6 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
     <Card className="font-sans border-none shadow-2xl">
       <CardHeader className="bg-[#1a2e4a] rounded-t-xl text-white">
         <CardTitle className="text-xl font-black uppercase tracking-wide flex items-center gap-2">
-          <ListChecks size={24} />
           Painel de Entrada de Notas Fiscais
         </CardTitle>
       </CardHeader>
@@ -269,7 +268,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           </div>
         </div>
 
-        <div className="p-8 border-2 border-dashed border-blue-200 rounded-2xl bg-blue-50/30 flex flex-col items-center justify-center transition-all hover:bg-blue-50">
+        <div className="p-8 border-2 border-dotted border-blue-200 rounded-2xl bg-blue-50/30 flex flex-col items-center justify-center transition-all hover:bg-blue-50">
             <input ref={pdfInputRef} type="file" className="hidden" accept=".pdf" onChange={handlePdfUpload} />
             <Button 
               size="lg"
@@ -281,14 +280,14 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
               {extractingPdf ? "Lendo documento..." : "Importar Nota Fiscal (PDF)"}
             </Button>
             <p className="text-[11px] text-gray-400 mt-4 uppercase font-bold tracking-widest text-center max-w-md">
-              A inteligência artificial fará a leitura ótica (OCR) e preencherá os valores automaticamente.
+              A inteligencia artificial fara a leitura otica (OCR) e preenchera os valores automaticamente.
             </p>
         </div>
 
         {itensMaterialExtraidos.length > 0 && (
           <div className="bg-green-50 border border-green-200 rounded-xl p-5 shadow-sm">
             <h4 className="text-green-800 font-black uppercase text-xs flex items-center gap-2 mb-4">
-              <CheckCircle2 size={16} /> Auditoria da IA: Itens Detectados na NF
+              Auditoria da IA: Itens Detectados na NF
             </h4>
             <div className="max-h-48 overflow-y-auto pr-2 space-y-2">
               {itensMaterialExtraidos.map((item, idx) => (
@@ -321,7 +320,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
 
         <div className="flex justify-end gap-4 pt-6 border-t">
           <Button variant="outline" className="font-bold uppercase text-xs h-12 px-8" onClick={onCancel} disabled={saving}>
-            Cancelar Lançamento
+            Cancelar Lancamento
           </Button>
           <Button 
             onClick={executeSave} 
