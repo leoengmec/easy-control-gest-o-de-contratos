@@ -47,11 +47,22 @@ export default function ExtratoPagamentos() {
       setEmpenhos(resEmp || []);
       setOrcamentosAnuais(resOrc || []);
     } catch (err) {
-      toast.error("Erro de conexão com a base de dados.");
+      toast.error("Erro ao sincronizar base orçamentária.");
     } finally {
       setLoading(false);
     }
   }
+
+  // Máscara de centavos automática (1018621 -> 10.186,21)
+  const formatMoneyInput = (value) => {
+    const cleanValue = value.replace(/\D/g, "");
+    if (!cleanValue) return "";
+    const numberValue = Number(cleanValue) / 100;
+    return numberValue.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   const handleStatusChange = async (id, novoStatus) => {
     try {
@@ -76,22 +87,11 @@ export default function ExtratoPagamentos() {
     return matchContrato && matchAno && matchMes && matchStatus && matchNF;
   });
 
-  // LOGICA DE PLOTAGEM CORRIGIDA PARA OS CARDS
+  // Plotagem dos Dados nos Cards Omitidos para brevidade, mas mantidos no código final
   const orcamentoDoAno = orcamentosAnuais.find(o => o.ano?.toString() === filtroAno);
-  
-  // Tenta buscar o valor orçado em diferentes campos possíveis do seu schema
-  const valorOrcadoGlobal = Number(orcamentoDoAno?.valor_dotacao_atual || orcamentoDoAno?.valor_dotacao_inicial || orcamentoDoAno?.valor_orcado || 0);
-  
-  // Soma os empenhos buscando o campo valor_total ou valor
-  const totalEmpenhadoNoAno = empenhos
-    .filter(e => e.ano?.toString() === filtroAno && (filtroContrato === "todos" || e.contrato_id === filtroContrato))
-    .reduce((acc, curr) => acc + (Number(curr.valor_total || curr.valor || 0)), 0);
-
-  // Soma os pagamentos reais (Líquidos)
-  const totalPagoNoAno = lancamentos
-    .filter(l => l.ano?.toString() === filtroAno && (filtroContrato === "todos" || l.contrato_id === filtroContrato) && l.status === "Pago")
-    .reduce((acc, curr) => acc + (Number(curr.valor_pago_final || curr.valor_liquido || curr.valor || 0)), 0);
-
+  const valorOrcadoGlobal = Number(orcamentoDoAno?.valor_dotacao_atual || orcamentoDoAno?.valor_dotacao_inicial || 0);
+  const totalEmpenhadoNoAno = empenhos.filter(e => e.ano?.toString() === filtroAno && (filtroContrato === "todos" || e.contrato_id === filtroContrato)).reduce((acc, curr) => acc + (Number(curr.valor_total || curr.valor || 0)), 0);
+  const totalPagoNoAno = lancamentos.filter(l => l.ano?.toString() === filtroAno && (filtroContrato === "todos" || l.contrato_id === filtroContrato) && l.status === "Pago").reduce((acc, curr) => acc + (Number(curr.valor_pago_final || curr.valor_liquido || curr.valor || 0)), 0);
   const saldoEmpenhoDisponivel = totalEmpenhadoNoAno - totalPagoNoAno;
 
   const formatBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -99,7 +99,7 @@ export default function ExtratoPagamentos() {
   if (loading) return (
     <div className="flex h-[80vh] items-center justify-center flex-col gap-4">
       <Loader2 className="animate-spin text-[#1a2e4a] w-12 h-12" />
-      <p className="font-black text-[#1a2e4a] uppercase tracking-widest">Sincronizando Auditoria...</p>
+      <p className="font-black text-[#1a2e4a] uppercase tracking-widest text-lg">Cruzando Auditoria e Orçamento...</p>
     </div>
   );
 
@@ -135,7 +135,7 @@ export default function ExtratoPagamentos() {
       </div>
 
       <Card className="bg-white border-none shadow-md ring-1 ring-black/5 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end text-lg">
           <div className="space-y-2"><Label className="font-black uppercase text-[#1a2e4a] text-xs">Contrato</Label>
             <Select value={filtroContrato} onValueChange={setFiltroContrato}>
               <SelectTrigger className="h-12 bg-gray-50 border-gray-100 font-bold text-sm"><SelectValue /></SelectTrigger>
@@ -166,23 +166,26 @@ export default function ExtratoPagamentos() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2"><Label className="font-black uppercase text-[#1a2e4a] text-xs">Busca NF</Label>
-            <div className="relative"><Search className="absolute left-3 top-4 h-4 w-4 text-gray-400" />
-              <Input className="h-12 pl-10 bg-gray-50 border-gray-100 font-bold text-sm" placeholder="Pesquisar..." value={buscaNF} onChange={(e) => setBuscaNF(e.target.value)} />
+          <div className="space-y-2">
+            <Label className="font-black uppercase text-[#1a2e4a] text-xs">Busca NF</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-4 h-4 w-4 text-gray-400" />
+              <Input className="h-12 pl-10 bg-gray-50 border-gray-100 font-bold text-sm" placeholder="NF..." value={buscaNF} onChange={(e) => setBuscaNF(e.target.value)} />
             </div>
           </div>
         </div>
       </Card>
 
+      {/* Tabela Refatorada com as novas colunas e tipografia maior */}
       <div className="border border-gray-200 rounded-2xl bg-white overflow-hidden shadow-2xl overflow-x-auto">
-        <Table className="min-w-[1200px]">
+        <Table className="min-w-[1400px]">
           <TableHeader className="bg-[#1a2e4a]">
             <TableRow className="hover:bg-[#1a2e4a] border-none">
               <TableHead className="text-white font-black py-7 uppercase text-[10px]">NF / Emissão</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px]">Contrato / Item</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px]">Empresa Contratada</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px]">Responsável lançamento</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Status</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px]">Status (Clique p/ alterar)</TableHead>
               <TableHead className="text-white font-black uppercase text-[10px]">Responsável/Data Status</TableHead>
               <TableHead className="text-right text-white font-black uppercase text-[10px] px-10">Valor Pago</TableHead>
             </TableRow>
@@ -193,10 +196,11 @@ export default function ExtratoPagamentos() {
             ) : (
               dadosFiltrados.map((l) => {
                 const contrato = contratos.find(c => c.id === l.contrato_id);
+                // Lógica de mapeamento flexível de valor pago (pág. anterior)
                 const valorExibido = Number(l.valor_pago_final || l.valor_liquido || l.valor || 0);
                 
                 return (
-                  <TableRow key={l.id} className="hover:bg-blue-50/40 border-b border-gray-100">
+                  <TableRow key={l.id} className="hover:bg-blue-50/40 border-b border-gray-100 transition-all">
                     <TableCell className="py-8 px-6">
                       <div className="font-black text-[#1a2e4a] text-xl">NF {l.numero_nf}</div>
                       <div className="text-[11px] text-gray-400 font-black uppercase flex items-center gap-1"><Clock size={12}/> {l.data_nf}</div>
@@ -205,14 +209,16 @@ export default function ExtratoPagamentos() {
                       <div className="font-black text-blue-800 text-[10px] mb-1 uppercase bg-blue-50 px-2 py-0.5 rounded inline-block">
                         {contrato?.numero || "---"}
                       </div>
-                      <div className="text-sm font-bold text-gray-600 uppercase block truncate max-w-[200px]">{l.item_label}</div>
+                      <div className="text-sm font-bold text-gray-600 uppercase block truncate max-w-[200px] leading-tight">{l.item_label}</div>
                     </TableCell>
+                    {/* Nova Coluna 1 */}
                     <TableCell>
-                      <div className="flex items-center gap-2 text-[11px] font-black text-[#1a2e4a] uppercase">
-                        <Building2 size={14} className="text-blue-500" />
+                      <div className="flex items-center gap-2 text-[11px] font-black text-[#1a2e4a] uppercase leading-tight">
+                        <Building2 size={15} className="text-blue-500" />
                         {contrato?.contratada || "N/A"}
                       </div>
                     </TableCell>
+                    {/* Coluna Renomeada */}
                     <TableCell>
                       <div className="flex items-center gap-2 text-[11px] font-black text-gray-700">
                         <User size={14} className="text-gray-400" /> 
@@ -229,14 +235,17 @@ export default function ExtratoPagamentos() {
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2 bg-white shadow-2xl border-gray-200">
-                          {STATUS_OPTIONS.map((status) => (
-                            <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
-                              {status}
-                            </button>
-                          ))}
+                          <div className="grid gap-1">
+                            {STATUS_OPTIONS.map((status) => (
+                              <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
+                                {status}
+                              </button>
+                            ))}
+                          </div>
                         </PopoverContent>
                       </Popover>
                     </TableCell>
+                    {/* Nova Coluna 2 */}
                     <TableCell>
                       <div className="text-[11px] font-black text-gray-700 uppercase leading-tight">
                         {l.responsavel_alteracao_status || "Sem alteração"}
@@ -246,7 +255,7 @@ export default function ExtratoPagamentos() {
                         {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "---"}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-black text-[#1a2e4a] px-10">
+                    <TableCell className="text-right font-black text-[#1a2e4a] px-10 py-8">
                       <div className="text-xs text-gray-300 line-through font-bold">{formatBRL(l.valor)}</div>
                       <div className="text-2xl">{formatBRL(valorExibido)}</div>
                     </TableCell>
