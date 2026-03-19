@@ -1,188 +1,274 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
-import {
-  LayoutDashboard, FileText, DollarSign, PiggyBank, BarChart2,
-  LogOut, Scale, ShoppingCart, Shield, Bell,
-  CheckSquare, ChevronLeft, ChevronRight, FilePlus, ChevronDown,
-  ChevronsDownUp, ChevronsUpDown, Landmark
-} from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Loader2, Search, Download, FilterX, Clock, User, Landmark, TrendingUp, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
-const menuGroups = [
-  {
-    title: "Gestão Inteligente",
-    items: [
-      { label: "Dashboard", page: "Dashboard", icon: LayoutDashboard, roles: ["admin", "gestor", "fiscal", "direcao"] },
-      { label: "Relatórios (PDF)", page: "Relatorios", icon: BarChart2, roles: ["admin", "gestor", "direcao"] },
-    ]
-  },
-  {
-    title: "Fiscalização Contratual",
-    items: [
-      { label: "Contratos", page: "Contratos", icon: FileText, roles: ["admin", "gestor", "fiscal", "direcao"] },
-      { label: "Controle de Materiais", page: "ControleMateriais", icon: ShoppingCart, roles: ["admin", "gestor", "fiscal"] },
-      { label: "Pedidos e Autorizações", page: "Pedidos", icon: FilePlus, roles: ["admin", "gestor", "fiscal"], future: true },
-      { label: "Revisão", page: "Revisao", icon: CheckSquare, roles: ["admin", "gestor"] },
-    ]
-  },
-  {
-    title: "Controle Financeiro",
-    items: [
-      { label: "Extrato de Pagamentos", page: "ExtratoPagamentos", icon: BarChart2, roles: ["admin", "gestor", "fiscal", "direcao"] },
-      { label: "Novo Lançamento", page: "Lancamentos", icon: DollarSign, roles: ["admin", "gestor", "fiscal"] },
-      { label: "Notas de Empenho", page: "Orcamento", icon: Landmark, roles: ["admin", "gestor", "direcao"] },
-      { label: "Aditivos e Vigências", page: "AditivosVigencias", icon: Scale, roles: ["admin", "gestor", "direcao"], future: true },
-      { label: "Repactuações (ACT)", page: "Repactuacoes", icon: FileText, roles: ["admin", "gestor", "direcao"], future: true },
-    ]
-  },
-  {
-    title: "Configurações",
-    items: [
-      { label: "Meus Alertas", page: "MinhasConfiguracoesAlertas", icon: Bell, roles: ["admin", "gestor", "fiscal", "direcao"] },
-    ]
-  },
-  {
-    title: "Administrador",
-    adminOnly: true,
-    items: [
-      { label: "Painel Admin", page: "AdminPanel", icon: Shield, roles: ["admin"] },
-    ]
-  }
-];
+const mesesNomes = ["Todos", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
 
-export default function Layout({ children, currentPageName }) {
-  if (currentPageName === "LandingPage") return <>{children}</>;
-
+export default function ExtratoPagamentos() {
+  const [loading, setLoading] = useState(true);
+  const [lancamentos, setLancamentos] = useState([]);
+  const [contratos, setContratos] = useState([]);
+  const [vigencias, setVigencias] = useState([]);
+  const [orcamentos, setOrcamentos] = useState([]);
   const [user, setUser] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [openGroups, setOpenGroups] = useState({
-    "Gestão Inteligente": true,
-    "Fiscalização Contratual": true,
-    "Controle Financeiro": true
-  });
-
-  const location = useLocation();
+  
+  const [filtroContrato, setFiltroContrato] = useState("todos");
+  const [filtroVigencia, setFiltroVigencia] = useState("todos");
+  const [filtroAno, setFiltroAno] = useState(new Date().getFullYear().toString());
+  const [filtroMes, setFiltroMes] = useState("0"); 
+  const [filtroStatus, setFiltroStatus] = useState("Todos");
+  const [buscaNF, setBuscaNF] = useState("");
 
   useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
+    carregarDados();
   }, []);
 
-  const toggleGroup = (title) => {
-    setOpenGroups(prev => ({ ...prev, [title]: !prev[title] }));
+  async function carregarDados() {
+    setLoading(true);
+    try {
+      const [resLanc, resCont, resVig, resOrc] = await Promise.all([
+        base44.entities.LancamentoFinanceiro.list("-created_date", 2000),
+        base44.entities.Contrato.list(),
+        base44.entities.Vigencia.list(),
+        base44.entities.OrcamentoAnual.list() // Entidade para Orçado/Empenhado
+      ]);
+      setLancamentos(resLanc || []);
+      setContratos(resCont || []);
+      setVigencias(resVig || []);
+      setOrcamentos(resOrc || []);
+    } catch (err) {
+      toast.error("Erro ao sincronizar base de dados.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const handleStatusChange = async (id, novoStatus) => {
+    try {
+      await base44.entities.LancamentoFinanceiro.update(id, { 
+        status: novoStatus,
+        data_ultima_alteracao_status: new Date().toISOString(),
+        alterado_por: user?.full_name || "Sistema"
+      });
+      toast.success("Status atualizado");
+      carregarDados();
+    } catch (err) {
+      toast.error("Erro na atualização");
+    }
   };
 
-  const toggleAll = (expand) => {
-    const newState = {};
-    menuGroups.forEach(g => newState[g.title] = expand);
-    setOpenGroups(newState);
-  };
+  // Lógica de Filtros
+  const dadosFiltrados = lancamentos?.filter(l => {
+    const matchContrato = filtroContrato === "todos" || l.contrato_id === filtroContrato;
+    const matchVigencia = filtroVigencia === "todos" || l.vigencia_id === filtroVigencia;
+    const matchAno = l.ano?.toString() === filtroAno;
+    const matchMes = filtroMes === "0" || l.mes?.toString() === filtroMes;
+    const matchStatus = filtroStatus === "Todos" || l.status === filtroStatus;
+    const matchNF = !buscaNF || l.numero_nf?.toLowerCase().includes(buscaNF.toLowerCase());
+    return matchContrato && matchVigencia && matchAno && matchMes && matchStatus && matchNF;
+  }) || [];
 
-  const userRole = user?.role || "direcao";
+  // Cálculos Orçamentários (Sprint 2.1)
+  const orcamentoAno = orcamentos.find(o => o.ano?.toString() === filtroAno && (filtroContrato === "todos" || o.contrato_id === filtroContrato));
+  const valorOrcado = Number(orcamentoAno?.valor_orcado || 0);
+  const valorEmpenhado = Number(orcamentoAno?.valor_empenhado || 0);
+
+  // Cálculos de Execução (Baseado nos filtros da tabela)
+  const totalBruto = dadosFiltrados.reduce((acc, curr) => acc + (Number(curr.valor) || 0), 0);
+  const totalLiquido = dadosFiltrados.reduce((acc, curr) => acc + (Number(curr.valor_pago_final) || 0), 0);
+  const totalGlosas = dadosFiltrados.reduce((acc, curr) => acc + (Number(curr.glosa) || 0), 0);
+  const saldoEmpenho = valorEmpenhado - totalLiquido;
+
+  const formatBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  if (loading) return (
+    <div className="flex h-[80vh] items-center justify-center flex-col gap-4">
+      <Loader2 className="animate-spin text-[#1a2e4a] w-12 h-12" />
+      <p className="font-black text-[#1a2e4a] uppercase tracking-widest">Calculando Orçamento...</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen flex transition-colors duration-300" 
-         style={{ backgroundColor: 'var(--bg-primary, #f9fafb)', color: 'var(--text-primary, #1a2e4a)' }}>
-      
-      <BarraAcessibilidade />
-
-      <aside 
-        style={{ backgroundColor: 'var(--bg-sidebar, #1a2e4a)' }}
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col text-white transition-all duration-300 shadow-xl ${sidebarOpen ? "w-64" : "w-20"}`}
-      >
-        <div className="p-5 border-b border-white/10 flex items-center justify-between">
-          <div className={`flex items-center gap-3 ${!sidebarOpen && "hidden"}`}>
-            <Scale className="w-6 h-6 text-blue-400" />
-            <span className="font-bold text-base tracking-tight uppercase">Easy Control</span>
-          </div>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1 hover:bg-white/10 rounded-lg mx-auto">
-            {sidebarOpen ? <ChevronLeft size={20}/> : <ChevronRight size={20}/>}
-          </button>
+    <div className="space-y-8 font-sans pb-10 text-base">
+      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div>
+          <h1 className="text-3xl font-black text-[#1a2e4a] tracking-tight uppercase">Extrato de Pagamentos</h1>
+          <p className="text-sm text-gray-400 font-bold uppercase tracking-wider">Acompanhamento Orçamentário e Financeiro</p>
         </div>
+        <Button className="bg-[#1a2e4a] hover:bg-[#2a4a7a] font-bold py-6 px-8 text-sm uppercase">
+          <Download className="mr-3 h-5 w-5" /> Relatório Consolidado
+        </Button>
+      </div>
 
-        {sidebarOpen && (
-          <div className="px-6 py-2 flex justify-end gap-2 border-b border-white/5 bg-black/10">
-            <button onClick={() => toggleAll(true)} title="Expandir todos" className="hover:text-blue-400 transition-colors">
-              <ChevronsUpDown size={14} />
-            </button>
-            <button onClick={() => toggleAll(false)} title="Recolher todos" className="hover:text-blue-400 transition-colors">
-              <ChevronsDownUp size={14} />
-            </button>
+      {/* Grid de Orçamento vs Execução */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="border-t-8 border-t-slate-400 shadow-lg bg-slate-50/50">
+          <CardHeader className="pb-1 text-slate-500 text-[10px] font-black uppercase flex flex-row items-center gap-2">
+            <Landmark size={14}/> Orçado Anual
+          </CardHeader>
+          <CardContent><div className="text-xl font-black text-slate-700">{formatBRL(valorOrcado)}</div></CardContent>
+        </Card>
+        <Card className="border-t-8 border-t-orange-500 shadow-lg bg-orange-50/30">
+          <CardHeader className="pb-1 text-orange-600 text-[10px] font-black uppercase flex flex-row items-center gap-2">
+            <TrendingUp size={14}/> Empenhado
+          </CardHeader>
+          <CardContent><div className="text-xl font-black text-orange-700">{formatBRL(valorEmpenhado)}</div></CardContent>
+        </Card>
+        <Card className="border-t-8 border-t-green-600 shadow-lg bg-green-50/30">
+          <CardHeader className="pb-1 text-green-600 text-[10px] font-black uppercase">Executado (Pago)</CardHeader>
+          <CardContent><div className="text-xl font-black text-green-800">{formatBRL(totalLiquido)}</div></CardContent>
+        </Card>
+        <Card className={`border-t-8 shadow-lg ${saldoEmpenho < 0 ? 'border-t-red-600 bg-red-50/30' : 'border-t-blue-600 bg-blue-50/30'}`}>
+          <CardHeader className="pb-1 text-blue-600 text-[10px] font-black uppercase flex flex-row items-center gap-2">
+            <AlertCircle size={14}/> Saldo de Empenho
+          </CardHeader>
+          <CardContent><div className="text-xl font-black text-blue-900">{formatBRL(saldoEmpenho)}</div></CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-white border-none shadow-md ring-1 ring-black/5 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-[#1a2e4a]">Contrato</Label>
+            <Select value={filtroContrato} onValueChange={setFiltroContrato}>
+              <SelectTrigger className="h-11 bg-gray-50 border-gray-100 font-bold text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os Contratos</SelectItem>
+                {contratos?.map(c => <SelectItem key={c.id} value={c.id}>{c.numero}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
-        )}
-
-        <nav className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
-          {menuGroups.map((group, idx) => {
-            if (group.adminOnly && userRole !== "admin") return null;
-            const filteredItems = group.items.filter(i => i.roles.includes(userRole));
-            if (filteredItems.length === 0) return null;
-
-            const isExpanded = openGroups[group.title];
-
-            return (
-              <div key={idx} className="space-y-1">
-                {sidebarOpen ? (
-                  <button 
-                    onClick={() => toggleGroup(group.title)}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-[10px] font-black uppercase tracking-[0.15em] transition-all rounded-md mb-1
-                      ${isExpanded ? 'bg-white/10 text-blue-400 border-l-2 border-blue-400' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
-                  >
-                    <span>{group.title}</span>
-                    <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? "" : "-rotate-90"}`} />
-                  </button>
-                ) : (
-                  <div className="h-px bg-white/10 my-4 mx-2" />
-                )}
-
-                <div className={`space-y-1 overflow-hidden transition-all ${isExpanded || !sidebarOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}>
-                  {filteredItems.map(item => {
-                    const isActive = location.pathname.includes(item.page) || (currentPageName === item.page);
-                    return (
-                      <Link
-                        key={item.page}
-                        to={item.future ? "#" : createPageUrl(item.page)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all 
-                          ${isActive ? "bg-white/15 border-l-4 border-white font-semibold" : "opacity-60 hover:opacity-100 hover:bg-white/5"} 
-                          ${item.future ? "cursor-not-allowed grayscale" : ""}`}
-                      >
-                        <item.icon className={`w-5 h-5 flex-shrink-0 ${item.future ? "text-gray-500" : ""}`} />
-                        {sidebarOpen && <span className={`truncate ${item.future ? "text-gray-500" : ""}`}>{item.label}</span>}
-                        {item.future && sidebarOpen && (
-                          <span className="ml-auto text-[8px] bg-white/10 px-1 rounded uppercase">Breve</span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
-
-        {user && sidebarOpen && (
-          <div className="p-4 border-t border-white/10 bg-black/10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-sm shadow-inner">
-                {user.full_name?.charAt(0)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-bold truncate leading-none mb-1">{user.full_name}</p>
-                <p className="text-[9px] opacity-50 uppercase font-medium">{user.role}</p>
-              </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-[#1a2e4a]">Vigência</Label>
+            <Select value={filtroVigencia} onValueChange={setFiltroVigencia}>
+              <SelectTrigger className="h-11 bg-gray-50 border-gray-100 font-bold text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas as Vigências</SelectItem>
+                {vigencias.filter(v => filtroContrato === "todos" || v.contrato_id === filtroContrato).map(v => (
+                  <SelectItem key={v.id} value={v.id}>{v.nome || `Vigência ${v.ano_inicio}`}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 w-24">
+            <Label className="text-[10px] font-black uppercase text-[#1a2e4a]">Ano</Label>
+            <Select value={filtroAno} onValueChange={setFiltroAno}>
+              <SelectTrigger className="h-11 bg-gray-50 border-gray-100 font-bold text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["2024", "2025", "2026"].map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-[#1a2e4a]">Mês</Label>
+            <Select value={filtroMes} onValueChange={setFiltroMes}>
+              <SelectTrigger className="h-11 bg-gray-50 border-gray-100 font-bold text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {mesesNomes.map((m, i) => <SelectItem key={i} value={i.toString()}>{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-[#1a2e4a]">Status</Label>
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="h-11 bg-gray-50 border-gray-100 font-bold text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos</SelectItem>
+                {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase text-[#1a2e4a]">Busca Nota</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
+              <Input className="h-11 pl-9 bg-gray-50 border-gray-100 font-bold text-xs" placeholder="Nº NF..." value={buscaNF} onChange={e => setBuscaNF(e.target.value)} />
             </div>
-            <Button variant="ghost" className="w-full text-white/40 hover:text-white hover:bg-red-500/10 h-8 text-[11px] justify-start p-2 rounded-md" onClick={() => base44.auth.logout()}>
-              <LogOut size={14} className="mr-2" /> Sair
-            </Button>
           </div>
-        )}
-      </aside>
+        </div>
+      </Card>
 
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? "ml-64" : "ml-20"}`}>
-        <main className="flex-1 p-6 lg:p-10">
-          {children}
-        </main>
+      <div className="border border-gray-200 rounded-2xl bg-white overflow-hidden shadow-2xl">
+        <Table>
+          <TableHeader className="bg-[#1a2e4a]">
+            <TableRow className="hover:bg-[#1a2e4a] border-none">
+              <TableHead className="text-white font-black py-6 uppercase text-[10px]">NF / Emissão</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px]">Contrato / Item</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px]">Auditoria / Alteração</TableHead>
+              <TableHead className="text-white font-black uppercase text-[10px]">Status (Editar)</TableHead>
+              <TableHead className="text-right text-white font-black uppercase text-[10px] px-8">Valor Pago</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {dadosFiltrados.length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center py-24 text-gray-300 font-black uppercase text-xs">Sem dados para os filtros selecionados</TableCell></TableRow>
+            ) : (
+              dadosFiltrados.map((l) => (
+                <TableRow key={l.id} className="hover:bg-blue-50/40 border-b border-gray-100">
+                  <TableCell className="py-6">
+                    <div className="font-black text-[#1a2e4a] text-base">NF {l.numero_nf}</div>
+                    <div className="text-[10px] text-gray-400 font-black uppercase flex items-center gap-1">
+                      <Clock size={11}/> {l.data_nf}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-black text-blue-800 text-[10px] mb-1 uppercase bg-blue-50 px-2 py-0.5 rounded inline-block">
+                      {contratos.find(c => c.id === l.contrato_id)?.numero || "N/A"}
+                    </div>
+                    <div className="text-[10px] font-bold text-gray-500 uppercase block truncate max-w-[150px]">{l.item_label}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-gray-600">
+                      <User size={12} className="text-gray-400" /> {l.alterado_por || "---"}
+                    </div>
+                    <div className="text-[9px] text-gray-400 font-bold uppercase mt-1">
+                      Em: {l.data_ultima_alteracao_status ? new Date(l.data_ultima_alteracao_status).toLocaleDateString() : "Lançamento"}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="focus:outline-none">
+                          <Badge className={`text-[9px] font-black uppercase px-3 py-1 cursor-pointer hover:scale-105 transition-all shadow-sm ${
+                            l.status === 'Pago' ? 'bg-green-600' : 'bg-[#1a2e4a]'
+                          }`}>
+                            {l.status}
+                          </Badge>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-52 p-1 bg-white shadow-2xl border-gray-200">
+                        {STATUS_OPTIONS.map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => handleStatusChange(l.id, status)}
+                            className="w-full text-left px-3 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors"
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                  </TableCell>
+                  <TableCell className="text-right font-black text-[#1a2e4a] px-8">
+                    <div className="text-[10px] text-gray-300 line-through font-bold">{formatBRL(l.valor)}</div>
+                    <div className="text-lg">{formatBRL(l.valor_pago_final)}</div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
