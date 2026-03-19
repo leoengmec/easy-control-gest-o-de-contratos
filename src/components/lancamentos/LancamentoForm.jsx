@@ -243,21 +243,44 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
   };
 
   const executeSave = async () => {
+    // 1. Blindagem de Validação Inicial
     if (!contratoId || selectedItems.length === 0) {
-      toast.error("Selecione o contrato e pelo menos um item.");
+      toast.error("Selecione o contrato e pelo menos um item da lista.");
       return;
+    }
+
+    // Varrendo as notas para garantir que não vai vazio pro banco
+    for (const itemId of selectedItems) {
+      const itemData = nfsData[itemId];
+      if (!itemData?.numero_nf || itemData.numero_nf.trim() === "") {
+        toast.error("O Número da NF é obrigatório para todos os itens selecionados.");
+        return;
+      }
+      if (!itemData?.valor || itemData.valor <= 0) {
+        toast.error("O Valor da NF não pode ser zero.");
+        return;
+      }
+    }
+
+    // Varrendo as OSs para garantir preenchimento
+    if (exigeOS) {
+      for (const os of ordensServico) {
+        if (!os.numero_os || os.numero_os.trim() === "") {
+          toast.error("Preencha o Número da Ordem de Serviço.");
+          return;
+        }
+      }
     }
 
     setSaving(true);
     try {
-      
-      // Ajuste crucial: Mapeando a OS para bater exato com as colunas do Base44
+      // Garantindo que enviaremos strings vazias ("") e não valores nulos (null)
       const payloadOS = exigeOS ? ordensServico.map(os => ({
         numero: os.numero_os || "",
-        data_emissao: os.data_emissao || null,
+        data_emissao: os.data_emissao || "",
         descricao: os.descricao || "",
         valor: os.valor || 0,
-        data_execucao: os.data_execucao || null,
+        data_execucao: os.data_execucao || "",
         locais_prestacao_servicos: os.locais || []
       })) : [];
 
@@ -302,9 +325,9 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         await new Promise(r => setTimeout(r, 200));
       }
       
-      toast.success("Lançamento salvo com sucesso!");
+      toast.success("Lançamento salvo e gravado no extrato com sucesso!");
       
-      // Limpeza de tela (Reset do formulário para preparar o próximo)
+      // Limpeza de Tela Pós-Salvamento
       setContratoId("");
       setSelectedItems([]);
       setNfsData({});
@@ -316,7 +339,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
       if (onSave) onSave();
       
     } catch (err) {
-      toast.error(`Erro ao salvar: ${err.message || "Verifique os dados preenchidos."}`);
+      toast.error("Erro na comunicação com o servidor. O lançamento não foi salvo.");
     } finally {
       setSaving(false);
     }
@@ -476,7 +499,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                     <div className="space-y-1">
                       <Label className="text-xs text-gray-600 font-semibold">Valor da NF (R$) <span className="text-red-500">*</span></Label>
                       <Input 
-                        value={formatarMoeda(data.valor)} 
+                        value={formatarMoeda(data.valor * 100)} 
                         onChange={(e) => handleNFMoneyChange(itemId, "valor", e.target.value)}
                         placeholder="0,00"
                       />
@@ -487,7 +510,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                     <div className="space-y-1">
                       <Label className="text-xs text-gray-600 font-semibold">Retenção (R$)</Label>
                       <Input 
-                        value={formatarMoeda(data.retencao)} 
+                        value={formatarMoeda(data.retencao * 100)} 
                         onChange={(e) => handleNFMoneyChange(itemId, "retencao", e.target.value)}
                         placeholder="0,00"
                       />
@@ -495,7 +518,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                     <div className="space-y-1">
                       <Label className="text-xs text-gray-600 font-semibold">Glosa (R$)</Label>
                       <Input 
-                        value={formatarMoeda(data.glosa)} 
+                        value={formatarMoeda(data.glosa * 100)} 
                         onChange={(e) => handleNFMoneyChange(itemId, "glosa", e.target.value)}
                         placeholder="0,00"
                       />
@@ -505,7 +528,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                       <Input 
                         disabled
                         className="bg-gray-100 font-bold"
-                        value={formatarMoeda(data.valor_final)} 
+                        value={formatarMoeda(data.valor_final * 100)} 
                         placeholder="0,00"
                       />
                     </div>
@@ -584,7 +607,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
                       <div className="space-y-1">
                         <Label className="text-xs text-gray-600 font-semibold">Valor da OS (R$) <span className="text-red-500">*</span></Label>
                         <Input 
-                          value={formatarMoeda(os.valor)} 
+                          value={formatarMoeda(os.valor * 100)} 
                           onChange={(e) => handleOSMoneyChange(index, e.target.value)}
                           placeholder="0,00"
                         />
