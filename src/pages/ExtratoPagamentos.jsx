@@ -18,13 +18,11 @@ export default function ExtratoPagamentos() {
   const [loading, setLoading] = useState(true);
   const [lancamentos, setLancamentos] = useState([]);
   const [contratos, setContratos] = useState([]);
-  const [aditivos, setAditivos] = useState([]);
   const [empenhos, setEmpenhos] = useState([]);
   const [orcamentosAnuais, setOrcamentosAnuais] = useState([]);
   const [user, setUser] = useState(null);
   
   const [filtroContrato, setFiltroContrato] = useState("todos");
-  const [filtroVigencia, setFiltroVigencia] = useState("todos");
   const [filtroAno, setFiltroAno] = useState("2025"); 
   const [filtroMes, setFiltroMes] = useState("0"); 
   const [filtroStatus, setFiltroStatus] = useState("Todos");
@@ -38,24 +36,33 @@ export default function ExtratoPagamentos() {
   async function carregarDados() {
     setLoading(true);
     try {
-      const [resLanc, resCont, resAdit, resEmp, resOrc] = await Promise.all([
+      const [resLanc, resCont, resEmp, resOrc] = await Promise.all([
         base44.entities.LancamentoFinanceiro.list("-created_date", 2000),
         base44.entities.Contrato.list(),
-        base44.entities.Aditivo.list(),
         base44.entities.NotaEmpenho.list(),
         base44.entities.OrcamentoAnual.list()
       ]);
       setLancamentos(resLanc || []);
       setContratos(resCont || []);
-      setAditivos(resAdit || []);
       setEmpenhos(resEmp || []);
       setOrcamentosAnuais(resOrc || []);
     } catch (err) {
-      toast.error("Erro ao sincronizar dados orçamentários.");
+      toast.error("Erro ao sincronizar base orçamentária.");
     } finally {
       setLoading(false);
     }
   }
+
+  // Máscara de centavos automática (1018621 -> 10.186,21)
+  const formatMoneyInput = (value) => {
+    const cleanValue = value.replace(/\D/g, "");
+    if (!cleanValue) return "";
+    const numberValue = Number(cleanValue) / 100;
+    return numberValue.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   const handleStatusChange = async (id, novoStatus) => {
     try {
@@ -80,10 +87,18 @@ export default function ExtratoPagamentos() {
     return matchContrato && matchAno && matchMes && matchStatus && matchNF;
   });
 
+  // Plotagem dos Dados nos Cards
   const orcamentoDoAno = orcamentosAnuais.find(o => o.ano?.toString() === filtroAno);
   const valorOrcadoGlobal = Number(orcamentoDoAno?.valor_dotacao_atual || orcamentoDoAno?.valor_dotacao_inicial || 0);
-  const totalEmpenhadoNoAno = empenhos.filter(e => e.ano?.toString() === filtroAno && (filtroContrato === "todos" || e.contrato_id === filtroContrato)).reduce((acc, curr) => acc + (Number(curr.valor_total) || 0), 0);
-  const totalPagoNoAno = lancamentos.filter(l => l.ano?.toString() === filtroAno && (filtroContrato === "todos" || l.contrato_id === filtroContrato) && l.status === "Pago").reduce((acc, curr) => acc + (Number(curr.valor_pago_final) || 0), 0);
+  
+  const totalEmpenhadoNoAno = empenhos
+    .filter(e => e.ano?.toString() === filtroAno && (filtroContrato === "todos" || e.contrato_id === filtroContrato))
+    .reduce((acc, curr) => acc + (Number(curr.valor_total) || 0), 0);
+
+  const totalPagoNoAno = lancamentos
+    .filter(l => l.ano?.toString() === filtroAno && (filtroContrato === "todos" || l.contrato_id === filtroContrato) && l.status === "Pago")
+    .reduce((acc, curr) => acc + (Number(curr.valor_pago_final) || 0), 0);
+
   const saldoEmpenhoDisponivel = totalEmpenhadoNoAno - totalPagoNoAno;
 
   const formatBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -91,13 +106,12 @@ export default function ExtratoPagamentos() {
   if (loading) return (
     <div className="flex h-[80vh] items-center justify-center flex-col gap-4">
       <Loader2 className="animate-spin text-[#1a2e4a] w-12 h-12" />
-      <p className="font-black text-[#1a2e4a] uppercase tracking-widest">Processando Auditoria...</p>
+      <p className="font-black text-[#1a2e4a] uppercase tracking-widest">Cruzando Dados Orçamentários...</p>
     </div>
   );
 
   return (
     <div className="space-y-8 font-sans pb-10">
-      {/* Cabeçalho e Cards de Orçamento Omitidos para brevidade, mas mantidos no código final */}
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h1 className="text-4xl font-black text-[#1a2e4a] tracking-tight uppercase">Extrato de Pagamentos</h1>
@@ -127,9 +141,8 @@ export default function ExtratoPagamentos() {
         </Card>
       </div>
 
-      {/* Filtros */}
       <Card className="bg-white border-none shadow-md ring-1 ring-black/5 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end text-lg">
           <div className="space-y-2"><Label className="font-black uppercase text-[#1a2e4a] text-xs">Contrato</Label>
             <Select value={filtroContrato} onValueChange={setFiltroContrato}>
               <SelectTrigger className="h-12 bg-gray-50 border-gray-100 font-bold text-sm"><SelectValue /></SelectTrigger>
@@ -160,15 +173,16 @@ export default function ExtratoPagamentos() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2"><Label className="font-black uppercase text-[#1a2e4a] text-xs">Busca NF</Label>
-            <div className="relative"><Search className="absolute left-3 top-4 h-4 w-4 text-gray-400" />
-              <Input className="h-12 pl-10 bg-gray-50 border-gray-100 font-bold text-sm" placeholder="Pesquisar..." value={buscaNF} onChange={e => setBuscaNF(e.target.value)} />
+          <div className="space-y-2">
+            <Label className="font-black uppercase text-[#1a2e4a] text-xs">Busca NF</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-4 h-4 w-4 text-gray-400" />
+              <Input className="h-12 pl-10 bg-gray-50 border-gray-100 font-bold text-sm" placeholder="NF..." value={buscaNF} onChange={(e) => setBuscaNF(e.target.value)} />
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Tabela Refatorada conforme solicitado */}
       <div className="border border-gray-200 rounded-2xl bg-white overflow-hidden shadow-2xl">
         <Table>
           <TableHeader className="bg-[#1a2e4a]">
@@ -222,11 +236,13 @@ export default function ExtratoPagamentos() {
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-56 p-2 bg-white shadow-2xl border-gray-200">
-                          {STATUS_OPTIONS.map((status) => (
-                            <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
-                              {status}
-                            </button>
-                          ))}
+                          <div className="grid gap-1">
+                            {STATUS_OPTIONS.map((status) => (
+                              <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2 text-[10px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
+                                {status}
+                              </button>
+                            ))}
+                          </div>
                         </PopoverContent>
                       </Popover>
                     </TableCell>
