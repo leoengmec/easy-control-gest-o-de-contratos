@@ -1,186 +1,130 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Search, Download, Clock, User, Landmark, TrendingUp, AlertCircle, History, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-
-const mesesNomes = ["Todos", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
+import { format } from "date-fns"; // Opcional, para formatar datas
 
 export default function ExtratoPagamentos() {
-  const [loading, setLoading] = useState(true);
   const [lancamentos, setLancamentos] = useState([]);
-  const [contratos, setContratos] = useState([]);
-  const [empenhos, setEmpenhos] = useState([]);
-  const [orcamentosAnuais, setOrcamentosAnuais] = useState([]);
   const [user, setUser] = useState(null);
-  
-  const [filtroContrato, setFiltroContrato] = useState("todos");
-  const [filtroAno, setFiltroAno] = useState("2026"); 
-  const [filtroMes, setFiltroMes] = useState("0"); 
-  const [filtroStatus, setFiltroStatus] = useState("Todos");
-  const [buscaNF, setBuscaNF] = useState("");
+  const [loading, setLoading] = useState(true);
 
+  // 1. Carregar usuário logado para auditoria
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-    carregarDados();
+    base44.auth.me().then(setUser);
+    fetchDados();
   }, []);
 
-  async function carregarDados() {
-    setLoading(true);
+  const fetchDados = async () => {
     try {
-      const [resLanc, resCont, resEmp, resOrc] = await Promise.all([
-        base44.entities.LancamentoFinanceiro.list("-created_date", 2000),
-        base44.entities.Contrato.list(),
-        base44.entities.NotaEmpenho.list(),
-        base44.entities.OrcamentoAnual.list()
-      ]);
-      setLancamentos(resLanc || []);
-      setContratos(resCont || []);
-      setEmpenhos(resEmp || []);
-      setOrcamentosAnuais(resOrc || []);
-    } catch (err) {
-      toast.error("Erro ao sincronizar base de dados.");
+      const data = await base44.entities.LancamentoFinanceiro.list();
+      setLancamentos(data || []);
+    } catch (error) {
+      toast.error("Erro ao carregar extrato.");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
-  const handleStatusChange = async (id, novoStatus) => {
-  const agoraISO = new Date().toISOString();
-  const nomeResponsavel = user?.full_name || "Leonardo Alves";
+  // 2. FUNÇÃO CRÍTICA: Atualização de Status com Rastro de Auditoria
+  const handleStatusUpdate = async (id, novoStatus) => {
+    const agoraISO = new Date().toISOString();
+    const nomeResponsavel = user?.full_name || "Leonardo Alves";
 
-  try {
-    await base44.entities.LancamentoFinanceiro.update(id, {
-      status: novoStatus,
-      // ESTES CAMPOS SÃO OBRIGATÓRIOS NO UPDATE
-      responsavel_alteracao_status: nomeResponsavel,
-      data_alteracao_status: agoraISO
-    });
-    toast.success(`Status atualizado para ${novoStatus}`);
-    fetchDados(); // Atualiza a tabela para refletir a mudança
-  } catch (error) {
-    toast.error("Erro ao atualizar status.");
-  }
-};
+    try {
+      await base44.entities.LancamentoFinanceiro.update(id, {
+        status: novoStatus,
+        // Atualiza quem mudou o status e quando
+        responsavel_alteracao_status: nomeResponsavel,
+        data_alteracao_status: agoraISO
+      });
+      
+      toast.success(`Status alterado para ${novoStatus}`);
+      fetchDados(); // Recarrega a tabela para atualizar os nomes na tela
+    } catch (error) {
+      console.error("Erro na auditoria:", error);
+      toast.error("Falha ao salvar rastro de auditoria.");
+    }
+  };
 
-  const dadosFiltrados = (lancamentos || []).filter(l => {
-    const matchContrato = filtroContrato === "todos" || l.contrato_id === filtroContrato;
-    const matchAno = l.ano?.toString() === filtroAno;
-    const matchMes = filtroMes === "0" || l.mes?.toString() === filtroMes;
-    const matchStatus = filtroStatus === "Todos" || l.status === filtroStatus;
-    const matchNF = !buscaNF || (l.numero_nf?.toLowerCase().includes(buscaNF.toLowerCase()));
-    return matchContrato && matchAno && matchMes && matchStatus && matchNF;
-  });
-
-  const formatBRL = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  if (loading) return (
-    <div className="flex h-[80vh] items-center justify-center flex-col gap-4">
-      <Loader2 className="animate-spin text-[#1a2e4a] w-12 h-12" />
-      <p className="font-black text-[#1a2e4a] uppercase tracking-widest text-lg">Atualizando Auditoria...</p>
-    </div>
-  );
+  const formatarData = (dataStr) => {
+    if (!dataStr || dataStr === "Sem registro") return "N/A";
+    try {
+      return new Date(dataStr).toLocaleString("pt-BR");
+    } catch {
+      return dataStr;
+    }
+  };
 
   return (
-    <div className="space-y-8 font-sans pb-10">
-      {/* ... Cabeçalho e Cards de Resumo permanecem iguais ... */}
-
-      <div className="border border-gray-200 rounded-2xl bg-white overflow-hidden shadow-2xl overflow-x-auto">
-        <Table className="min-w-[1500px]">
-          <TableHeader className="bg-[#1a2e4a]">
-            <TableRow className="hover:bg-[#1a2e4a] border-none">
-              <TableHead className="text-white font-black py-8 uppercase text-[10px]">NF / Emissão</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Contrato / Item</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Empresa Contratada</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Responsável por lançamento</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Status (Clique p/ alterar)</TableHead>
-              <TableHead className="text-white font-black uppercase text-[10px]">Responsável / Data Alteração Status</TableHead>
-              <TableHead className="text-right text-white font-black uppercase text-[10px] px-12">Valor Pago</TableHead>
+    <div className="p-6 space-y-4">
+      <h1 className="text-2xl font-bold text-[#1a2e4a]">Extrato de Pagamentos e Auditoria</h1>
+      
+      <div className="border rounded-lg bg-white shadow-sm overflow-hidden">
+        <Table>
+          <TableHeader className="bg-gray-50">
+            <TableRow>
+              <TableHead>NF / Data</TableHead>
+              <TableHead>Item / Contrato</TableHead>
+              <TableHead>Status (Clique p/ Alterar)</TableHead>
+              <TableHead>Responsável Criação</TableHead>
+              <TableHead>Última Alteração Status</TableHead>
+              <TableHead className="text-right">Valor Líquido</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {dadosFiltrados.map((l) => {
-              const contrato = contratos.find(c => c.id === l.contrato_id);
-              const valorExibido = Number(l.valor_pago_final || l.valor_liquido || l.valor || 0);
-              
-              return (
-                <TableRow key={l.id} className="hover:bg-blue-50/40 border-b border-gray-100 transition-all">
-                  <TableCell className="py-9 px-8">
-                    <div className="font-black text-[#1a2e4a] text-2xl">NF {l.numero_nf}</div>
-                    <div className="text-[12px] text-gray-400 font-black uppercase flex items-center gap-1 mt-1"><Clock size={13}/> {l.data_nf}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-black text-blue-800 text-[11px] mb-1 uppercase bg-blue-50 px-2 py-0.5 rounded inline-block">
-                      {contrato?.numero || "N/A"}
-                    </div>
-                    <div className="text-sm font-bold text-gray-600 uppercase block truncate max-w-[200px] leading-tight">{l.item_label}</div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-[12px] font-black text-[#1a2e4a] uppercase leading-tight">
-                      <Building2 size={16} className="text-blue-500 flex-shrink-0" />
-                      {contrato?.contratada || "Não Informada"}
-                    </div>
-                  </TableCell>
-
-                  {/* Coluna Responsável por lançamento - Mapeada para os campos de criação */}
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-[12px] font-black text-gray-700 uppercase">
-                      <User size={15} className="text-gray-400 flex-shrink-0" /> 
-                      {l.responsavel_por_lancamento || "Lançador Original"}
-                    </div>
-                    <div className="text-[10px] text-gray-400 font-bold mt-1 uppercase">
-                      DATA: {l.data_do_lancamento_original || "---"}
-                    </div>
-                  </TableCell>
-
-                  {/* Coluna Status */}
-                  <TableCell>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="focus:outline-none cursor-pointer">
-                          <Badge className={`text-[11px] font-black uppercase px-6 py-2 shadow-lg transition-transform hover:scale-110 ${l.status === 'Pago' ? 'bg-green-600' : 'bg-[#1a2e4a]'}`}>
-                            {l.status}
-                          </Badge>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-60 p-2 bg-white shadow-2xl border-gray-200">
-                        <div className="grid gap-1">
-                          {STATUS_OPTIONS.map((status) => (
-                            <button key={status} onClick={() => handleStatusChange(l.id, status)} className="w-full text-left px-4 py-2.5 text-[11px] font-black uppercase hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors">
-                              {status}
-                            </button>
-                          ))}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </TableCell>
-
-                  {/* Coluna Responsável / Data Alteração Status - Mapeada para os campos de alteração */}
-                  <TableCell>
-                    <div className="text-[12px] font-black text-gray-800 uppercase leading-tight">
-                      {l.responsavel_alteracao_status || "Sem registro"}
-                    </div>
-                    <div className="text-[11px] text-gray-400 font-black uppercase mt-1 flex items-center gap-1 italic">
-                      <History size={12}/> 
-                      {l.data_alteracao_status || "N/A"}
-                    </div>
-                  </TableCell>
-
-                  <TableCell className="text-right font-black text-[#1a2e4a] px-12">
-                    <div className="text-[11px] text-gray-300 line-through font-bold mb-1 opacity-50">{formatBRL(l.valor)}</div>
-                    <div className="text-3xl tracking-tighter">{formatBRL(valorExibido)}</div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {lancamentos.map((l) => (
+              <TableRow key={l.id}>
+                <TableCell>
+                  <div className="font-bold">{l.numero_nf}</div>
+                  <div className="text-[10px] text-gray-400">{l.data_nf}</div>
+                </TableCell>
+                <TableCell className="max-w-[200px] truncate">
+                  <div className="uppercase text-[11px] font-semibold">{l.item_label}</div>
+                  <div className="text-[10px] text-blue-600">ID Contrato: {l.contrato_id}</div>
+                </TableCell>
+                <TableCell>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" className="p-0 hover:bg-transparent">
+                        <Badge className="cursor-pointer hover:opacity-80 uppercase text-[10px]">
+                          {l.status}
+                        </Badge>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2">
+                      <div className="flex flex-col gap-1">
+                        {["SOF", "Pago", "Cancelado", "Em instrução"].map(st => (
+                          <Button 
+                            key={st} 
+                            variant="ghost" 
+                            size="sm" 
+                            className="justify-start text-[11px]"
+                            onClick={() => handleStatusUpdate(l.id, st)}
+                          >
+                            Mudar para {st}
+                          </Button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableCell>
+                <TableCell>
+                  <div className="text-[11px]">{l.responsavel_por_lancamento || "Sistema"}</div>
+                  <div className="text-[9px] text-gray-400">{formatarData(l.data_do_lancamento_original)}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-[11px] font-medium text-blue-700">{l.responsavel_alteracao_status || "Sem registro"}</div>
+                  <div className="text-[9px] text-gray-400">{formatarData(l.data_alteracao_status)}</div>
+                </TableCell>
+                <TableCell className="text-right font-mono font-bold">
+                  R$ {l.valor_pago_final?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>
