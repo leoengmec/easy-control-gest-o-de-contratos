@@ -1,208 +1,228 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText, Link2 } from "lucide-react";
+import { Plus, Search, Upload, Loader2, Filter, TrendingUp, Clock, FileText, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import EditorEmpenho from "@/components/empenhos/EditorEmpenho";
 
-export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate }) {
-  const [saving, setSaving] = useState(false);
-  const [tipoAjuste, setTipoAjuste] = useState("reforco"); 
-  const [valorAjuste, setValorAjuste] = useState("");
-  const [justificativa, setJustificativa] = useState("");
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+
+const NOMES_NATUREZA = {
+  "339030": "339030 - Material de Consumo",
+  "339039": "339039 - Serviços de Terceiros"
+};
+
+const NOMES_SUBELEMENTO = {
+  "24": "24 - Material p/ Manutenção",
+  "17": "17 - Manutenção de Máquinas"
+};
+
+export default function Empenhos() {
+  const [empenhos, setEmpenhos] = useState([]);
+  const [contratos, setContratos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState("");
+  const [filtroNatureza, setFiltroNatureza] = useState("todos");
+  const [isProcessing, setIsProcessing] = useState(false);
   
-  const [formData, setFormData] = useState({
-    numero_empenho: "", 
-    contrato_id: "", 
-    ptres: "168312", 
-    natureza_despesa: "339039", 
-    subelemento: "17", 
-    processo_sei: "", 
-    ano: new Date().getFullYear()
-  });
+  const [empenhoParaEditar, setEmpenhoParaEditar] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    if (open) {
-      setFormData({
-        numero_empenho: empenho?.numero_empenho || "",
-        contrato_id: empenho?.contrato_id || "", 
-        ptres: empenho?.ptres || "168312",
-        natureza_despesa: empenho?.natureza_despesa || "339039",
-        subelemento: empenho?.subelemento || "17",
-        processo_sei: empenho?.processo_sei || "",
-        ano: empenho?.ano || new Date().getFullYear()
-      });
-      setJustificativa("");
-      setValorAjuste("");
-      setTipoAjuste("reforco");
-    }
-  }, [empenho, open]);
-
-  const handleSalvar = async () => {
-    if (!formData.contrato_id) return toast.error("Vínculo com o contrato é obrigatório.");
-    if (!justificativa.trim()) return toast.error("A justificativa técnica é obrigatória.");
-    
-    const valorNum = parseFloat(valorAjuste) || 0;
-    if (valorNum <= 0) return toast.error("Informe um valor válido para o ajuste.");
-
-    setSaving(true);
-    const mod = tipoAjuste === "reforco" ? 1 : -1;
-    const agora = new Date().toISOString();
-
+  const carregarDados = async () => {
+    setLoading(true);
     try {
-      if (empenho?.id) {
-        const novoTotal = Number(empenho.valor_total || 0) + (valorNum * mod);
-        const novoSaldo = Number(empenho.valor_saldo || 0) + (valorNum * mod);
-
-        await base44.entities.NotaEmpenho.update(empenho.id, {
-          ...formData,
-          valor_total: novoTotal,
-          valor_saldo: novoSaldo,
-          responsavel_alteracao: "Leonardo Pereira da Silva",
-          data_ultima_alteracao: agora
-        });
-
-        await base44.entities.HistoricoOrcamento.create({
-          entidade_id: empenho.id,
-          tipo_acao: tipoAjuste.toUpperCase(),
-          valor_operacao: valorNum * mod,
-          justificativa,
-          responsavel: "Leonardo Pereira da Silva",
-          data_acao: agora
-        });
-      } else {
-        await base44.entities.NotaEmpenho.create({
-          ...formData,
-          valor_total: valorNum,
-          valor_saldo: valorNum,
-          responsavel_alteracao: "Leonardo Pereira da Silva",
-          data_ultima_alteracao: agora
-        });
-      }
-
-      toast.success("Operação realizada com sucesso.");
-      onUpdate();
-      onOpenChange(false);
-    } catch (e) {
-      toast.error("Erro ao salvar dados.");
+      const [resEmpenhos, resContratos] = await Promise.all([
+        base44.entities.NotaEmpenho.list("-created_date"),
+        base44.entities.Contrato.list()
+      ]);
+      setEmpenhos(resEmpenhos || []);
+      setContratos(resContratos || []);
+    } catch (error) {
+      toast.error("Erro ao carregar dados orçamentários.");
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
+  useEffect(() => { carregarDados(); }, []);
+
+  const getDadosContrato = (contratoId) => {
+    const contrato = contratos.find(c => c.id === contratoId);
+    return contrato 
+      ? { numero: contrato.numero, empresa: contrato.contratada }
+      : { numero: "Não vinculado", empresa: "N/A" };
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    const toastId = toast.loading("IA analisando PDF do SIAFI...");
+
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+      const result = await base44.integrations.Core.ExtractDataFromUploadedFile({
+        file_url,
+        json_schema: {
+          type: "object",
+          properties: {
+            numero_empenho: { type: "string" },
+            ptres: { type: "string" },
+            natureza_despesa: { type: "string" },
+            subelemento: { type: "string" },
+            valor_total: { type: "number" }
+          }
+        }
+      });
+
+      if (result.status === "success" && result.output) {
+        setEmpenhoParaEditar({
+          ...result.output,
+          valor_saldo: result.output.valor_total,
+          ano: new Date().getFullYear()
+        });
+        setModalOpen(true);
+        toast.success("Dados extraídos!", { id: toastId });
+      }
+    } catch (e) {
+      toast.error("Falha na extração do PDF.", { id: toastId });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const empenhosFiltrados = empenhos.filter(e => {
+    const contratoInfo = getDadosContrato(e.contrato_id);
+    const matchBusca = 
+      e.numero_empenho?.toLowerCase().includes(busca.toLowerCase()) ||
+      contratoInfo.empresa?.toLowerCase().includes(busca.toLowerCase()) ||
+      contratoInfo.numero?.toLowerCase().includes(busca.toLowerCase());
+    const matchNatureza = filtroNatureza === "todos" || String(e.natureza_despesa) === filtroNatureza;
+    return matchBusca && matchNatureza;
+  });
+
+  if (loading) return <div className="flex h-96 items-center justify-center flex-col gap-2 font-bold text-gray-400">Sincronizando...</div>;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl bg-white font-sans">
-        <DialogHeader className="bg-[#1a2e4a] p-6 text-white">
-          <div className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-            <FileText size={20} className="text-blue-300" /> Ajuste do Empenho
-          </div>
-        </DialogHeader>
-        
-        <div className="p-6 space-y-4 bg-white">
-          <div className="space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
-              <Link2 size={12} /> Contrato Vinculado (SIAFI/JFRN)
-            </Label>
-            <Select 
-              value={formData.contrato_id} 
-              onValueChange={v => setFormData({...formData, contrato_id: v})}
-            >
-              <SelectTrigger className="h-10 font-bold border-gray-300 bg-gray-50/30 text-[#1a2e4a]">
-                <SelectValue placeholder="Selecione o Contrato" />
-              </SelectTrigger>
-              <SelectContent>
-                {contratos?.map(c => (
-                  <SelectItem key={c.id} value={c.id} className="text-xs">
-                    {c.numero} - {c.contratada}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-gray-400">Número da NE</Label>
-              <Input 
-                value={formData.numero_empenho} 
-                onChange={e => setFormData({...formData, numero_empenho: e.target.value.toUpperCase()})} 
-                className="h-9 font-bold border-gray-300 text-[#1a2e4a]" 
-                placeholder="2026NE..." 
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-gray-400">Ano Fiscal</Label>
-              <Input 
-                type="number"
-                value={formData.ano} 
-                onChange={e => setFormData({...formData, ano: e.target.value})} 
-                className="h-9 font-bold border-gray-300" 
-              />
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border-2 border-dashed border-gray-100 bg-gray-50/50 space-y-4">
-            <div className="flex gap-2">
-              <Button 
-                type="button" 
-                variant={tipoAjuste === "reforco" ? "default" : "outline"} 
-                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600 hover:bg-green-700 text-white" : ""}`} 
-                onClick={() => setTipoAjuste("reforco")}
-              >
-                <TrendingUp className="w-3 h-3 mr-2" /> {empenho ? "Reforço" : "Valor Inicial"}
-              </Button>
-              {empenho && (
-                <Button 
-                  type="button" 
-                  variant={tipoAjuste === "reducao" ? "default" : "outline"} 
-                  className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600 hover:bg-red-700 text-white" : ""}`} 
-                  onClick={() => setTipoAjuste("reducao")}
-                >
-                  <TrendingDown className="w-3 h-3 mr-2" /> Redução
-                </Button>
-              )}
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase">Valor do Ajuste (R$)</Label>
-              <Input 
-                type="number" 
-                value={valorAjuste} 
-                onChange={e => setValorAjuste(e.target.value)} 
-                placeholder="0,00" 
-                className="font-mono text-lg h-11 border-gray-300 text-[#1a2e4a]" 
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1">
-              <AlertCircle size={12} /> Justificativa Técnica
-            </Label>
-            <Textarea 
-              value={justificativa} 
-              onChange={e => setJustificativa(e.target.value)} 
-              placeholder="Descreva o motivo..." 
-              className="h-20 resize-none text-xs border-gray-300" 
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
-            <Button 
-              onClick={handleSalvar} 
-              disabled={saving} 
-              className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-[10px] font-black px-8 h-11"
-            >
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Ajuste"}
-            </Button>
-          </div>
+    <div className="p-8 max-w-7xl mx-auto space-y-6 font-sans">
+      <div className="flex justify-between items-end border-b pb-6">
+        <div>
+          <h1 className="text-3xl font-black text-[#1a2e4a] uppercase tracking-tight">Notas de Empenho</h1>
+          <p className="text-sm text-blue-900 font-bold uppercase mt-1">JFRN - Controle Orçamentário</p>
         </div>
-      </DialogContent>
-    </Dialog>
+        
+        <div className="flex gap-3">
+          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleFileUpload} />
+          <Button 
+            variant="outline" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isProcessing}
+            className="border-[#1a2e4a] text-[#1a2e4a] font-bold uppercase text-[10px] h-10 px-5"
+          >
+            {isProcessing ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Upload className="w-3 h-3 mr-2" />}
+            Escanear PDF SIAFI
+          </Button>
+          <Button 
+            className="bg-[#1a2e4a] text-white font-bold uppercase text-[10px] h-10 px-5 shadow-lg"
+            onClick={() => { setEmpenhoParaEditar(null); setModalOpen(true); }}
+          >
+            <Plus className="w-3 h-3 mr-2" /> Novo Registro
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex gap-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <input 
+            placeholder="Buscar por NE, Empresa ou Contrato..." 
+            className="w-full pl-10 h-10 text-xs border border-gray-200 rounded-md outline-none"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+        </div>
+        <Select value={filtroNatureza} onValueChange={setFiltroNatureza}>
+          <SelectTrigger className="w-72 h-10 text-xs">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3 h-3" />
+              <SelectValue placeholder="Todas as Naturezas" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas as Naturezas</SelectItem>
+            {Object.entries(NOMES_NATUREZA).map(([cod, nome]) => (
+              <SelectItem key={cod} value={cod}>{nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-xl border border-gray-100 bg-white overflow-hidden shadow-sm">
+        <Table>
+          <TableHeader className="bg-gray-50/50">
+            <TableRow className="text-[10px] uppercase font-bold">
+              <TableHead>Identificação SIAFI / Contrato</TableHead>
+              <TableHead>Célula Orçamentária</TableHead>
+              <TableHead>Histórico de Revisão</TableHead>
+              <TableHead className="text-right">V. Empenhado</TableHead>
+              <TableHead className="text-right">Saldo Atual</TableHead>
+              <TableHead className="w-10"></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {empenhosFiltrados.map((e) => {
+              const contratoInfo = getDadosContrato(e.contrato_id);
+              return (
+                <TableRow key={e.id} className="hover:bg-blue-50/20">
+                  <TableCell>
+                    <div className="font-black text-[#1a2e4a] text-sm uppercase">{e.numero_empenho}</div>
+                    <div className="flex flex-col gap-1 mt-1 text-[10px] font-bold uppercase">
+                      <span className="text-amber-700">Contrato: {contratoInfo.numero}</span>
+                      <span className="text-gray-500">{contratoInfo.empresa}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-[10px] font-bold text-blue-800">PTRES: {e.ptres}</div>
+                    <Badge variant="outline" className="text-[8px] uppercase mt-1">
+                      {NOMES_NATUREZA[e.natureza_despesa] || e.natureza_despesa}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-[10px] font-bold uppercase text-gray-700">{e.responsavel_alteracao || "Leonardo P. Silva"}</div>
+                    <div className="text-[9px] text-gray-400 mt-0.5">
+                      {e.data_ultima_alteracao ? new Date(e.data_ultima_alteracao).toLocaleString("pt-BR") : "Original"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-bold text-gray-500 text-xs">{fmt(e.valor_total)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="text-sm font-black text-[#1a2e4a]">{fmt(e.valor_saldo)}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" onClick={() => { setEmpenhoParaEditar(e); setModalOpen(true); }}>
+                      <TrendingUp size={14} className="text-blue-600" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {modalOpen && (
+        <EditorEmpenho 
+          empenho={empenhoParaEditar}
+          contratos={contratos}
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          onUpdate={carregarDados}
+        />
+      )}
+    </div>
   );
 }
