@@ -7,11 +7,11 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-// 1. Importação do Layout Oficial (Sidebar Azul Marinho)
+// 1. Importação do Layout com Sidebar Azul Marinho JFRN
 import Layout from './Layout';
 
-// 2. Importação das Páginas Principais do EASY CONTROL
-import Dashboard from './pages/Dashboard'; // Certifique-se de ter este arquivo
+// 2. Importação das Páginas do EASY CONTROL (Certifique-se que os nomes dos arquivos na pasta /pages coincidam)
+import Dashboard from './pages/Dashboard';
 import Contratos from './pages/Contratos';
 import ContratoDetalhe from './pages/ContratoDetalhe';
 import Empenhos from './pages/Empenhos';
@@ -23,7 +23,7 @@ const { Pages } = pagesConfig;
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  // Loading com a cor institucional da JFRN
+  // Tela de carregamento personalizada com a cor institucional
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -35,6 +35,7 @@ const AuthenticatedApp = () => {
     );
   }
 
+  // Tratamento de erros de autenticação do Base44
   if (authError) {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
@@ -46,13 +47,13 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      {/* O Layout novo envolve as rotas e injeta as páginas no <Outlet /> */}
+      {/* O componente Layout envolve todas as rotas internas */}
       <Route element={<Layout />}>
         
-        {/* Redirecionamento Inicial: Abre sempre no Dashboard */}
+        {/* Redirecionamento da raiz para o Dashboard (Visão Geral) */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {/* Rotas Amigáveis do Menu Lateral */}
+        {/* Definição das Rotas Principais */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/contratos" element={<Contratos />} />
         <Route path="/contrato-detalhe" element={<ContratoDetalhe />} />
@@ -60,14 +61,14 @@ const AuthenticatedApp = () => {
         <Route path="/extrato-pagamentos" element={<ExtratoPagamentos />} />
         <Route path="/alertas" element={<MinhasConfiguracoesAlertas />} />
 
-        {/* Mapeamento Automático (Legado Base44) para não quebrar links antigos */}
+        {/* Mapeamento Automático para manter compatibilidade com o pages.config original */}
         {Object.entries(Pages).map(([path, PageComponent]) => (
           <Route key={path} path={`/${path}`} element={<PageComponent />} />
         ))}
         
       </Route>
 
-      {/* Rota para erro 404 */}
+      {/* Rota de erro para caminhos inexistentes */}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
