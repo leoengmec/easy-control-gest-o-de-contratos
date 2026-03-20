@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText } from "lucide-react";
+import { Loader2, AlertCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
 
 export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate, user }) {
@@ -25,6 +25,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
     ano: new Date().getFullYear()
   });
 
+  // Sincroniza dados ao abrir o modal
   useEffect(() => {
     if (open && empenho) {
       setFormData({
@@ -55,7 +56,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
       const saldoAtual = parseFloat(empenho.valor_saldo || 0);
       const totalAtual = parseFloat(empenho.valor_total || 0);
       
-      // Cálculo de Saldo no Front-end (Regra do Schema)
+      // REGRA: Cálculo de Saldo realizado no Front-end
       const novoSaldo = tipoAjuste === "reforco" 
         ? saldoAtual + valorNumerico 
         : saldoAtual - valorNumerico;
@@ -65,10 +66,10 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         : totalAtual - valorNumerico;
 
       if (novoSaldo < 0) {
-        throw new Error("Saldo insuficiente para realizar esta anulação.");
+        throw new Error("Saldo insuficiente na nota de empenho para realizar esta anulação.");
       }
 
-      // 1. Atualiza a Nota de Empenho com valores absolutos
+      // 1. Atualização da Nota de Empenho (Persistência de valor absoluto)
       await base44.entities.NotaEmpenho.update(empenho.id, {
         ...formData,
         valor_total: novoTotal,
@@ -77,7 +78,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         data_ultima_alteracao: new Date().toISOString()
       });
 
-      // 2. Registra na LogAuditoria (Correção da Divergência Arquitetural)
+      // 2. Registro na LogAuditoria (Substituindo HistoricoOrcamento conforme Schema)
       await base44.entities.LogAuditoria.create({
         entidade_id: empenho.id,
         tipo_acao: tipoAjuste === "reforco" ? "REFORCO_EMPENHO" : "ANULACAO_EMPENHO",
@@ -87,12 +88,12 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         data_acao: new Date().toISOString()
       });
 
-      toast.success("Empenho atualizado com sucesso!");
+      toast.success("Empenho atualizado e log de auditoria registrado!");
       if (onUpdate) onUpdate();
       onOpenChange(false);
     } catch (error) {
-      console.error(error);
-      toast.error(error.message || "Erro ao atualizar empenho");
+      console.error("Erro na operação:", error);
+      toast.error(error.message || "Erro ao processar alteração no empenho");
     } finally {
       setSaving(false);
     }
@@ -110,7 +111,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase opacity-60">Tipo de Ajuste</Label>
+              <Label className="text-[10px] font-bold uppercase opacity-60">Tipo de Movimentação</Label>
               <Select value={tipoAjuste} onValueChange={setTipoAjuste}>
                 <SelectTrigger className="h-11 font-bold">
                   <SelectValue />
@@ -122,7 +123,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase opacity-60">Valor do Ajuste (R$)</Label>
+              <Label className="text-[10px] font-bold uppercase opacity-60">Valor (R$)</Label>
               <Input 
                 type="number" 
                 value={valorAjuste} 
@@ -135,13 +136,13 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
 
           <div className="space-y-1">
             <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1">
-              <AlertCircle size={12} /> Justificativa Técnica (Obrigatório)
+              <AlertCircle size={12} /> Justificativa Técnica
             </Label>
             <Textarea 
               value={justificativa} 
               onChange={e => setJustificativa(e.target.value)} 
-              placeholder="Descreva o motivo do reforço ou redução..." 
-              className="h-20 resize-none text-xs border-gray-300 focus:ring-[#1a2e4a]" 
+              placeholder="Descreva o motivo desta alteração orçamentária..." 
+              className="h-24 resize-none text-xs border-gray-300 focus:ring-[#1a2e4a]" 
             />
           </div>
 
@@ -152,7 +153,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
               disabled={saving} 
               className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg transition-all"
             >
-              {saving ? <Loader2 className="animate-spin" /> : "Confirmar Alteração"}
+              {saving ? <Loader2 className="animate-spin" /> : "Gravar Alteração"}
             </Button>
           </div>
         </div>
