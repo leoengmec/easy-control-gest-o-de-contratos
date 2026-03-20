@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Upload, Loader2, Filter, TrendingUp, User, Clock } from "lucide-react";
 import { toast } from "sonner";
-import EditorEmpenho from "@/components/orcamento/EditorEmpenho";
+import EditorEmpenho from "@/components/empenhos/EditorEmpenho";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
