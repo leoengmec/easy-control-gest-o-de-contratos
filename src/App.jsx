@@ -1,32 +1,36 @@
-import { Toaster } from "@/components/ui/toaster"
-import { QueryClientProvider } from '@tanstack/react-query'
-import { queryClientInstance } from '@/lib/query-client'
-import { pagesConfig } from './pages.config'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { Toaster } from "@/components/ui/toaster";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClientInstance } from '@/lib/query-client';
+import { pagesConfig } from './pages.config';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-// 1. Importando o nosso Layout Oficial e não o legado
+// 1. Importação do Layout Oficial (Sidebar Azul Marinho)
 import Layout from './Layout';
 
-// 2. Importação das Páginas para Rotas
-import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
-import Revisao from './pages/Revisao';
-import ExtratoPagamentos from './pages/ExtratoPagamentos';
+// 2. Importação das Páginas Principais do EASY CONTROL
+import Dashboard from './pages/Dashboard'; // Certifique-se de ter este arquivo
+import Contratos from './pages/Contratos';
+import ContratoDetalhe from './pages/ContratoDetalhe';
 import Empenhos from './pages/Empenhos';
+import ExtratoPagamentos from './pages/ExtratoPagamentos';
+import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
 
-const { Pages, mainPage } = pagesConfig;
-const mainPageKey = mainPage ?? Object.keys(Pages)[0];
-const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
+const { Pages } = pagesConfig;
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
+  // Loading com a cor institucional da JFRN
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+          <p className="text-[10px] font-black uppercase text-[#1a2e4a] tracking-widest">Sincronizando JFRN...</p>
+        </div>
       </div>
     );
   }
@@ -42,30 +46,28 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      {/* 3. O Layout novo envolve todas as rotas e injeta a página na tag Outlet */}
+      {/* O Layout novo envolve as rotas e injeta as páginas no <Outlet /> */}
       <Route element={<Layout />}>
         
-        {/* Rota Principal */}
-        <Route path="/" element={<MainPage />} />
+        {/* Redirecionamento Inicial: Abre sempre no Dashboard */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-        {/* 4. Rotas alinhadas com os caminhos do nosso Menu Lateral */}
-        <Route path="/extrato" element={<ExtratoPagamentos />} />
-        <Route path="/revisao" element={<Revisao />} />
+        {/* Rotas Amigáveis do Menu Lateral */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/contratos" element={<Contratos />} />
+        <Route path="/contrato-detalhe" element={<ContratoDetalhe />} />
         <Route path="/empenhos" element={<Empenhos />} />
+        <Route path="/extrato-pagamentos" element={<ExtratoPagamentos />} />
         <Route path="/alertas" element={<MinhasConfiguracoesAlertas />} />
 
-        {/* Mapeamento Automático do pagesConfig para não quebrar telas antigas */}
-        {Object.entries(Pages).map(([path, Page]) => (
-          <Route key={path} path={`/${path}`} element={<Page />} />
+        {/* Mapeamento Automático (Legado Base44) para não quebrar links antigos */}
+        {Object.entries(Pages).map(([path, PageComponent]) => (
+          <Route key={path} path={`/${path}`} element={<PageComponent />} />
         ))}
-
-        {/* Rotas de Fallback (Caso a URL antiga seja acessada diretamente) */}
-        <Route path="/ExtratoPagamentos" element={<ExtratoPagamentos />} />
-        <Route path="/Revisao" element={<Revisao />} />
-        <Route path="/MinhasConfiguracoesAlertas" element={<MinhasConfiguracoesAlertas />} />
         
       </Route>
 
+      {/* Rota para erro 404 */}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
@@ -81,7 +83,7 @@ function App() {
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>
-  )
+  );
 }
 
-export default App
+export default App;
