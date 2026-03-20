@@ -1,53 +1,33 @@
-const fmtBRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+import React from 'react';
 
-export default function GaugeChart({ value, label, sublabel, color, rawValue }) {
-  const pct = Math.min(Math.max(value || 0, 0), 100);
-  const radius = 54;
-  const circumference = Math.PI * radius; // half circle
-  const offset = circumference * (1 - pct / 100);
+export default function GaugeChart({ value, label, sublabel, rawValue, color = "#3b82f6" }) {
+  const clampedValue = Math.min(Math.max(value, 0), 100);
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (clampedValue / 100) * circumference;
 
-  const getColor = () => {
-    if (color) return color;
-    if (pct >= 90) return "#ef4444";
-    if (pct >= 70) return "#f59e0b";
-    return "#22c55e";
-  };
+  const formatCurrency = (v) => 
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative" style={{ width: 140, height: 80 }}>
-        <svg width="140" height="80" viewBox="0 0 140 80">
-          {/* trilho cinza */}
-          <path
-            d="M 14 70 A 56 56 0 0 1 126 70"
-            fill="none"
-            stroke="#e5e7eb"
-            strokeWidth="14"
-            strokeLinecap="round"
-          />
-          {/* arco colorido */}
-          <path
-            d="M 14 70 A 56 56 0 0 1 126 70"
-            fill="none"
-            stroke={getColor()}
-            strokeWidth="14"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            style={{ transition: "stroke-dashoffset 0.6s ease" }}
+    <div className="flex flex-col items-center p-2">
+      <div className="relative w-24 h-24">
+        <svg className="w-full h-full transform -rotate-90">
+          <circle cx="48" cy="48" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-100" />
+          <circle 
+            cx="48" cy="48" r={radius} stroke={color} strokeWidth="8" fill="transparent" 
+            strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-500"
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-end pb-1">
-          <span className="text-xl font-bold" style={{ color: getColor() }}>
-            {pct.toFixed(0)}%
-          </span>
-          {rawValue !== undefined && (
-            <span className="text-[10px] text-gray-500">{fmtBRL(rawValue)}</span>
-          )}
+        <div className="absolute inset-0 flex items-center justify-center flex-col">
+          <span className="text-sm font-black text-[#1a2e4a]">{clampedValue.toFixed(0)}%</span>
         </div>
       </div>
-      <div className="text-xs font-semibold text-gray-700 text-center mt-1">{label}</div>
-      {sublabel && <div className="text-[10px] text-gray-400 text-center">{sublabel}</div>}
+      <div className="text-center mt-2">
+        <div className="text-[10px] font-bold uppercase text-gray-400 tracking-tighter">{label}</div>
+        <div className="text-[11px] font-bold text-[#1a2e4a]">{formatCurrency(rawValue)}</div>
+        <div className="text-[9px] text-gray-400">{sublabel}</div>
+      </div>
     </div>
   );
 }
