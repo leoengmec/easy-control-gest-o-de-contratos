@@ -1,36 +1,47 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, Building2, Calendar } from "lucide-react";
+import { Building2, Calendar, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function ContratoCard({ contrato }) {
+  // Lógica de Fallback conforme Schema (Novo vs Legado)
+  const exibirNumero = contrato.numero_contrato || contrato.numero || "Sem Número";
+  const exibirEmpresa = contrato.empresa || contrato.contratada || "Empresa não identificada";
+
   return (
-    <Card className="hover:shadow-md transition-shadow border-gray-100">
+    <Card className="hover:shadow-md transition-shadow border-gray-100 group">
       <CardContent className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+          <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-[#1a2e4a] group-hover:text-white transition-colors">
             <Building2 size={20} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[#1a2e4a]">{contrato.numero}</span>
-              <Badge variant="outline" className="text-[9px] uppercase">{contrato.status}</Badge>
+              <span className="font-bold text-[#1a2e4a]">{exibirNumero}</span>
+              {contrato.status && (
+                <Badge variant="outline" className="text-[9px] uppercase font-bold">
+                  {contrato.status}
+                </Badge>
+              )}
             </div>
-            <div className="text-xs text-gray-500 truncate max-w-[300px]">{contrato.contratada}</div>
+            <div className="text-xs text-gray-500 truncate max-w-[300px]" title={exibirEmpresa}>
+              {exibirEmpresa}
+            </div>
           </div>
         </div>
         
         <div className="flex items-center gap-8">
-          <div className="hidden md:block">
-            <div className="text-[10px] text-gray-400 uppercase font-bold">Vigência</div>
-            <div className="flex items-center gap-1 text-xs font-medium text-gray-700">
-              <Calendar size={12} /> {contrato.data_fim_vigencia || "N/A"}
+          <div className="hidden md:block text-right">
+            <div className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Vigência Final</div>
+            <div className="flex items-center justify-end gap-1 text-xs font-semibold text-gray-700">
+              <Calendar size={12} className="text-blue-500" /> 
+              {contrato.data_fim ? new Date(contrato.data_fim).toLocaleDateString('pt-BR') : "N/A"}
             </div>
           </div>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to={`/contratos/${contrato.id}`} className="text-blue-600 font-bold text-xs uppercase">
-              Detalhes <ArrowUpRight size={14} className="ml-1" />
+          <Button variant="ghost" size="sm" asChild className="hover:bg-blue-50">
+            <Link to={`/contratos/${contrato.id}`} className="text-blue-600 font-bold flex items-center gap-1 text-[11px] uppercase">
+              Detalhes <ArrowUpRight size={14} />
             </Link>
           </Button>
         </div>
