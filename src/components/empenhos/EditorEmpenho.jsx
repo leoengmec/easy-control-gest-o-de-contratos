@@ -39,13 +39,19 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
     
     setSaving(true);
     const agoraISO = new Date().toISOString();
-    const valorNumerico = Number(valorAjuste) || 0;
+    const valorNumerico = parseFloat(valorAjuste) || 0;
     
+    if (valorNumerico <= 0) {
+      setSaving(false);
+      return toast.error("Informe um valor maior que zero.");
+    }
+
     const modificador = tipoAjuste === "reforco" ? 1 : -1;
-    const novoValorTotal = Number(empenho.valor_total || 0) + (valorNumerico * modificador);
-    const novoValorSaldo = Number(empenho.valor_saldo || 0) + (valorNumerico * modificador);
+    const novoValorTotal = Number(empenho?.valor_total || 0) + (valorNumerico * modificador);
+    const novoValorSaldo = Number(empenho?.valor_saldo || 0) + (valorNumerico * modificador);
 
     try {
+      // 1. Atualização da Nota de Empenho
       await base44.entities.NotaEmpenho.update(empenho.id, {
         ...formData,
         valor_total: novoValorTotal,
@@ -54,6 +60,7 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
         data_ultima_alteracao: agoraISO
       });
 
+      // 2. Registro no Log de Auditoria
       await base44.entities.LogAuditoria.create({
         entidade_id: empenho.id,
         numero_ne: empenho.numero_empenho,
@@ -64,11 +71,12 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
         data_acao: agoraISO
       });
 
-      toast.success(`Operação de ${tipoAjuste} concluída.`);
+      toast.success(`Operação de ${tipoAjuste} concluída com sucesso.`);
       onUpdate();
       onOpenChange(false);
     } catch (error) {
-      toast.error("Erro ao salvar ajuste orçamentário.");
+      console.error("Erro no ajuste:", error);
+      toast.error("Erro ao salvar ajuste. Verifique a conexão.");
     } finally {
       setSaving(false);
     }
@@ -85,11 +93,19 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase text-gray-400">PTRES</Label>
-              <Input value={formData.ptres} onChange={e => setFormData({...formData, ptres: e.target.value})} className="h-9 font-bold border-gray-300" />
+              <Input 
+                value={formData.ptres} 
+                onChange={e => setFormData({...formData, ptres: e.target.value})} 
+                className="h-9 font-bold border-gray-300 focus:ring-[#1a2e4a]" 
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase text-gray-400">Natureza (ND)</Label>
-              <Input value={formData.natureza_despesa} onChange={e => setFormData({...formData, natureza_despesa: e.target.value})} className="h-9 font-bold border-gray-300" />
+              <Input 
+                value={formData.natureza_despesa} 
+                onChange={e => setFormData({...formData, natureza_despesa: e.target.value})} 
+                className="h-9 font-bold border-gray-300 focus:ring-[#1a2e4a]" 
+              />
             </div>
           </div>
 
@@ -98,7 +114,7 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
               <Button 
                 type="button"
                 variant={tipoAjuste === "reforco" ? "default" : "outline"}
-                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
+                className={`flex-1 h-9 text-[10px] font-bold uppercase transition-all ${tipoAjuste === "reforco" ? "bg-green-600 hover:bg-green-700 text-white shadow-md" : "hover:bg-gray-100"}`}
                 onClick={() => setTipoAjuste("reforco")}
               >
                 <TrendingUp className="w-3 h-3 mr-2" /> Reforço
@@ -106,7 +122,7 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
               <Button 
                 type="button"
                 variant={tipoAjuste === "reducao" ? "default" : "outline"}
-                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600 hover:bg-red-700 text-white" : ""}`}
+                className={`flex-1 h-9 text-[10px] font-bold uppercase transition-all ${tipoAjuste === "reducao" ? "bg-red-600 hover:bg-red-700 text-white shadow-md" : "hover:bg-gray-100"}`}
                 onClick={() => setTipoAjuste("reducao")}
               >
                 <TrendingDown className="w-3 h-3 mr-2" /> Redução
@@ -120,7 +136,7 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
                 value={valorAjuste} 
                 onChange={e => setValorAjuste(e.target.value)}
                 placeholder="0,00"
-                className="font-mono text-lg h-11 border-gray-300"
+                className="font-mono text-lg h-11 border-gray-300 focus:border-[#1a2e4a]"
               />
             </div>
           </div>
@@ -132,15 +148,15 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
             <Textarea 
               value={justificativa}
               onChange={e => setJustificativa(e.target.value)}
-              placeholder="Descreva o motivo técnico..."
-              className="h-24 resize-none border-gray-300 text-xs"
+              placeholder="Descreva o motivo técnico do reforço ou redução..."
+              className="h-24 resize-none border-gray-300 text-xs focus:ring-[#1a2e4a]"
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
-            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] text-white uppercase text-[10px] font-black px-8 h-11">
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar"}
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold h-11 px-6">Cancelar</Button>
+            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] hover:bg-[#2a446b] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg transition-all">
+              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Ajuste"}
             </Button>
           </div>
         </div>
