@@ -9,7 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
 import Layout from './Layout';
 
-// Suas páginas revisadas
+// Importação das suas páginas conforme seus arquivos
 import ExtratoPagamentos from './pages/ExtratoPagamentos';
 import Empenhos from './pages/Empenhos';
 
@@ -36,14 +36,14 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Mantém a lógica original do Base44 */}
+        {/* Rota Principal baseada no pagesConfig */}
         <Route path="/" element={<MainPage />} />
 
-        {/* Suas rotas específicas com os nomes que você já usava */}
+        {/* Rotas específicas que você definiu */}
         <Route path="/extrato" element={<ExtratoPagamentos />} />
         <Route path="/empenhos" element={<Empenhos />} />
 
-        {/* MAPEAMENTO AUTOMÁTICO: Não apague isso, é o que garante as outras telas */}
+        {/* Mapeamento Automático do pagesConfig - Essencial para não quebrar o App */}
         {Object.entries(Pages).map(([path, Page]) => (
           <Route key={path} path={`/${path}`} element={<Page />} />
         ))}
