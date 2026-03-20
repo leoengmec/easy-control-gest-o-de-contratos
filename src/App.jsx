@@ -1,18 +1,17 @@
-import { Toaster } from "@/components/ui/toaster";
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClientInstance } from '@/lib/query-client';
-import { pagesConfig } from './pages.config';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { Toaster } from "@/components/ui/toaster"
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClientInstance } from '@/lib/query-client'
+import { pagesConfig } from './pages.config'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-// Importação do Layout e das Páginas Revisadas
 import Layout from './Layout';
+
+// Suas páginas revisadas
 import ExtratoPagamentos from './pages/ExtratoPagamentos';
 import Empenhos from './pages/Empenhos';
-import Contratos from './pages/Contratos';
-import ContratoDetalhe from './pages/ContratoDetalhe';
 
 const { Pages, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -24,7 +23,7 @@ const AuthenticatedApp = () => {
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -37,23 +36,17 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Rota Principal Dinâmica do Base44 */}
+        {/* Mantém a lógica original do Base44 */}
         <Route path="/" element={<MainPage />} />
 
-        {/* Nossas Rotas Revisadas (Prioridade) */}
-        <Route path="/extrato-pagamentos" element={<ExtratoPagamentos />} />
+        {/* Suas rotas específicas com os nomes que você já usava */}
+        <Route path="/extrato" element={<ExtratoPagamentos />} />
         <Route path="/empenhos" element={<Empenhos />} />
-        <Route path="/contratos" element={<Contratos />} />
-        <Route path="/contrato-detalhe" element={<ContratoDetalhe />} />
 
-        {/* Mapeamento Automático de todas as outras páginas do pages.config */}
-        {Object.entries(Pages).map(([path, PageComponent]) => (
-          <Route key={path} path={`/${path}`} element={<PageComponent />} />
+        {/* MAPEAMENTO AUTOMÁTICO: Não apague isso, é o que garante as outras telas */}
+        {Object.entries(Pages).map(([path, Page]) => (
+          <Route key={path} path={`/${path}`} element={<Page />} />
         ))}
-
-        {/* Fallbacks para evitar 404 em URLs antigas */}
-        <Route path="/extrato" element={<Navigate to="/extrato-pagamentos" replace />} />
-        <Route path="/ExtratoPagamentos" element={<Navigate to="/extrato-pagamentos" replace />} />
       </Route>
 
       <Route path="*" element={<PageNotFound />} />
@@ -71,7 +64,7 @@ function App() {
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>
-  );
+  )
 }
 
 export default App;
