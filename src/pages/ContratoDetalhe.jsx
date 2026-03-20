@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"; // Adicionado para a lista de empenhos
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle, FileText, TrendingUp } from "lucide-react";
 import { format, differenceInMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import ItemForm from "@/components/contratos/ItemForm.jsx";
@@ -19,7 +20,9 @@ const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency:
 
 const NATUREZA_LABELS = {
   "339039_servico": "339039 – Serviços (Manutenção)",
-  "339030_material": "339030 – Material de Consumo"
+  "339030_material": "339030 – Material de Consumo",
+  "339039": "339039 – Serviços de Terceiros", // Adicionado para compatibilidade SIAFI
+  "339030": "339030 – Material de Consumo"    // Adicionado para compatibilidade SIAFI
 };
 
 const tipoAditivoLabels = {
@@ -79,7 +82,7 @@ export default function ContratoDetalhe() {
       base44.entities.ItemContrato.filter({ contrato_id: contratoId }),
       base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoId }),
       base44.entities.Aditivo.filter({ contrato_id: contratoId }),
-      base44.entities.NotaEmpenho.filter({ contrato_id: contratoId })
+      base44.entities.NotaEmpenho.filter({ contrato_id: contratoId }) // Filtro automático por contrato_id
     ]);
     setContrato(c[0]);
     setItens(i);
@@ -116,7 +119,6 @@ export default function ContratoDetalhe() {
   const totalProvisao = lancamentos.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + l.valor, 0);
   const totalEmpenho = empenhos.reduce((s, e) => s + (e.valor_total || 0), 0);
 
-  // Cálculo de vigência
   const hoje = new Date();
   const dataFim = contrato.data_fim ? parseISO(contrato.data_fim) : null;
   const dataInicio = contrato.data_inicio ? parseISO(contrato.data_inicio) : null;
@@ -147,7 +149,6 @@ export default function ContratoDetalhe() {
         </div>
       </div>
 
-      {/* Resumo financeiro */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
           { label: "Valor Global", value: fmt(contrato.valor_global), color: "border-l-blue-500" },
@@ -172,14 +173,13 @@ export default function ContratoDetalhe() {
             Aditivos {aditivos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{aditivos.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="empenhos">
-            Empenhos {empenhos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{empenhos.length}</span>}
+            Notas de Empenho {empenhos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{empenhos.length}</span>}
           </TabsTrigger>
           <TabsTrigger value="fiscalizacao">Fiscalização</TabsTrigger>
           <TabsTrigger value="vigencia">Vigência</TabsTrigger>
           <TabsTrigger value="info">Informações Gerais</TabsTrigger>
         </TabsList>
 
-        {/* ABA: ITENS */}
         <TabsContent value="itens" className="space-y-4 mt-4">
           {(showItemForm || editingItem) ? (
             <ItemForm
@@ -208,7 +208,6 @@ export default function ContratoDetalhe() {
           )}
         </TabsContent>
 
-        {/* ABA: ADITIVOS */}
         <TabsContent value="aditivos" className="space-y-4 mt-4">
           {(showAditivoForm || editingAditivo) ? (
             <AditivoForm
@@ -291,7 +290,7 @@ export default function ContratoDetalhe() {
           )}
         </TabsContent>
 
-        {/* ABA: EMPENHOS */}
+        {/* ABA: EMPENHOS (REVISADA) */}
         <TabsContent value="empenhos" className="space-y-4 mt-4">
           {(showEmpenhoForm || editingEmpenho) ? (
             <EmpenhoForm
@@ -304,68 +303,75 @@ export default function ContratoDetalhe() {
             <>
               {canEdit && (
                 <Button onClick={() => setShowEmpenhoForm(true)} size="sm" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
-                  <Plus className="w-4 h-4 mr-1" /> Novo Empenho
+                  <Plus className="w-4 h-4 mr-1" /> Registrar Empenho Manual
                 </Button>
               )}
-              {empenhos.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">Nenhum empenho cadastrado</div>
-              ) : (
-                <div className="space-y-3">
-                  {empenhos.map(emp => (
-                    <Card key={emp.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <span className="font-bold text-[#1a2e4a]">{emp.numero_empenho}</span>
-                              <Badge variant="outline" className="text-xs">{emp.ano}</Badge>
-                              <Badge variant="outline" className={`text-xs ${emp.natureza_despesa === "339039_servico" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-green-50 text-green-700 border-green-200"}`}>
-                                {NATUREZA_LABELS[emp.natureza_despesa]}
+              
+              <Card>
+                <CardContent className="p-0 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-gray-50/50">
+                      <TableRow className="text-[10px] uppercase font-bold text-gray-500">
+                        <TableHead>Número NE / Ano</TableHead>
+                        <TableHead>PTRES / Natureza</TableHead>
+                        <TableHead className="text-right">Valor Empenhado</TableHead>
+                        <TableHead className="text-right">Saldo Atual</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {empenhos.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-10 text-gray-400 text-sm">
+                            Nenhum empenho vinculado a este contrato.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        empenhos.map(emp => (
+                          <TableRow key={emp.id} className="hover:bg-blue-50/20 transition-colors">
+                            <TableCell>
+                              <div className="font-black text-[#1a2e4a] text-sm uppercase">{emp.numero_empenho}</div>
+                              <div className="text-[10px] text-gray-400 font-bold uppercase">{emp.ano}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-[10px] font-bold text-blue-800">PTRES: {emp.ptres}</div>
+                              <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700 border-blue-100 uppercase mt-1">
+                                {NATUREZA_LABELS[emp.natureza_despesa] || emp.natureza_despesa}
                               </Badge>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                              {emp.ptres && (
-                                <div>
-                                  <div className="text-xs text-gray-400">PTRES</div>
-                                  <div className="font-medium text-[#1a2e4a]">{emp.ptres}</div>
-                                </div>
-                              )}
-                              {emp.valor_total > 0 && (
-                                <div>
-                                  <div className="text-xs text-gray-400">Valor Total</div>
-                                  <div className="font-medium text-[#1a2e4a]">{fmt(emp.valor_total)}</div>
-                                </div>
-                              )}
-                              {emp.data_inclusao && (
-                                <div>
-                                  <div className="text-xs text-gray-400">Data de Inclusão</div>
-                                  <div className="font-medium text-[#1a2e4a]">{format(parseISO(emp.data_inclusao), "dd/MM/yyyy")}</div>
-                                </div>
-                              )}
-                            </div>
-                            {emp.observacoes && <p className="text-xs text-gray-500 mt-2">{emp.observacoes}</p>}
-                          </div>
-                          {canEdit && (
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditingEmpenho(emp)}>
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDeleteEmpenho(emp.id)}>
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-gray-500 text-xs">
+                              {fmt(emp.valor_total)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="text-sm font-black text-[#1a2e4a]">{fmt(emp.valor_saldo)}</div>
+                              <div className="w-20 ml-auto bg-gray-100 h-1 mt-1 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${emp.valor_saldo < (emp.valor_total * 0.1) ? 'bg-red-500' : 'bg-green-500'}`}
+                                  style={{ width: `${Math.min((emp.valor_saldo / (emp.valor_total || 1)) * 100, 100)}%` }}
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-blue-600" onClick={() => setEditingEmpenho(emp)}>
+                                  <Pencil size={12} />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400" onClick={() => handleDeleteEmpenho(emp.id)}>
+                                  <Trash2 size={12} />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
             </>
           )}
         </TabsContent>
 
-        {/* ABA: FISCALIZAÇÃO */}
         <TabsContent value="fiscalizacao" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Card>
@@ -410,7 +416,6 @@ export default function ContratoDetalhe() {
             )}
           </div>
 
-          {/* Portaria */}
           {(contrato.portaria_numero || contrato.portaria_data_publicacao) && (
             <Card>
               <CardContent className="p-4">
@@ -426,7 +431,6 @@ export default function ContratoDetalhe() {
           )}
         </TabsContent>
 
-        {/* ABA: VIGÊNCIA */}
         <TabsContent value="vigencia" className="mt-4 space-y-4">
           <Card>
             <CardContent className="p-5 space-y-4">
@@ -480,7 +484,6 @@ export default function ContratoDetalhe() {
           </Card>
         </TabsContent>
 
-        {/* ABA: INFORMAÇÕES GERAIS */}
         <TabsContent value="info" className="mt-4">
           <Card>
             <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
