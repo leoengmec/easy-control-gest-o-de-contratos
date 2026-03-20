@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText } from "lucide-react";
+import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate, user }) {
@@ -16,14 +16,21 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
   const [justificativa, setJustificativa] = useState("");
   
   const [formData, setFormData] = useState({
-    numero_empenho: "", contrato_id: "", ptres: "", natureza_despesa: "", subelemento: "", processo_sei: "", ano: new Date().getFullYear()
+    numero_empenho: "", 
+    contrato_id: "", 
+    ptres: "", 
+    natureza_despesa: "", 
+    subelemento: "", 
+    processo_sei: "", 
+    ano: new Date().getFullYear()
   });
 
+  // Sincroniza dados ao abrir o modal
   useEffect(() => {
     if (open) {
       setFormData({
         numero_empenho: empenho?.numero_empenho || "",
-        contrato_id: empenho?.contrato_id || "",
+        contrato_id: empenho?.contrato_id || "", // Correlação com o BD de Contratos
         ptres: empenho?.ptres || "168312",
         natureza_despesa: empenho?.natureza_despesa || "339039",
         subelemento: empenho?.subelemento || "17",
@@ -37,11 +44,11 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
   }, [empenho, open]);
 
   const handleSalvar = async () => {
-    if (!justificativa.trim()) return toast.error("A justificativa é obrigatória.");
-    if (!formData.contrato_id) return toast.error("Selecione o contrato vinculado.");
+    if (!formData.contrato_id) return toast.error("Vínculo com o contrato é obrigatório.");
+    if (!justificativa.trim()) return toast.error("A justificativa técnica é obrigatória.");
     
     const valorNum = parseFloat(valorAjuste) || 0;
-    if (valorNum <= 0) return toast.error("Informe um valor válido.");
+    if (valorNum <= 0) return toast.error("Informe um valor válido para o ajuste.");
 
     setSaving(true);
     const mod = tipoAjuste === "reforco" ? 1 : -1;
@@ -49,9 +56,11 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
 
     try {
       if (empenho?.id) {
+        // Cálculo do novo montante SIAFI
         const novoTotal = Number(empenho.valor_total || 0) + (valorNum * mod);
         const novoSaldo = Number(empenho.valor_saldo || 0) + (valorNum * mod);
 
+        // Atualiza a Nota de Empenho vinculando o contrato selecionado
         await base44.entities.NotaEmpenho.update(empenho.id, {
           ...formData,
           valor_total: novoTotal,
@@ -60,6 +69,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
           data_ultima_alteracao: agora
         });
 
+        // Registra o log no Histórico de Orçamento para Auditoria
         await base44.entities.HistoricoOrcamento.create({
           entidade_id: empenho.id,
           tipo_acao: tipoAjuste.toUpperCase(),
@@ -69,6 +79,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
           data_acao: agora
         });
       } else {
+        // Criação de novo Empenho Anual
         await base44.entities.NotaEmpenho.create({
           ...formData,
           valor_total: valorNum,
@@ -78,11 +89,11 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         });
       }
 
-      toast.success("Operação concluída!");
+      toast.success("Ajuste do empenho realizado com sucesso.");
       onUpdate();
       onOpenChange(false);
     } catch (e) {
-      toast.error("Erro ao salvar.");
+      toast.error("Erro ao salvar no Banco de Dados.");
     } finally {
       setSaving(false);
     }
@@ -93,59 +104,112 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
       <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl bg-white font-sans">
         <DialogHeader className="bg-[#1a2e4a] p-6 text-white">
           <div className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-            <FileText size={20} /> {empenho ? "Ajuste de Orçamento" : "Novo Empenho Anual"}
+            <FileText size={20} className="text-blue-300" /> Ajuste do Empenho
           </div>
         </DialogHeader>
         
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 bg-white">
+          {/* Campo de Correlação com o BD de Contratos */}
           <div className="space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-gray-400">Contrato Vinculado</Label>
-            <Select value={formData.contrato_id} onValueChange={v => setFormData({...formData, contrato_id: v})}>
-              <SelectTrigger className="h-9 font-bold border-gray-300">
+            <Label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+              <Link2 size={12} /> Contrato Vinculado (SIAFI/JFRN)
+            </Label>
+            <Select 
+              value={formData.contrato_id} 
+              onValueChange={v => setFormData({...formData, contrato_id: v})}
+            >
+              <SelectTrigger className="h-10 font-bold border-gray-300 bg-gray-50/30">
                 <SelectValue placeholder="Selecione o Contrato" />
               </SelectTrigger>
               <SelectContent>
-                {contratos?.map(c => (
-                  <SelectItem key={c.id} value={c.id}>Contrato {c.numero_contrato} - {c.empresa}</SelectItem>
-                ))}
+                {contratos?.length > 0 ? (
+                  contratos.map(c => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">
+                      {c.numero_contrato} - {c.empresa}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-[10px] text-gray-400 uppercase font-bold text-center">
+                    Nenhum contrato localizado no BD
+                  </div>
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-gray-400">Número NE</Label>
-              <Input value={formData.numero_empenho} onChange={e => setFormData({...formData, numero_empenho: e.target.value.toUpperCase()})} className="h-9 font-bold" placeholder="2026NE..." />
+              <Label className="text-[10px] font-bold uppercase text-gray-400">Número da NE</Label>
+              <Input 
+                value={formData.numero_empenho} 
+                onChange={e => setFormData({...formData, numero_empenho: e.target.value.toUpperCase()})} 
+                className="h-9 font-bold border-gray-300" 
+                placeholder="Ex: 2026NE0001" 
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase text-gray-400">PTRES</Label>
-              <Input value={formData.ptres} onChange={e => setFormData({...formData, ptres: e.target.value})} className="h-9 font-bold" />
+              <Input 
+                value={formData.ptres} 
+                onChange={e => setFormData({...formData, ptres: e.target.value})} 
+                className="h-9 font-bold border-gray-300" 
+              />
             </div>
           </div>
 
-          <div className="p-4 rounded-xl border-2 border-dashed bg-gray-50/50 space-y-4">
+          <div className="p-4 rounded-xl border-2 border-dashed border-gray-100 bg-gray-50/50 space-y-4">
             <div className="flex gap-2">
-              <Button type="button" variant={tipoAjuste === "reforco" ? "default" : "outline"} className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600 text-white" : ""}`} onClick={() => setTipoAjuste("reforco")}>
+              <Button 
+                type="button" 
+                variant={tipoAjuste === "reforco" ? "default" : "outline"} 
+                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600 text-white" : ""}`} 
+                onClick={() => setTipoAjuste("reforco")}
+              >
                 <TrendingUp className="w-3 h-3 mr-2" /> {empenho ? "Reforço" : "Valor Inicial"}
               </Button>
               {empenho && (
-                <Button type="button" variant={tipoAjuste === "reducao" ? "default" : "outline"} className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600 text-white" : ""}`} onClick={() => setTipoAjuste("reducao")}>
+                <Button 
+                  type="button" 
+                  variant={tipoAjuste === "reducao" ? "default" : "outline"} 
+                  className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600 text-white" : ""}`} 
+                  onClick={() => setTipoAjuste("reducao")}
+                >
                   <TrendingDown className="w-3 h-3 mr-2" /> Redução
                 </Button>
               )}
             </div>
-            <Input type="number" value={valorAjuste} onChange={e => setValorAjuste(e.target.value)} placeholder="0,00" className="font-mono text-lg h-11 border-gray-300" />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase">Valor do Ajuste (R$)</Label>
+              <Input 
+                type="number" 
+                value={valorAjuste} 
+                onChange={e => setValorAjuste(e.target.value)} 
+                placeholder="0,00" 
+                className="font-mono text-lg h-11 border-gray-300" 
+              />
+            </div>
           </div>
 
           <div className="space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Justificativa</Label>
-            <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Descreva o motivo técnico..." className="h-20 resize-none text-xs border-gray-300" />
+            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1">
+              <AlertCircle size={12} /> Justificativa Técnica (Obrigatório)
+            </Label>
+            <Textarea 
+              value={justificativa} 
+              onChange={e => setJustificativa(e.target.value)} 
+              placeholder="Descreva o motivo do reforço ou redução..." 
+              className="h-20 resize-none text-xs border-gray-300 focus:ring-[#1a2e4a]" 
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
-            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg">
-              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Registro"}
+            <Button 
+              onClick={handleSalvar} 
+              disabled={saving} 
+              className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg transition-all"
+            >
+              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Ajuste"}
             </Button>
           </div>
         </div>
