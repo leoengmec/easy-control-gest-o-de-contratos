@@ -7,68 +7,55 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-// 1. Importação do Layout com Sidebar Azul Marinho JFRN
+// Importação do Layout e das Páginas Revisadas
 import Layout from './Layout';
-
-// 2. Importação das Páginas do EASY CONTROL (Certifique-se que os nomes dos arquivos na pasta /pages coincidam)
-import Dashboard from './pages/Dashboard';
+import ExtratoPagamentos from './pages/ExtratoPagamentos';
+import Empenhos from './pages/Empenhos';
 import Contratos from './pages/Contratos';
 import ContratoDetalhe from './pages/ContratoDetalhe';
-import Empenhos from './pages/Empenhos';
-import ExtratoPagamentos from './pages/ExtratoPagamentos';
-import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
 
-const { Pages } = pagesConfig;
+const { Pages, mainPage } = pagesConfig;
+const mainPageKey = mainPage ?? Object.keys(Pages)[0];
+const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  // Tela de carregamento personalizada com a cor institucional
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
-          <p className="text-[10px] font-black uppercase text-[#1a2e4a] tracking-widest">Sincronizando JFRN...</p>
-        </div>
+        <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  // Tratamento de erros de autenticação do Base44
   if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      navigateToLogin();
-      return null;
-    }
+    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
+    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
   }
 
   return (
     <Routes>
-      {/* O componente Layout envolve todas as rotas internas */}
       <Route element={<Layout />}>
-        
-        {/* Redirecionamento da raiz para o Dashboard (Visão Geral) */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Rota Principal Dinâmica do Base44 */}
+        <Route path="/" element={<MainPage />} />
 
-        {/* Definição das Rotas Principais */}
-        <Route path="/dashboard" element={<Dashboard />} />
+        {/* Nossas Rotas Revisadas (Prioridade) */}
+        <Route path="/extrato-pagamentos" element={<ExtratoPagamentos />} />
+        <Route path="/empenhos" element={<Empenhos />} />
         <Route path="/contratos" element={<Contratos />} />
         <Route path="/contrato-detalhe" element={<ContratoDetalhe />} />
-        <Route path="/empenhos" element={<Empenhos />} />
-        <Route path="/extrato-pagamentos" element={<ExtratoPagamentos />} />
-        <Route path="/alertas" element={<MinhasConfiguracoesAlertas />} />
 
-        {/* Mapeamento Automático para manter compatibilidade com o pages.config original */}
+        {/* Mapeamento Automático de todas as outras páginas do pages.config */}
         {Object.entries(Pages).map(([path, PageComponent]) => (
           <Route key={path} path={`/${path}`} element={<PageComponent />} />
         ))}
-        
+
+        {/* Fallbacks para evitar 404 em URLs antigas */}
+        <Route path="/extrato" element={<Navigate to="/extrato-pagamentos" replace />} />
+        <Route path="/ExtratoPagamentos" element={<Navigate to="/extrato-pagamentos" replace />} />
       </Route>
 
-      {/* Rota de erro para caminhos inexistentes */}
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
