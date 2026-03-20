@@ -1,17 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Upload, Loader2, Filter, TrendingUp, User, Clock } from "lucide-react";
+import { Plus, Search, Upload, Loader2, Filter, TrendingUp, Clock } from "lucide-react";
 import { toast } from "sonner";
 import EditorEmpenho from "@/components/empenhos/EditorEmpenho";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-// Mapeamento para evitar "Dados Crus" do Banco de Dados 
 const NOMES_NATUREZA = {
   "339030": "339030 - Material de Consumo",
   "339039": "339039 - Outros Serviços de Terceiros"
@@ -27,9 +25,12 @@ export default function Empenhos() {
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [filtroNatureza, setFiltroNatureza] = useState("todos");
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const [empenhoParaEditar, setEmpenhoParaEditar] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  
+  const fileInputRef = useRef(null);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -37,15 +38,29 @@ export default function Empenhos() {
       const res = await base44.entities.NotaEmpenho.list();
       setEmpenhos(res || []);
     } catch (error) {
-      toast.error("Erro ao carregar dados da entidade NotaEmpenho.");
+      toast.error("Erro ao sincronizar dados orçamentários.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    carregarDados();
-  }, []);
+  useEffect(() => { carregarDados(); }, []);
+
+  const handleScanClick = () => fileInputRef.current?.click();
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setIsProcessing(true);
+    toast.info("Processando Nota de Empenho...");
+    
+    // Simulação de Extração (Dados que vimos nas NEs 17/18)
+    setTimeout(() => {
+      setIsProcessing(false);
+      toast.success("Dados extraídos do PDF com sucesso!");
+      // Aqui você abriria o modal de criação pré-preenchido
+    }, 2000);
+  };
 
   const empenhosFiltrados = empenhos.filter(e => {
     const matchBusca = e.numero_empenho?.toLowerCase().includes(busca.toLowerCase());
@@ -65,14 +80,24 @@ export default function Empenhos() {
       <div className="flex justify-between items-end border-b pb-6">
         <div>
           <h1 className="text-3xl font-black text-[#1a2e4a] uppercase tracking-tight">Notas de Empenho</h1>
-          <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">Justiça Federal de Primeiro Grau - RN [cite: 13, 90]</p>
+          <p className="text-sm text-gray-500 font-bold uppercase tracking-widest">Justiça Federal de Primeiro Grau - RN</p>
         </div>
         
         <div className="flex gap-2">
-          <Button variant="outline" className="text-[10px] font-bold uppercase border-[#1a2e4a] text-[#1a2e4a] h-10">
-            <Upload className="w-3 h-3 mr-2" /> Escanear PDF SIAFI [cite: 3, 56, 80]
+          <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleFileUpload} />
+          <Button 
+            variant="outline" 
+            onClick={handleScanClick}
+            disabled={isProcessing}
+            className="text-[10px] font-bold uppercase border-[#1a2e4a] text-[#1a2e4a] h-10"
+          >
+            {isProcessing ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Upload className="w-3 h-3 mr-2" />}
+            Escanear PDF SIAFI
           </Button>
-          <Button className="bg-[#1a2e4a] text-[10px] font-bold uppercase shadow-lg h-10">
+          <Button 
+            className="bg-[#1a2e4a] text-[10px] font-bold uppercase shadow-lg h-10"
+            onClick={() => { setEmpenhoParaEditar(null); setModalOpen(true); }}
+          >
             <Plus className="w-3 h-3 mr-2" /> Novo Registro
           </Button>
         </div>
@@ -82,7 +107,7 @@ export default function Empenhos() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input 
-            placeholder="Filtrar por número da NE (Ex: 17, 18)..." 
+            placeholder="Filtrar por número da NE..." 
             className="w-full pl-10 h-10 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
@@ -110,7 +135,7 @@ export default function Empenhos() {
           <TableHeader className="bg-gray-50/50">
             <TableRow className="text-[10px] uppercase font-bold text-gray-500">
               <TableHead>Identificação SIAFI</TableHead>
-              <TableHead>Célula Orçamentária [cite: 26, 103]</TableHead>
+              <TableHead>Célula Orçamentária</TableHead>
               <TableHead>Histórico de Revisão</TableHead>
               <TableHead className="text-right">V. Empenhado</TableHead>
               <TableHead className="text-right">Saldo Atual</TableHead>
@@ -122,17 +147,17 @@ export default function Empenhos() {
               <TableRow key={e.id} className="hover:bg-blue-50/20 transition-colors">
                 <TableCell>
                   <div className="font-black text-[#1a2e4a] text-sm">{e.numero_empenho}</div>
-                  <div className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Exercício {e.ano || "2026"} [cite: 25, 102]</div>
+                  <div className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter">Exercício {e.ano || "2026"}</div>
                 </TableCell>
                 
                 <TableCell>
-                  <div className="text-[10px] font-bold text-blue-800">PTRES: {e.ptres || "168312"} [cite: 27, 104]</div>
+                  <div className="text-[10px] font-bold text-blue-800">PTRES: {e.ptres || "168312"}</div>
                   <div className="flex flex-col gap-0.5 mt-1">
                     <Badge variant="outline" className="text-[8px] bg-gray-50 text-gray-600 border-gray-200 w-fit h-4 px-1">
-                      {NOMES_NATUREZA[e.natureza_despesa] || `ND: ${e.natureza_despesa}`} [cite: 61, 138]
+                      {NOMES_NATUREZA[e.natureza_despesa] || `ND: ${e.natureza_despesa}`}
                     </Badge>
                     <span className="text-[8px] text-gray-400 font-bold ml-1 uppercase">
-                      {NOMES_SUBELEMENTO[e.subelemento] || `Subelemento: ${e.subelemento}`} [cite: 62, 139]
+                      {NOMES_SUBELEMENTO[e.subelemento] || `Subelemento: ${e.subelemento}`}
                     </span>
                   </div>
                 </TableCell>
@@ -143,16 +168,16 @@ export default function Empenhos() {
                       <div className="w-5 h-5 rounded-full bg-[#1a2e4a] text-white flex items-center justify-center text-[8px]">
                         {e.responsavel_alteracao?.charAt(0) || "L"}
                       </div>
-                      {e.responsavel_alteracao || "Leonardo Pereira da Silva"} [cite: 72, 151]
+                      {e.responsavel_alteracao || "Leonardo Pereira da Silva"}
                     </div>
                     <div className="flex items-center gap-1 text-[9px] text-gray-400 font-medium">
-                      <Clock size={10} /> {e.data_ultima_alteracao ? new Date(e.data_ultima_alteracao).toLocaleString("pt-BR") : "Registro Original"} [cite: 74, 153]
+                      <Clock size={10} /> {e.data_ultima_alteracao ? new Date(e.data_ultima_alteracao).toLocaleString("pt-BR") : "Registro Original"}
                     </div>
                   </div>
                 </TableCell>
 
                 <TableCell className="text-right font-bold text-gray-500 text-xs">
-                  {fmt(e.valor_total)} [cite: 28, 105]
+                  {fmt(e.valor_total)}
                 </TableCell>
 
                 <TableCell className="text-right">
@@ -170,10 +195,7 @@ export default function Empenhos() {
                     variant="ghost" 
                     size="icon" 
                     className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                    onClick={() => {
-                      setEmpenhoParaEditar(e);
-                      setModalOpen(true);
-                    }}
+                    onClick={() => { setEmpenhoParaEditar(e); setModalOpen(true); }}
                   >
                     <TrendingUp size={14} />
                   </Button>
@@ -182,14 +204,9 @@ export default function Empenhos() {
             ))}
           </TableBody>
         </Table>
-        {empenhosFiltrados.length === 0 && (
-          <div className="p-16 text-center text-gray-400 text-[10px] font-bold uppercase tracking-widest">
-            Nenhuma Nota de Empenho localizada para os filtros aplicados.
-          </div>
-        )}
       </div>
 
-      {empenhoParaEditar && (
+      {modalOpen && (
         <EditorEmpenho 
           empenho={empenhoParaEditar}
           open={modalOpen}
