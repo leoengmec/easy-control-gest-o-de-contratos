@@ -14,6 +14,7 @@ import Layout from './Layout';
 import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
 import Revisao from './pages/Revisao';
 import ExtratoPagamentos from './pages/ExtratoPagamentos';
+import Empenhos from './pages/Empenhos';
 
 const { Pages, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -50,6 +51,7 @@ const AuthenticatedApp = () => {
         {/* 4. Rotas alinhadas com os caminhos do nosso Menu Lateral */}
         <Route path="/extrato" element={<ExtratoPagamentos />} />
         <Route path="/revisao" element={<Revisao />} />
+        <Route path="/empenhos" element={<Empenhos />} />
         <Route path="/alertas" element={<MinhasConfiguracoesAlertas />} />
 
         {/* Mapeamento Automático do pagesConfig para não quebrar telas antigas */}
