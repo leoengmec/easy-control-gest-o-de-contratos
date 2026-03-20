@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,11 +32,12 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
       });
       setJustificativa("");
       setValorAjuste("");
+      setTipoAjuste("reforco");
     }
   }, [empenho, open]);
 
   const handleSalvar = async () => {
-    if (!justificativa.trim()) return toast.error("Justificativa obrigatória para auditoria.");
+    if (!justificativa.trim()) return toast.error("A justificativa é obrigatória.");
     if (!formData.contrato_id) return toast.error("Selecione o contrato vinculado.");
     
     const valorNum = parseFloat(valorAjuste) || 0;
@@ -48,7 +49,6 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
 
     try {
       if (empenho?.id) {
-        // AJUSTE EM EMPENHO EXISTENTE
         const novoTotal = Number(empenho.valor_total || 0) + (valorNum * mod);
         const novoSaldo = Number(empenho.valor_saldo || 0) + (valorNum * mod);
 
@@ -69,7 +69,6 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
           data_acao: agora
         });
       } else {
-        // NOVO EMPENHO ANUAL
         await base44.entities.NotaEmpenho.create({
           ...formData,
           valor_total: valorNum,
@@ -79,11 +78,11 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         });
       }
 
-      toast.success("Operação concluída com sucesso!");
+      toast.success("Operação concluída!");
       onUpdate();
       onOpenChange(false);
     } catch (e) {
-      toast.error("Erro ao salvar. Verifique as entidades no BD.");
+      toast.error("Erro ao salvar.");
     } finally {
       setSaving(false);
     }
@@ -93,9 +92,9 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl bg-white font-sans">
         <DialogHeader className="bg-[#1a2e4a] p-6 text-white">
-          <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
-            <FileText size={20} /> {empenho ? "Ajuste de Empenho" : "Novo Empenho Anual"}
-          </DialogTitle>
+          <div className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+            <FileText size={20} /> {empenho ? "Ajuste de Orçamento" : "Novo Empenho Anual"}
+          </div>
         </DialogHeader>
         
         <div className="p-6 space-y-4">
@@ -116,7 +115,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase text-gray-400">Número NE</Label>
-              <Input value={formData.numero_empenho} onChange={e => setFormData({...formData, numero_empenho: e.target.value.toUpperCase()})} className="h-9 font-bold" placeholder="2026NE00..." />
+              <Input value={formData.numero_empenho} onChange={e => setFormData({...formData, numero_empenho: e.target.value.toUpperCase()})} className="h-9 font-bold" placeholder="2026NE..." />
             </div>
             <div className="space-y-1">
               <Label className="text-[10px] font-bold uppercase text-gray-400">PTRES</Label>
@@ -135,17 +134,17 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
                 </Button>
               )}
             </div>
-            <Input type="number" value={valorAjuste} onChange={e => setValorAjuste(e.target.value)} placeholder="0,00" className="font-mono text-lg h-11" />
+            <Input type="number" value={valorAjuste} onChange={e => setValorAjuste(e.target.value)} placeholder="0,00" className="font-mono text-lg h-11 border-gray-300" />
           </div>
 
           <div className="space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Justificativa da Alteração</Label>
-            <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Ex: Aditivo de prazo ou reforço de dotação..." className="h-20 resize-none text-xs" />
+            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1"><AlertCircle size={12} /> Justificativa</Label>
+            <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Descreva o motivo técnico..." className="h-20 resize-none text-xs border-gray-300" />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
-            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] text-white uppercase text-[10px] font-black px-8 h-11">
+            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg">
               {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Registro"}
             </Button>
           </div>
