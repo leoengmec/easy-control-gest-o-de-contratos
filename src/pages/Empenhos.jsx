@@ -4,13 +4,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Upload, Loader2, Filter, TrendingUp, Clock, FileText } from "lucide-react";
+import { Plus, Search, Upload, Loader2, Filter, TrendingUp, Clock, FileText, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import EditorEmpenho from "@/components/empenhos/EditorEmpenho";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-// Mapeamentos para tradução de Dados Crus
 const NOMES_NATUREZA = {
   "339030": "339030 - Material de Consumo",
   "339039": "339039 - Serviços de Terceiros"
@@ -51,7 +50,13 @@ export default function Empenhos() {
 
   useEffect(() => { carregarDados(); }, []);
 
-  // Funcionalidade do Botão Escanear
+  const getDadosContrato = (contratoId) => {
+    const contrato = contratos.find(c => c.id === contratoId);
+    return contrato 
+      ? { numero: contrato.numero_contrato, empresa: contrato.empresa }
+      : { numero: "Não vinculado", empresa: "N/A" };
+  };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -60,13 +65,17 @@ export default function Empenhos() {
     
     setTimeout(() => {
       setIsProcessing(false);
-      toast.success("Dados da NE 2026NE000017 extraídos com sucesso!");
-      // Aqui abriria o modal com dados pré-preenchidos (Simulação)
+      toast.success("Dados extraídos com sucesso!");
     }, 2000);
   };
 
   const empenhosFiltrados = empenhos.filter(e => {
-    const matchBusca = e.numero_empenho?.toLowerCase().includes(busca.toLowerCase());
+    const contratoInfo = getDadosContrato(e.contrato_id);
+    const matchBusca = 
+      e.numero_empenho?.toLowerCase().includes(busca.toLowerCase()) ||
+      contratoInfo.empresa?.toLowerCase().includes(busca.toLowerCase()) ||
+      contratoInfo.numero?.toLowerCase().includes(busca.toLowerCase());
+    
     const matchNatureza = filtroNatureza === "todos" || String(e.natureza_despesa) === filtroNatureza;
     return matchBusca && matchNatureza;
   });
@@ -109,7 +118,7 @@ export default function Empenhos() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input 
-            placeholder="Buscar por NE (Ex: 0040, 0041)..." 
+            placeholder="Buscar por NE, Empresa ou Contrato..." 
             className="w-full pl-10 h-10 text-xs border border-gray-200 rounded-md focus:ring-2 focus:ring-[#1a2e4a] outline-none"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
@@ -136,7 +145,7 @@ export default function Empenhos() {
         <Table>
           <TableHeader className="bg-gray-50/50">
             <TableRow className="text-[10px] uppercase font-bold text-gray-500">
-              <TableHead>Identificação SIAFI</TableHead>
+              <TableHead>Identificação SIAFI / Contrato</TableHead>
               <TableHead>Célula Orçamentária</TableHead>
               <TableHead>Histórico de Revisão</TableHead>
               <TableHead className="text-right">V. Empenhado</TableHead>
@@ -145,61 +154,73 @@ export default function Empenhos() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {empenhosFiltrados.map((e) => (
-              <TableRow key={e.id} className="hover:bg-blue-50/20 transition-colors">
-                <TableCell>
-                  <div className="font-black text-[#1a2e4a] text-sm uppercase">{e.numero_empenho}</div>
-                  <div className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter italic">Exercício {e.ano || "2026"}</div>
-                </TableCell>
-                
-                <TableCell>
-                  <div className="text-[10px] font-bold text-blue-800">PTRES: {e.ptres || "168312"}</div>
-                  <div className="flex flex-col gap-1 mt-1">
-                    <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700 border-blue-100 w-fit h-4 px-1">
-                      {NOMES_NATUREZA[e.natureza_despesa] || `ND: ${e.natureza_despesa || "—"}`}
-                    </Badge>
-                    <span className="text-[8px] text-gray-400 font-bold ml-1 uppercase">
-                      {NOMES_SUBELEMENTO[e.subelemento] || `Sub: ${e.subelemento || "—"}`}
-                    </span>
-                  </div>
-                </TableCell>
-
-                <TableCell>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 text-[10px] text-gray-700 font-bold uppercase">
-                      <div className="w-5 h-5 rounded-full bg-[#1a2e4a] text-white flex items-center justify-center text-[8px]">{e.responsavel_alteracao?.charAt(0) || "L"}</div>
-                      {e.responsavel_alteracao || "Leonardo P. Silva"}
+            {empenhosFiltrados.map((e) => {
+              const contratoInfo = getDadosContrato(e.contrato_id);
+              return (
+                <TableRow key={e.id} className="hover:bg-blue-50/20 transition-colors">
+                  <TableCell>
+                    <div className="font-black text-[#1a2e4a] text-sm uppercase">{e.numero_empenho}</div>
+                    <div className="flex flex-col gap-1 mt-1">
+                      <div className="flex items-center gap-1 text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-100 font-bold uppercase w-fit">
+                        <FileText size={10} /> Contrato: {contratoInfo.numero}
+                      </div>
+                      <div className="text-[10px] text-gray-500 font-bold flex items-center gap-1">
+                        <Building2 size={10} className="text-gray-400" /> {contratoInfo.empresa}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[9px] text-gray-400 font-medium">
-                      <Clock size={10} /> {e.data_ultima_alteracao ? new Date(e.data_ultima_alteracao).toLocaleString("pt-BR") : "Original"}
+                  </TableCell>
+                  
+                  <TableCell>
+                    <div className="text-[10px] font-bold text-blue-800 tracking-tight">PTRES: {e.ptres || "168312"}</div>
+                    <div className="flex flex-col gap-1 mt-1">
+                      <Badge variant="outline" className="text-[8px] bg-blue-50 text-blue-700 border-blue-100 w-fit h-4 px-1 uppercase">
+                        {NOMES_NATUREZA[e.natureza_despesa] || `ND: ${e.natureza_despesa || "—"}`}
+                      </Badge>
+                      <span className="text-[8px] text-gray-400 font-bold ml-1 uppercase">
+                        {NOMES_SUBELEMENTO[e.subelemento] || `Subelemento: ${e.subelemento || "—"}`}
+                      </span>
                     </div>
-                  </div>
-                </TableCell>
+                  </TableCell>
 
-                <TableCell className="text-right font-bold text-gray-500 text-xs">{fmt(e.valor_total)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-[10px] text-gray-700 font-bold uppercase">
+                        <div className="w-5 h-5 rounded-full bg-[#1a2e4a] text-white flex items-center justify-center text-[8px]">
+                          {e.responsavel_alteracao?.charAt(0) || "L"}
+                        </div>
+                        {e.responsavel_alteracao || "Leonardo P. Silva"}
+                      </div>
+                      <div className="flex items-center gap-1 text-[9px] text-gray-400 font-medium">
+                        <Clock size={10} /> {e.data_ultima_alteracao ? new Date(e.data_ultima_alteracao).toLocaleString("pt-BR") : "Original"}
+                      </div>
+                    </div>
+                  </TableCell>
 
-                <TableCell className="text-right">
-                  <div className="text-sm font-black text-[#1a2e4a]">{fmt(e.valor_saldo)}</div>
-                  <div className="w-24 ml-auto bg-gray-100 h-1 mt-1.5 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all ${e.valor_saldo < (e.valor_total * 0.1) ? 'bg-red-500' : 'bg-green-500'}`}
-                      style={{ width: `${Math.min((e.valor_saldo / (e.valor_total || 1)) * 100, 100)}%` }}
-                    />
-                  </div>
-                </TableCell>
+                  <TableCell className="text-right font-bold text-gray-500 text-xs">{fmt(e.valor_total)}</TableCell>
 
-                <TableCell>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-blue-600 hover:bg-blue-50"
-                    onClick={() => { setEmpenhoParaEditar(e); setModalOpen(true); }}
-                  >
-                    <TrendingUp size={14} />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                  <TableCell className="text-right">
+                    <div className="text-sm font-black text-[#1a2e4a]">{fmt(e.valor_saldo)}</div>
+                    <div className="w-24 ml-auto bg-gray-100 h-1 mt-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all ${e.valor_saldo < (e.valor_total * 0.1) ? 'bg-red-500' : 'bg-green-500'}`}
+                        style={{ width: `${Math.min((e.valor_saldo / (e.valor_total || 1)) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </TableCell>
+
+                  <TableCell>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                      onClick={() => { setEmpenhoParaEditar(e); setModalOpen(true); }}
+                    >
+                      <TrendingUp size={14} />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
