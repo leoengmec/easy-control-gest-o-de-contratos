@@ -62,7 +62,6 @@ export default function Empenhos() {
     if (!file) return;
     setIsProcessing(true);
     toast.info("Processando PDF do SIAFI...");
-    
     setTimeout(() => {
       setIsProcessing(false);
       toast.success("Dados extraídos com sucesso!");
@@ -75,7 +74,6 @@ export default function Empenhos() {
       e.numero_empenho?.toLowerCase().includes(busca.toLowerCase()) ||
       contratoInfo.empresa?.toLowerCase().includes(busca.toLowerCase()) ||
       contratoInfo.numero?.toLowerCase().includes(busca.toLowerCase());
-    
     const matchNatureza = filtroNatureza === "todos" || String(e.natureza_despesa) === filtroNatureza;
     return matchBusca && matchNatureza;
   });
@@ -91,7 +89,7 @@ export default function Empenhos() {
       <div className="flex justify-between items-end border-b pb-6">
         <div>
           <h1 className="text-3xl font-black text-[#1a2e4a] uppercase tracking-tight">Notas de Empenho</h1>
-          <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mt-1">Gestão Orçamentária Anual JFRN</p>
+          <p className="text-sm text-gray-500 font-bold uppercase tracking-widest mt-1 text-blue-900">JFRN - Controle Orçamentário</p>
         </div>
         
         <div className="flex gap-3">
@@ -124,7 +122,6 @@ export default function Empenhos() {
             onChange={(e) => setBusca(e.target.value)}
           />
         </div>
-        
         <Select value={filtroNatureza} onValueChange={setFiltroNatureza}>
           <SelectTrigger className="w-72 h-10 text-xs border-gray-200">
             <div className="flex items-center gap-2">
@@ -164,12 +161,11 @@ export default function Empenhos() {
                       <div className="flex items-center gap-1 text-[9px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-100 font-bold uppercase w-fit">
                         <FileText size={10} /> Contrato: {contratoInfo.numero}
                       </div>
-                      <div className="text-[10px] text-gray-500 font-bold flex items-center gap-1">
+                      <div className="text-[10px] text-gray-500 font-bold flex items-center gap-1 uppercase">
                         <Building2 size={10} className="text-gray-400" /> {contratoInfo.empresa}
                       </div>
                     </div>
                   </TableCell>
-                  
                   <TableCell>
                     <div className="text-[10px] font-bold text-blue-800 tracking-tight">PTRES: {e.ptres || "168312"}</div>
                     <div className="flex flex-col gap-1 mt-1">
@@ -181,7 +177,6 @@ export default function Empenhos() {
                       </span>
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-1.5 text-[10px] text-gray-700 font-bold uppercase">
@@ -195,9 +190,7 @@ export default function Empenhos() {
                       </div>
                     </div>
                   </TableCell>
-
                   <TableCell className="text-right font-bold text-gray-500 text-xs">{fmt(e.valor_total)}</TableCell>
-
                   <TableCell className="text-right">
                     <div className="text-sm font-black text-[#1a2e4a]">{fmt(e.valor_saldo)}</div>
                     <div className="w-24 ml-auto bg-gray-100 h-1 mt-1.5 rounded-full overflow-hidden">
@@ -207,12 +200,9 @@ export default function Empenhos() {
                       />
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                      variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:bg-blue-50"
                       onClick={() => { setEmpenhoParaEditar(e); setModalOpen(true); }}
                     >
                       <TrendingUp size={14} />
