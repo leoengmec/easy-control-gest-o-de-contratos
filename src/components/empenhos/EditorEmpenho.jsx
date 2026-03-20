@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText, Link2 } from "lucide-react";
+import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate }) {
+export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate, user }) {
   const [saving, setSaving] = useState(false);
   const [tipoAjuste, setTipoAjuste] = useState("reforco"); 
   const [valorAjuste, setValorAjuste] = useState("");
@@ -18,80 +18,81 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
   const [formData, setFormData] = useState({
     numero_empenho: "", 
     contrato_id: "", 
-    ptres: "168312", 
-    natureza_despesa: "339039", 
-    subelemento: "17", 
+    ptres: "", 
+    natureza_despesa: "", 
+    subelemento: "", 
+    processo_sei: "", 
     ano: new Date().getFullYear()
   });
 
   useEffect(() => {
-    if (open) {
+    if (open && empenho) {
       setFormData({
-        numero_empenho: empenho?.numero_empenho || "",
-        contrato_id: empenho?.contrato_id || "", 
-        ptres: empenho?.ptres || "168312",
-        natureza_despesa: empenho?.natureza_despesa || "339039",
-        subelemento: empenho?.subelemento || "17",
-        ano: empenho?.ano || new Date().getFullYear()
+        numero_empenho: empenho.numero_empenho || "",
+        contrato_id: empenho.contrato_id || "",
+        ptres: empenho.ptres || "",
+        natureza_despesa: empenho.natureza_despesa || "",
+        subelemento: empenho.subelemento || "",
+        processo_sei: empenho.processo_sei || "",
+        ano: empenho.ano || new Date().getFullYear()
       });
-      setJustificativa("");
       setValorAjuste("");
-      setTipoAjuste("reforco");
+      setJustificativa("");
     }
-  }, [empenho, open]);
+  }, [open, empenho]);
 
   const handleSalvar = async () => {
-    if (!formData.contrato_id) return toast.error("Selecione um contrato.");
-    if (!justificativa.trim()) return toast.error("Justificativa técnica obrigatória.");
-    
-    const valorNum = parseFloat(valorAjuste) || 0;
-    if (valorNum <= 0) return toast.error("Informe um valor válido.");
+    if (!valorAjuste || Number(valorAjuste) <= 0) {
+      return toast.error("Informe um valor válido para o ajuste");
+    }
+    if (!justificativa.trim()) {
+      return toast.error("A justificativa técnica é obrigatória");
+    }
 
     setSaving(true);
-    const mod = tipoAjuste === "reforco" ? 1 : -1;
-    const agora = new Date().toISOString();
-
     try {
-      if (empenho?.id) {
-        // Cálculo no Front-end (conforme confirmado pelo Base44)
-        const novoTotal = Number(empenho.valor_total || 0) + (valorNum * mod);
-        const novoSaldo = Number(empenho.valor_saldo || 0) + (valorNum * mod);
+      const valorNumerico = parseFloat(valorAjuste);
+      const saldoAtual = parseFloat(empenho.valor_saldo || 0);
+      const totalAtual = parseFloat(empenho.valor_total || 0);
+      
+      // Cálculo de Saldo no Front-end (Regra do Schema)
+      const novoSaldo = tipoAjuste === "reforco" 
+        ? saldoAtual + valorNumerico 
+        : saldoAtual - valorNumerico;
 
-        // 1. Atualiza a Nota de Empenho
-        await base44.entities.NotaEmpenho.update(empenho.id, {
-          ...formData,
-          valor_total: novoTotal,
-          valor_saldo: novoSaldo,
-          responsavel_alteracao: "Leonardo Pereira da Silva",
-          data_ultima_alteracao: agora
-        });
+      const novoTotal = tipoAjuste === "reforco"
+        ? totalAtual + valorNumerico
+        : totalAtual - valorNumerico;
 
-        // 2. CORREÇÃO: Salva na tabela LogAuditoria (a única que aceita esses campos)
-        await base44.entities.LogAuditoria.create({
-          entidade_id: empenho.id,
-          tipo_acao: tipoAjuste.toUpperCase(),
-          valor_operacao: valorNum * mod,
-          justificativa: justificativa,
-          responsavel: "Leonardo Pereira da Silva",
-          data_acao: agora
-        });
-      } else {
-        // Criação de novo registro
-        await base44.entities.NotaEmpenho.create({
-          ...formData,
-          valor_total: valorNum,
-          valor_saldo: valorNum,
-          responsavel_alteracao: "Leonardo Pereira da Silva",
-          data_ultima_alteracao: agora
-        });
+      if (novoSaldo < 0) {
+        throw new Error("Saldo insuficiente para realizar esta anulação.");
       }
 
-      toast.success("Dados persistidos no Base44 com sucesso.");
-      onUpdate();
+      // 1. Atualiza a Nota de Empenho com valores absolutos
+      await base44.entities.NotaEmpenho.update(empenho.id, {
+        ...formData,
+        valor_total: novoTotal,
+        valor_saldo: novoSaldo,
+        responsavel_alteracao: user?.full_name || user?.email || "Usuário Sistema",
+        data_ultima_alteracao: new Date().toISOString()
+      });
+
+      // 2. Registra na LogAuditoria (Correção da Divergência Arquitetural)
+      await base44.entities.LogAuditoria.create({
+        entidade_id: empenho.id,
+        tipo_acao: tipoAjuste === "reforco" ? "REFORCO_EMPENHO" : "ANULACAO_EMPENHO",
+        valor_operacao: valorNumerico,
+        justificativa: justificativa,
+        responsavel: user?.full_name || user?.email || "Sistema",
+        data_acao: new Date().toISOString()
+      });
+
+      toast.success("Empenho atualizado com sucesso!");
+      if (onUpdate) onUpdate();
       onOpenChange(false);
-    } catch (e) {
-      console.error(e);
-      toast.error("Erro de Schema: Verifique se a tabela LogAuditoria existe.");
+    } catch (error) {
+      console.error(error);
+      toast.error(error.message || "Erro ao atualizar empenho");
     } finally {
       setSaving(false);
     }
@@ -99,31 +100,59 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden font-sans border-none shadow-2xl">
-        <DialogHeader className="bg-[#1a2e4a] p-6 text-white text-xl font-black uppercase">
-          Ajuste do Empenho
+      <DialogContent className="max-w-md border-t-4 border-[#1a2e4a]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-[#1a2e4a] uppercase font-black tracking-tighter">
+            <FileText className="w-5 h-5" /> Editor de Nota de Empenho
+          </DialogTitle>
         </DialogHeader>
-        <div className="p-6 space-y-4 bg-white">
-          <div className="space-y-1">
-            <Label className="text-[10px] font-bold uppercase text-gray-400">Contrato Vinculado</Label>
-            <Select value={formData.contrato_id} onValueChange={v => setFormData({...formData, contrato_id: v})}>
-              <SelectTrigger className="font-bold text-[#1a2e4a] border-gray-300">
-                <SelectValue placeholder="Selecione..." />
-              </SelectTrigger>
-              <SelectContent>
-                {contratos?.map(c => (
-                  <SelectItem key={c.id} value={c.id} className="text-xs">
-                    {c.numero} - {c.contratada}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+
+        <div className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase opacity-60">Tipo de Ajuste</Label>
+              <Select value={tipoAjuste} onValueChange={setTipoAjuste}>
+                <SelectTrigger className="h-11 font-bold">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reforco" className="text-green-600 font-bold">➕ REFORÇO</SelectItem>
+                  <SelectItem value="anulacao" className="text-red-600 font-bold">➖ ANULAÇÃO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase opacity-60">Valor do Ajuste (R$)</Label>
+              <Input 
+                type="number" 
+                value={valorAjuste} 
+                onChange={e => setValorAjuste(e.target.value)} 
+                placeholder="0,00" 
+                className="font-mono text-lg h-11 border-gray-300" 
+              />
+            </div>
           </div>
-          {/* ... restante dos campos de Input (Numero NE, Valor, Justificativa) mantidos como na versão anterior ... */}
+
+          <div className="space-y-1">
+            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1">
+              <AlertCircle size={12} /> Justificativa Técnica (Obrigatório)
+            </Label>
+            <Textarea 
+              value={justificativa} 
+              onChange={e => setJustificativa(e.target.value)} 
+              placeholder="Descreva o motivo do reforço ou redução..." 
+              className="h-20 resize-none text-xs border-gray-300 focus:ring-[#1a2e4a]" 
+            />
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase font-bold text-xs">Cancelar</Button>
-            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] text-white font-black uppercase px-8 h-11">
-              {saving ? <Loader2 className="animate-spin" /> : "Confirmar no Banco"}
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
+            <Button 
+              onClick={handleSalvar} 
+              disabled={saving} 
+              className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg transition-all"
+            >
+              {saving ? <Loader2 className="animate-spin" /> : "Confirmar Alteração"}
             </Button>
           </div>
         </div>
