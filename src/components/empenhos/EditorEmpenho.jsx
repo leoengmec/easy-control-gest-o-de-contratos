@@ -1,65 +1,79 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, TrendingUp, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 
 export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, user }) {
   const [saving, setSaving] = useState(false);
+  const [tipoAjuste, setTipoAjuste] = useState("reforco"); // reforco ou reducao
+  const [valorAjuste, setValorAjuste] = useState("");
+  const [justificativa, setJustificativa] = useState("");
+  
   const [formData, setFormData] = useState({
     numero_empenho: "",
-    valor_total: "",
-    valor_saldo: "",
-    observacoes: ""
+    ptres: "",
+    natureza_despesa: "",
+    subelemento: "",
+    processo_sei: ""
   });
 
   useEffect(() => {
     if (empenho && open) {
       setFormData({
         numero_empenho: empenho.numero_empenho || "",
-        valor_total: formatMoneyInput((empenho.valor_total || 0).toFixed(2).replace(".", "")),
-        valor_saldo: formatMoneyInput((empenho.valor_saldo || 0).toFixed(2).replace(".", "")),
-        observacoes: empenho.observacoes || ""
+        ptres: empenho.ptres || "",
+        natureza_despesa: empenho.natureza_despesa || "",
+        subelemento: empenho.subelemento || "",
+        processo_sei: empenho.processo_sei || ""
       });
+      setJustificativa("");
+      setValorAjuste("");
     }
   }, [empenho, open]);
 
-  const formatMoneyInput = (value) => {
-    if (!value) return "";
-    const cleanValue = value.toString().replace(/\D/g, "");
-    if (cleanValue === "") return "";
-    const numberValue = Number(cleanValue) / 100;
-    return numberValue.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-
-  const parseMoneyValue = (formattedValue) => {
-    if (!formattedValue) return 0;
-    const cleanStr = formattedValue.toString().replace(/\./g, "").replace(",", ".");
-    return Number(cleanStr);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
+  const handleSalvar = async () => {
+    if (!justificativa) return toast.error("Justificativa obrigatória para o log de auditoria.");
     
+    setSaving(true);
+    const agoraISO = new Date().toISOString();
+    const valorNumerico = Number(valorAjuste) || 0;
+    
+    // Lógica de Reforço ou Redução
+    const modificador = tipoAjuste === "reforco" ? 1 : -1;
+    const novoValorTotal = Number(empenho.valor_total) + (valorNumerico * modificador);
+    const novoValorSaldo = Number(empenho.valor_saldo) + (valorNumerico * modificador);
+
     try {
+      // 1. Atualizar Nota de Empenho
       await base44.entities.NotaEmpenho.update(empenho.id, {
-        numero_empenho: formData.numero_empenho,
-        valor_total: parseMoneyValue(formData.valor_total),
-        valor_saldo: parseMoneyValue(formData.valor_saldo),
-        observacoes: formData.observacoes
+        ...formData,
+        valor_total: novoValorTotal,
+        valor_saldo: novoValorSaldo,
+        responsavel_alteracao: user?.full_name || "Leonardo Pereira da Silva",
+        data_ultima_alteracao: agoraISO
       });
-      
-      toast.success("Empenho atualizado com sucesso!");
+
+      // 2. Registrar no Log de Auditoria
+      await base44.entities.LogAuditoria.create({
+        entidade: "NotaEmpenho",
+        entidade_id: empenho.id,
+        tipo_acao: tipoAjuste.toUpperCase(),
+        valor_operacao: valorNumerico * modificador,
+        justificativa: justificativa,
+        responsavel: user?.full_name || "Leonardo Pereira da Silva",
+        data_acao: agoraISO
+      });
+
+      toast.success(`Operação de ${tipoAjuste} concluída com sucesso.`);
       onUpdate();
       onOpenChange(false);
     } catch (error) {
-      console.error("Erro ao atualizar empenho:", error);
-      toast.error("Erro ao atualizar os dados do empenho.");
+      toast.error("Erro ao processar ajuste orçamentário.");
     } finally {
       setSaving(false);
     }
@@ -67,61 +81,76 @@ export default function EditorEmpenho({ empenho, open, onOpenChange, onUpdate, u
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-white rounded-xl border-none shadow-2xl p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden border-none shadow-2xl">
         <DialogHeader className="bg-[#1a2e4a] p-6 text-white">
-          <DialogTitle className="text-xl font-black uppercase tracking-tight">Editar Nota de Empenho</DialogTitle>
+          <DialogTitle className="text-xl font-black uppercase tracking-tight">Ajuste de Nota de Empenho</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="space-y-2">
-            <Label className="text-xs font-bold text-gray-700 uppercase">Número NE *</Label>
-            <Input 
-              required
-              value={formData.numero_empenho}
-              onChange={(e) => setFormData({...formData, numero_empenho: e.target.value})}
-              className="h-11 border-gray-300 font-bold uppercase"
-            />
-          </div>
-          
+        
+        <div className="p-6 space-y-5 bg-white">
+          {/* Dados Técnicos SIAFI */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-gray-700 uppercase">Valor Total (R$) *</Label>
-              <Input 
-                required
-                value={formData.valor_total}
-                onChange={(e) => setFormData({...formData, valor_total: formatMoneyInput(e.target.value)})}
-                className="h-11 border-gray-300 font-mono text-lg"
-              />
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase text-gray-500">PTRES [cite: 27]</Label>
+              <Input value={formData.ptres} onChange={e => setFormData({...formData, ptres: e.target.value})} className="h-9" />
             </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-gray-700 uppercase">Valor Saldo (R$) *</Label>
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase text-gray-500">Natureza (ND) [cite: 104]</Label>
+              <Input value={formData.natureza_despesa} onChange={e => setFormData({...formData, natureza_despesa: e.target.value})} className="h-9" />
+            </div>
+          </div>
+
+          {/* Seção de Reforço/Redução */}
+          <div className="p-4 rounded-xl border-2 border-dashed border-gray-100 bg-gray-50/50 space-y-4">
+            <div className="flex gap-2">
+              <Button 
+                type="button"
+                variant={tipoAjuste === "reforco" ? "default" : "outline"}
+                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600" : ""}`}
+                onClick={() => setTipoAjuste("reforco")}
+              >
+                <TrendingUp className="w-3 h-3 mr-2" /> Reforço
+              </Button>
+              <Button 
+                type="button"
+                variant={tipoAjuste === "reducao" ? "default" : "outline"}
+                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600" : ""}`}
+                onClick={() => setTipoAjuste("reducao")}
+              >
+                <TrendingDown className="w-3 h-3 mr-2" /> Redução
+              </Button>
+            </div>
+            
+            <div className="space-y-1">
+              <Label className="text-[10px] font-bold uppercase">Valor do Ajuste (R$)</Label>
               <Input 
-                required
-                value={formData.valor_saldo}
-                onChange={(e) => setFormData({...formData, valor_saldo: formatMoneyInput(e.target.value)})}
-                className="h-11 border-gray-300 font-mono text-lg"
+                type="number" 
+                value={valorAjuste} 
+                onChange={e => setValorAjuste(e.target.value)}
+                placeholder="0,00"
+                className="font-mono text-lg h-11"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-bold text-gray-700 uppercase">Observações</Label>
+            <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1">
+              <AlertCircle size={12} /> Justificativa da Alteração *
+            </Label>
             <Textarea 
-              value={formData.observacoes}
-              onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
-              className="resize-none h-24 border-gray-300"
-              placeholder="Adicione notas ou justificativas..."
+              value={justificativa}
+              onChange={e => setJustificativa(e.target.value)}
+              placeholder="Descreva o motivo técnico do reforço ou redução..."
+              className="h-24 resize-none border-gray-300"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="uppercase text-xs font-bold h-11 px-6">
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={saving} className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-xs font-black h-11 px-8 shadow-lg">
-              {saving ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : "Salvar Alterações"}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
+            <Button onClick={handleSalvar} disabled={saving} className="bg-[#1a2e4a] uppercase text-[10px] font-black px-8">
+              {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Alteração"}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
