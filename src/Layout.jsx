@@ -1,70 +1,70 @@
-import { useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster"
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClientInstance } from '@/lib/query-client'
+import { pagesConfig } from './pages.config'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import PageNotFound from './lib/PageNotFound';
+import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-export default function Layout() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
+import Layout from './Layout';
 
-  const menus = [
-    {
-      grupo: "Gestão Inteligente",
-      itens: [
-        { nome: "Dashboard", path: "/" },
-        { nome: "Relatórios", path: "/relatorios" }
-      ]
-    },
-    {
-      grupo: "Fiscalização Contratual",
-      itens: [
-        { nome: "Contratos", path: "/contratos" },
-        { nome: "Revisão", path: "/revisao" }
-      ]
-    },
-    {
-      grupo: "Controle Financeiro",
-      itens: [
-        { nome: "Extrato de Pagamentos", path: "/extrato" },
-        { nome: "Notas de Empenho", path: "/empenhos" }
-      ]
-    }
-  ];
+// Importação das suas páginas conforme seus arquivos
+import ExtratoPagamentos from './pages/ExtratoPagamentos';
+import Empenhos from './pages/Empenhos';
+
+const { Pages, mainPage } = pagesConfig;
+const mainPageKey = mainPage ?? Object.keys(Pages)[0];
+const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
+
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (authError) {
+    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
+    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
+  }
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
-      <aside className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1a2e4a] text-white transition-transform transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0`}>
-         <div className="p-6 border-b border-white/10 font-black uppercase tracking-widest text-xl">Easy Control</div>
-         <div className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-80px)]">
-            {menus.map((grupo, idx) => (
-              <div key={idx}>
-                <div className="text-[10px] font-bold text-gray-400 uppercase mb-3 px-3">{grupo.grupo}</div>
-                <div className="space-y-1">
-                  {grupo.itens.map((item, i) => (
-                    <Link
-                      key={i}
-                      to={item.path}
-                      className={`flex items-center px-4 py-2.5 rounded-lg text-sm font-bold uppercase transition-colors ${location.pathname === item.path ? "bg-blue-600 text-white" : "text-gray-300 hover:bg-white/10"}`}
-                      onClick={() => setSidebarOpen(false)}
-                    >
-                      {item.nome}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-         </div>
-      </aside>
+    <Routes>
+      <Route element={<Layout />}>
+        {/* Rota Principal baseada no pagesConfig */}
+        <Route path="/" element={<MainPage />} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b p-4 px-8 flex justify-between items-center">
-          <button className="md:hidden font-bold" onClick={() => setSidebarOpen(true)}>MENU</button>
-          <div className="flex items-center gap-4 ml-auto font-bold text-[#1a2e4a] uppercase text-sm">
-            Leonardo P. Silva
-          </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-8">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+        {/* Rotas específicas que você definiu */}
+        <Route path="/extrato" element={<ExtratoPagamentos />} />
+        <Route path="/empenhos" element={<Empenhos />} />
+
+        {/* Mapeamento Automático do pagesConfig - Essencial para não quebrar o App */}
+        {Object.entries(Pages).map(([path, Page]) => (
+          <Route key={path} path={`/${path}`} element={<Page />} />
+        ))}
+      </Route>
+
+      <Route path="*" element={<PageNotFound />} />
+    </Routes>
   );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <Router>
+          <AuthenticatedApp />
+        </Router>
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
+  )
 }
+
+export default App;
