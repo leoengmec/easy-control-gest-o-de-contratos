@@ -54,23 +54,22 @@ export default function ExtratoPagamentos() {
   }
 
   const handleStatusChange = async (id, novoStatus) => {
-    try {
-      // Pega o nome do usuário logado no momento da alteração
-      const currentUser = await base44.auth.me();
-      
-      await base44.entities.LancamentoFinanceiro.update(id, { 
-        status: novoStatus,
-        // Atualiza os campos de auditoria de status conforme a regra de ADM
-        data_alteracao_status: new Date().toLocaleString('pt-BR'),
-        responsavel_alteracao_status: currentUser?.full_name || "Leonardo Alves"
-      });
-      
-      toast.success(`Status atualizado para ${novoStatus}`);
-      carregarDados();
-    } catch (err) {
-      toast.error("Erro ao atualizar status");
-    }
-  };
+  const agoraISO = new Date().toISOString();
+  const nomeResponsavel = user?.full_name || "Leonardo Alves";
+
+  try {
+    await base44.entities.LancamentoFinanceiro.update(id, {
+      status: novoStatus,
+      // ESTES CAMPOS SÃO OBRIGATÓRIOS NO UPDATE
+      responsavel_alteracao_status: nomeResponsavel,
+      data_alteracao_status: agoraISO
+    });
+    toast.success(`Status atualizado para ${novoStatus}`);
+    fetchDados(); // Atualiza a tabela para refletir a mudança
+  } catch (error) {
+    toast.error("Erro ao atualizar status.");
+  }
+};
 
   const dadosFiltrados = (lancamentos || []).filter(l => {
     const matchContrato = filtroContrato === "todos" || l.contrato_id === filtroContrato;
