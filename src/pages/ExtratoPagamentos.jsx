@@ -4,7 +4,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Loader2, Calendar, User, FileText, ArrowRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Calendar, User, FileText, ArrowRight, History } from "lucide-react";
+import TimelineHistorico from "@/components/lancamentos/TimelineHistorico";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
@@ -22,6 +25,15 @@ export default function ExtratoPagamentos() {
   const [contratos, setContratos] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // States para atualização de Status e Histórico
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [lancamentoSelecionado, setLancamentoSelecionado] = useState(null);
+  const [novoStatus, setNovoStatus] = useState("");
+  const [motivoStatus, setMotivoStatus] = useState("");
+  const [salvandoStatus, setSalvandoStatus] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [lancamentoTimeline, setLancamentoTimeline] = useState(null);
 
   useEffect(() => {
     async function carregarDados() {
@@ -51,31 +63,67 @@ export default function ExtratoPagamentos() {
     return contrato ? `${contrato.numero} | ${contrato.contratada}` : "Contrato não encontrado";
   };
 
-  const handleStatusUpdate = async (id, novoStatus) => {
+  const openStatusModal = (lancamento, status) => {
+    setLancamentoSelecionado(lancamento);
+    setNovoStatus(status);
+    setMotivoStatus("");
+    setIsStatusModalOpen(true);
+  };
+
+  const confirmarAlteracaoStatus = async () => {
+    if (!motivoStatus.trim()) {
+      toast.error("A justificativa é obrigatória para alteração de status.");
+      return;
+    }
+    
+    setSalvandoStatus(true);
     const agoraISO = new Date().toISOString();
     const nomeResponsavel = user?.full_name || "Leonardo Alves";
+    const idResponsavel = user?.id || "admin";
 
     try {
-      await base44.entities.LancamentoFinanceiro.update(id, {
+      // 1. Atualiza o Lançamento
+      await base44.entities.LancamentoFinanceiro.update(lancamentoSelecionado.id, {
         status: novoStatus,
         responsavel_alteracao_status: nomeResponsavel,
         data_alteracao_status: agoraISO
       });
+
+      // 2. Registra no Histórico
+      await base44.entities.HistoricoLancamento.create({
+        lancamento_financeiro_id: String(lancamentoSelecionado.id),
+        tipo_acao: "atualizacao_status",
+        status_anterior: lancamentoSelecionado.status,
+        status_novo: novoStatus,
+        motivo: motivoStatus,
+        realizado_por: nomeResponsavel,
+        realizado_por_id: idResponsavel,
+        data_acao: agoraISO
+      });
       
-      toast.success(`Status atualizado: ${novoStatus}`);
+      toast.success(`Status atualizado para ${novoStatus}`);
       
-      // Atualização otimista na UI
+      // Atualização otimista
       setLancamentos(prev => prev.map(l => 
-        l.id === id ? { 
+        l.id === lancamentoSelecionado.id ? { 
           ...l, 
           status: novoStatus, 
           responsavel_alteracao_status: nomeResponsavel, 
           data_alteracao_status: agoraISO 
         } : l
       ));
+      
+      setIsStatusModalOpen(false);
     } catch (error) {
-      toast.error("Erro ao persistir auditoria.");
+      toast.error("Erro ao persistir auditoria de status.");
+    } finally {
+      setSalvandoStatus(false);
     }
+  };
+
+  const openTimeline = (lancamento) => {
+    setLancamentoTimeline(lancamento);
+    setIsTimelineOpen(true);
   };
 
   const formatarDataAuditoria = (dataStr) => {
@@ -140,29 +188,36 @@ export default function ExtratoPagamentos() {
                 </TableCell>
 
                 <TableCell>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="h-7 px-2 text-[10px] font-bold border-gray-200 shadow-none">
-                        {l.status}
-                        <ArrowRight className="ml-2 h-3 w-3 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2 shadow-2xl border-blue-100">
-                      <div className="text-[9px] font-bold text-gray-400 uppercase mb-2 px-2">Alterar Status</div>
-                      <div className="grid grid-cols-1 gap-1">
-                        {STATUS_OPTIONS.map(st => (
-                          <Button 
-                            key={st} 
-                            variant="ghost" 
-                            className={`justify-start text-[10px] h-8 ${l.status === st ? 'bg-blue-50 text-blue-700 font-bold' : ''}`}
-                            onClick={() => handleStatusUpdate(l.id, st)}
-                          >
-                            {st}
-                          </Button>
-                        ))}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <div className="flex flex-col gap-2 items-start">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-7 px-2 text-[10px] font-bold border-gray-200 shadow-none hover:border-blue-300 hover:bg-blue-50">
+                          {l.status}
+                          <ArrowRight className="ml-2 h-3 w-3 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-56 p-2 shadow-2xl border-blue-100">
+                        <div className="text-[9px] font-bold text-gray-400 uppercase mb-2 px-2">Alterar Status</div>
+                        <div className="grid grid-cols-1 gap-1">
+                          {STATUS_OPTIONS.map(st => (
+                            <Button 
+                              key={st} 
+                              variant="ghost" 
+                              className={`justify-start text-[10px] h-8 ${l.status === st ? 'bg-blue-50 text-blue-700 font-bold' : ''}`}
+                              onClick={() => {
+                                if(st !== l.status) openStatusModal(l, st);
+                              }}
+                            >
+                              {st}
+                            </Button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <Button variant="ghost" size="sm" className="h-5 px-1 text-[9px] text-blue-600 uppercase font-bold" onClick={() => openTimeline(l)}>
+                      <History className="h-3 w-3 mr-1" /> Histórico
+                    </Button>
+                  </div>
                 </TableCell>
 
                 <TableCell>
@@ -197,6 +252,62 @@ export default function ExtratoPagamentos() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Modal de Confirmação de Status com Justificativa */}
+      <Dialog open={isStatusModalOpen} onOpenChange={setIsStatusModalOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-white rounded-xl border-none shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-[#1a2e4a] uppercase">Justificar Alteração de Status</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+              <div className="flex-1">
+                <div className="text-[10px] font-bold text-gray-400 uppercase">Status Atual</div>
+                <Badge variant="outline" className="text-xs bg-white">{lancamentoSelecionado?.status}</Badge>
+              </div>
+              <ArrowRight className="text-gray-300" />
+              <div className="flex-1">
+                <div className="text-[10px] font-bold text-gray-400 uppercase">Novo Status</div>
+                <Badge className="text-xs bg-blue-100 text-blue-700 border-none">{novoStatus}</Badge>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700 uppercase">Motivo da Alteração *</label>
+              <Textarea 
+                placeholder="Descreva detalhadamente o motivo da mudança deste status..."
+                className="h-28 resize-none bg-white"
+                value={motivoStatus}
+                onChange={(e) => setMotivoStatus(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setIsStatusModalOpen(false)}>Cancelar</Button>
+            <Button onClick={confirmarAlteracaoStatus} disabled={salvandoStatus} className="bg-[#1a2e4a] text-white hover:bg-[#2a4a7a]">
+              {salvandoStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Confirmar Alteração
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Timeline / Histórico */}
+      <Dialog open={isTimelineOpen} onOpenChange={setIsTimelineOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-white rounded-xl border-none shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="bg-gray-50 border-b p-6">
+            <DialogTitle className="text-lg font-black text-[#1a2e4a] uppercase flex items-center gap-2">
+              <History className="h-5 w-5 text-blue-600" />
+              Histórico de Auditoria
+            </DialogTitle>
+            <div className="text-xs text-gray-500 font-medium mt-1">NF {lancamentoTimeline?.numero_nf} - {lancamentoTimeline?.item_label}</div>
+          </DialogHeader>
+          <div className="p-6">
+            {lancamentoTimeline && <TimelineHistorico lancamentoId={lancamentoTimeline.id} />}
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

@@ -77,7 +77,7 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
         const label = opcoesEscolha.find(o => String(o.id) === itemId)?.nome;
         const oss = ordensServico[itemId] || [];
         
-        await base44.entities.LancamentoFinanceiro.create({
+        const createdLancamento = await base44.entities.LancamentoFinanceiro.create({
           contrato_id: contratoId, 
           item_label: label, 
           mes: mesesNomes.indexOf(mes) + 1, 
@@ -100,6 +100,17 @@ export default function LancamentoForm({ lancamento, contratos, itens, onSave, o
           data_alteracao_status: agoraISO,
           
           ordens_servico: oss.map(o => ({ numero: o.numero_os, valor: o.valor, locais: o.locais?.join(", ") }))
+        });
+
+        // 2. Registra a ação de Criação no Histórico de Auditoria
+        await base44.entities.HistoricoLancamento.create({
+          lancamento_financeiro_id: String(createdLancamento.id),
+          tipo_acao: "criacao",
+          status_novo: status,
+          motivo: "Lançamento inicial registrado pelo sistema.",
+          realizado_por: nomeResponsavel,
+          realizado_por_id: user?.id || "admin",
+          data_acao: agoraISO
         });
       }
 
