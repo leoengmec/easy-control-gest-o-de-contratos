@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, AlertCircle, TrendingUp, TrendingDown, FileText, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate, user }) {
+export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, onUpdate }) {
   const [saving, setSaving] = useState(false);
   const [tipoAjuste, setTipoAjuste] = useState("reforco"); 
   const [valorAjuste, setValorAjuste] = useState("");
@@ -18,19 +18,18 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
   const [formData, setFormData] = useState({
     numero_empenho: "", 
     contrato_id: "", 
-    ptres: "", 
-    natureza_despesa: "", 
-    subelemento: "", 
+    ptres: "168312", 
+    natureza_despesa: "339039", 
+    subelemento: "17", 
     processo_sei: "", 
     ano: new Date().getFullYear()
   });
 
-  // Sincroniza dados ao abrir o modal
   useEffect(() => {
     if (open) {
       setFormData({
         numero_empenho: empenho?.numero_empenho || "",
-        contrato_id: empenho?.contrato_id || "", // Correlação com o BD de Contratos
+        contrato_id: empenho?.contrato_id || "", 
         ptres: empenho?.ptres || "168312",
         natureza_despesa: empenho?.natureza_despesa || "339039",
         subelemento: empenho?.subelemento || "17",
@@ -56,11 +55,9 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
 
     try {
       if (empenho?.id) {
-        // Cálculo do novo montante SIAFI
         const novoTotal = Number(empenho.valor_total || 0) + (valorNum * mod);
         const novoSaldo = Number(empenho.valor_saldo || 0) + (valorNum * mod);
 
-        // Atualiza a Nota de Empenho vinculando o contrato selecionado
         await base44.entities.NotaEmpenho.update(empenho.id, {
           ...formData,
           valor_total: novoTotal,
@@ -69,7 +66,6 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
           data_ultima_alteracao: agora
         });
 
-        // Registra o log no Histórico de Orçamento para Auditoria
         await base44.entities.HistoricoOrcamento.create({
           entidade_id: empenho.id,
           tipo_acao: tipoAjuste.toUpperCase(),
@@ -79,7 +75,6 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
           data_acao: agora
         });
       } else {
-        // Criação de novo Empenho Anual
         await base44.entities.NotaEmpenho.create({
           ...formData,
           valor_total: valorNum,
@@ -89,11 +84,11 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         });
       }
 
-      toast.success("Ajuste do empenho realizado com sucesso.");
+      toast.success("Operação realizada com sucesso.");
       onUpdate();
       onOpenChange(false);
     } catch (e) {
-      toast.error("Erro ao salvar no Banco de Dados.");
+      toast.error("Erro ao salvar dados.");
     } finally {
       setSaving(false);
     }
@@ -109,7 +104,6 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
         </DialogHeader>
         
         <div className="p-6 space-y-4 bg-white">
-          {/* Campo de Correlação com o BD de Contratos */}
           <div className="space-y-1">
             <Label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
               <Link2 size={12} /> Contrato Vinculado (SIAFI/JFRN)
@@ -118,21 +112,15 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
               value={formData.contrato_id} 
               onValueChange={v => setFormData({...formData, contrato_id: v})}
             >
-              <SelectTrigger className="h-10 font-bold border-gray-300 bg-gray-50/30">
+              <SelectTrigger className="h-10 font-bold border-gray-300 bg-gray-50/30 text-[#1a2e4a]">
                 <SelectValue placeholder="Selecione o Contrato" />
               </SelectTrigger>
               <SelectContent>
-                {contratos?.length > 0 ? (
-                  contratos.map(c => (
-                    <SelectItem key={c.id} value={c.id} className="text-xs">
-                      {c.numero_contrato} - {c.empresa}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <div className="p-2 text-[10px] text-gray-400 uppercase font-bold text-center">
-                    Nenhum contrato localizado no BD
-                  </div>
-                )}
+                {contratos?.map(c => (
+                  <SelectItem key={c.id} value={c.id} className="text-xs">
+                    {c.numero} - {c.contratada}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -143,15 +131,16 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
               <Input 
                 value={formData.numero_empenho} 
                 onChange={e => setFormData({...formData, numero_empenho: e.target.value.toUpperCase()})} 
-                className="h-9 font-bold border-gray-300" 
-                placeholder="Ex: 2026NE0001" 
+                className="h-9 font-bold border-gray-300 text-[#1a2e4a]" 
+                placeholder="2026NE..." 
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-[10px] font-bold uppercase text-gray-400">PTRES</Label>
+              <Label className="text-[10px] font-bold uppercase text-gray-400">Ano Fiscal</Label>
               <Input 
-                value={formData.ptres} 
-                onChange={e => setFormData({...formData, ptres: e.target.value})} 
+                type="number"
+                value={formData.ano} 
+                onChange={e => setFormData({...formData, ano: e.target.value})} 
                 className="h-9 font-bold border-gray-300" 
               />
             </div>
@@ -162,7 +151,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
               <Button 
                 type="button" 
                 variant={tipoAjuste === "reforco" ? "default" : "outline"} 
-                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600 text-white" : ""}`} 
+                className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reforco" ? "bg-green-600 hover:bg-green-700 text-white" : ""}`} 
                 onClick={() => setTipoAjuste("reforco")}
               >
                 <TrendingUp className="w-3 h-3 mr-2" /> {empenho ? "Reforço" : "Valor Inicial"}
@@ -171,7 +160,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
                 <Button 
                   type="button" 
                   variant={tipoAjuste === "reducao" ? "default" : "outline"} 
-                  className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600 text-white" : ""}`} 
+                  className={`flex-1 h-9 text-[10px] font-bold uppercase ${tipoAjuste === "reducao" ? "bg-red-600 hover:bg-red-700 text-white" : ""}`} 
                   onClick={() => setTipoAjuste("reducao")}
                 >
                   <TrendingDown className="w-3 h-3 mr-2" /> Redução
@@ -185,20 +174,20 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
                 value={valorAjuste} 
                 onChange={e => setValorAjuste(e.target.value)} 
                 placeholder="0,00" 
-                className="font-mono text-lg h-11 border-gray-300" 
+                className="font-mono text-lg h-11 border-gray-300 text-[#1a2e4a]" 
               />
             </div>
           </div>
 
           <div className="space-y-1">
             <Label className="text-[10px] font-bold uppercase text-red-600 flex items-center gap-1">
-              <AlertCircle size={12} /> Justificativa Técnica (Obrigatório)
+              <AlertCircle size={12} /> Justificativa Técnica
             </Label>
             <Textarea 
               value={justificativa} 
               onChange={e => setJustificativa(e.target.value)} 
-              placeholder="Descreva o motivo do reforço ou redução..." 
-              className="h-20 resize-none text-xs border-gray-300 focus:ring-[#1a2e4a]" 
+              placeholder="Descreva o motivo..." 
+              className="h-20 resize-none text-xs border-gray-300" 
             />
           </div>
 
@@ -207,7 +196,7 @@ export default function EditorEmpenho({ empenho, contratos, open, onOpenChange, 
             <Button 
               onClick={handleSalvar} 
               disabled={saving} 
-              className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-[10px] font-black px-8 h-11 shadow-lg transition-all"
+              className="bg-[#1a2e4a] hover:bg-[#2c4a75] text-white uppercase text-[10px] font-black px-8 h-11"
             >
               {saving ? <Loader2 className="animate-spin h-4 w-4" /> : "Confirmar Ajuste"}
             </Button>
