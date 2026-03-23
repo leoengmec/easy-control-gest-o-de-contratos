@@ -3,18 +3,21 @@ import { base44 } from "@/api/base44Client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { History, Search, FileCheck, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { History, Search, FileCheck, ShieldCheck, CheckCircle2, Edit } from "lucide-react";
 
 export default function ExtratoPagamentos() {
   const [lancamentos, setLancamentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [termoBusca, setTermoBusca] = useState("");
   const [toast, setToast] = useState(null);
+  
+  // Estado para controlar a janela flutuante de edicao
+  const [itemEditando, setItemEditando] = useState(null);
 
-  // Simulação do Usuário Logado (O Base44 substituirá isso pelo contexto de Auth real)
-  const [currentUser, setCurrentUser] = useState({
+  // Simula o usuario logado (Altere o perfil aqui para testar as travas visuais)
+  const [currentUser] = useState({
     nome: "Leonardo (Eng. Mecânico)",
-    perfil: "Administrador" // Mude para "Comum" para testar o bloqueio visual do select
+    perfil: "Administrador" 
   });
 
   useEffect(() => {
@@ -25,7 +28,6 @@ export default function ExtratoPagamentos() {
     setLoading(true);
     try {
       const data = await base44.entities.LancamentoFinanceiro.list();
-      // Ordenação pela data de criação mais recente
       const ordenados = (data || []).sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
       setLancamentos(ordenados);
     } catch (err) {
@@ -81,6 +83,38 @@ export default function ExtratoPagamentos() {
     }
   };
 
+  const salvarEdicaoCadastro = async (e) => {
+    e.preventDefault();
+    try {
+      const dataAtual = new Date().toISOString();
+      
+      await base44.entities.LancamentoFinanceiro.update(itemEditando.id, {
+        numero_nf: itemEditando.numero_nf,
+        data_nf: itemEditando.data_nf,
+        numero_os: itemEditando.numero_os,
+        valor: Number(itemEditando.valor),
+        data_ultima_alteracao: dataAtual
+      });
+
+      await base44.entities.LogAuditoria.create({
+        entidade_id: itemEditando.id,
+        entidade_tipo: "LancamentoFinanceiro",
+        tipo_acao: "EDICAO_DADOS_CADASTRAIS",
+        justificativa: `Alteração manual dos dados do lançamento via modal de edição`,
+        responsavel: currentUser.nome,
+        valor_operacao: Number(itemEditando.valor),
+        data_acao: dataAtual
+      });
+
+      mostrarNotificacao("Dados do cadastro atualizados com sucesso!");
+      setItemEditando(null);
+      carregarDados();
+    } catch (error) {
+      console.error("Erro ao salvar edicao:", error);
+      alert("Erro ao tentar atualizar o cadastro no Base44.");
+    }
+  };
+
   const filtrados = lancamentos.filter(l => 
     l.item_label?.toLowerCase().includes(termoBusca.toLowerCase()) ||
     l.numero_nf?.includes(termoBusca) ||
@@ -112,6 +146,7 @@ export default function ExtratoPagamentos() {
           <Table className="min-w-[1200px]">
             <TableHeader className="bg-[#1a2e4a] hover:bg-[#1a2e4a]">
               <TableRow className="border-none">
+                <TableHead className="text-white font-bold h-12 w-10"></TableHead>
                 <TableHead className="text-white font-bold h-12">NF / DATA</TableHead>
                 <TableHead className="text-white font-bold h-12">DESCRIÇÃO DO ITEM</TableHead>
                 <TableHead className="text-white font-bold h-12 text-center">OS</TableHead>
@@ -124,19 +159,31 @@ export default function ExtratoPagamentos() {
             </TableHeader>
             <TableBody className="bg-white">
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-20 text-slate-400 font-medium italic">Sincronizando com Base44...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-20 text-slate-400 font-medium italic">Sincronizando com Base44...</TableCell></TableRow>
               ) : filtrados.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-20 text-slate-400">Nenhum registro encontrado para a busca.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-20 text-slate-400">Nenhum registro encontrado para a busca.</TableCell></TableRow>
               ) : filtrados.map((l) => {
                 
-                // Regra de Negócio: Bloqueio do Dropdown
+                // Mapeamento das regras de negocio baseadas no Perfil
                 const isPago = l.status === "Pago";
                 const isAdmin = currentUser.perfil === "Administrador";
-                const dropdownBloqueado = isPago && !isAdmin;
+                const isGestor = currentUser.perfil === "Gestor";
+                
+                const selectBloqueado = isGestor || (isPago && !isAdmin);
+                const podeEditarDados = isAdmin || (!isGestor && !isPago);
 
                 return (
                   <TableRow key={l.id} className="hover:bg-blue-50/20 transition-colors">
-                    {/* Coluna 1: NF / Data */}
+                    {/* Botao de Editar */}
+                    <TableCell>
+                      {podeEditarDados && (
+                        <button onClick={() => setItemEditando({...l})} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                      )}
+                    </TableCell>
+
+                    {/* NF / Data */}
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-bold text-[#1a2e4a]">{l.numero_nf || "S/N"}</span>
@@ -144,7 +191,7 @@ export default function ExtratoPagamentos() {
                       </div>
                     </TableCell>
 
-                    {/* Coluna 2: Descrição */}
+                    {/* Descricao */}
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <FileCheck className="w-3 h-3 text-blue-400 shrink-0" />
@@ -154,32 +201,32 @@ export default function ExtratoPagamentos() {
                       </div>
                     </TableCell>
 
-                    {/* Coluna 3: OS */}
+                    {/* OS */}
                     <TableCell className="text-center">
                       <span className="font-bold text-slate-600 bg-slate-100 px-2 py-1 rounded text-xs">
                         {l.numero_os || "N/A"}
                       </span>
                     </TableCell>
 
-                    {/* Coluna 4: Responsável */}
+                    {/* Responsavel */}
                     <TableCell>
                       <span className="text-xs text-slate-500 font-medium">
                         {l.responsavel_criacao || "Não informado"}
                       </span>
                     </TableCell>
 
-                    {/* Coluna 5: Valor */}
+                    {/* Valor */}
                     <TableCell className="text-right">
                       <span className="font-black text-[#1a2e4a]">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(l.valor)}
                       </span>
                     </TableCell>
 
-                    {/* Coluna 6: Status Atual com Regra de Bloqueio */}
+                    {/* Status Atual */}
                     <TableCell>
                       <div className="flex justify-center">
-                        <Select defaultValue={l.status} onValueChange={(val) => handleStatusChange(l, val)} disabled={dropdownBloqueado}>
-                          <SelectTrigger className={`w-[170px] h-9 text-xs border-slate-200 font-bold ${dropdownBloqueado ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50'}`}>
+                        <Select defaultValue={l.status} onValueChange={(val) => handleStatusChange(l, val)} disabled={selectBloqueado}>
+                          <SelectTrigger className={`w-[170px] h-9 text-xs border-slate-200 font-bold ${selectBloqueado ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50'}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -195,7 +242,7 @@ export default function ExtratoPagamentos() {
                       </div>
                     </TableCell>
 
-                    {/* Coluna 7: Última Alteração */}
+                    {/* Ultima Alteracao */}
                     <TableCell className="text-center">
                       <div className="flex flex-col items-center">
                         <span className="text-[10px] font-bold text-slate-500">
@@ -207,7 +254,7 @@ export default function ExtratoPagamentos() {
                       </div>
                     </TableCell>
 
-                    {/* Coluna 8: Histórico */}
+                    {/* Historico */}
                     <TableCell className="text-right">
                       <div className="flex flex-col items-end gap-1">
                         <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
@@ -222,6 +269,68 @@ export default function ExtratoPagamentos() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Janela Flutuante de Edicao de Cadastro */}
+      {itemEditando && (
+        <div className="fixed inset-0 bg-[#1a2e4a]/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-50 border-b p-4 flex justify-between items-center">
+              <h2 className="font-bold text-[#1a2e4a]">Editar Lançamento</h2>
+              <button onClick={() => setItemEditando(null)} className="text-slate-400 hover:text-red-500 font-bold">X</button>
+            </div>
+            
+            <form onSubmit={salvarEdicaoCadastro} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500">Número da NF</label>
+                  <input 
+                    className="w-full border rounded p-2 text-sm outline-none focus:border-blue-500"
+                    value={itemEditando.numero_nf || ""}
+                    onChange={e => setItemEditando({...itemEditando, numero_nf: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500">Data da NF</label>
+                  <input 
+                    type="date"
+                    className="w-full border rounded p-2 text-sm outline-none focus:border-blue-500"
+                    value={itemEditando.data_nf ? new Date(itemEditando.data_nf).toISOString().split('T')[0] : ""}
+                    onChange={e => setItemEditando({...itemEditando, data_nf: new Date(e.target.value).toISOString()})}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500">Ordem de Serviço (OS)</label>
+                <input 
+                  className="w-full border rounded p-2 text-sm outline-none focus:border-blue-500"
+                  value={itemEditando.numero_os || ""}
+                  onChange={e => setItemEditando({...itemEditando, numero_os: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500">Valor (R$)</label>
+                <input 
+                  type="number" step="0.01"
+                  className="w-full border rounded p-2 text-sm outline-none focus:border-blue-500"
+                  value={itemEditando.valor || 0}
+                  onChange={e => setItemEditando({...itemEditando, valor: e.target.value})}
+                />
+              </div>
+
+              <div className="pt-4 flex gap-3 justify-end">
+                <button type="button" onClick={() => setItemEditando(null)} className="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded">
+                  Cancelar
+                </button>
+                <button type="submit" className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded shadow-md">
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className="fixed bottom-6 right-6 bg-green-600 text-white px-5 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 z-50 border border-green-500">
