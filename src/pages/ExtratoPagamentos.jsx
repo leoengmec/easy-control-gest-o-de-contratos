@@ -10,7 +10,6 @@ export default function ExtratoPagamentos() {
   const [loading, setLoading] = useState(true);
   const [termoBusca, setTermoBusca] = useState("");
 
-  // Usuário do Sistema (Conforme contexto do Leonardo)
   const USUARIO_LOGADO = "Leonardo (Eng. Mecânico)";
 
   useEffect(() => {
@@ -29,20 +28,27 @@ export default function ExtratoPagamentos() {
     }
   };
 
+  const formatLabel = (label) => {
+    if (!label) return "Item não especificado";
+    return label.split(' ').map(w => {
+      const u = w.toUpperCase();
+      if (u === 'MOR') return 'MOR';
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(' ');
+  };
+
   const handleStatusChange = async (lancamento, novoStatus) => {
     const statusAntigo = lancamento.status;
     if (statusAntigo === novoStatus) return;
 
     try {
-      // 1. Persistência da Alteração
       await base44.entities.LancamentoFinanceiro.update(lancamento.id, { status: novoStatus });
 
-      // 2. Geração de Log de Auditoria Automático (Exigência Sprint 9)
       await base44.entities.LogAuditoria.create({
         entidade_id: lancamento.id,
         entidade_tipo: "LancamentoFinanceiro",
         acao: "ALTERACAO_STATUS_FISCAL",
-        descricao: `Mudança de status manual: [${statusAntigo}] para [${novoStatus}]`,
+        justificativa: `Mudança de status manual: [${statusAntigo}] para [${novoStatus}]`,
         responsavel: USUARIO_LOGADO,
         valor_anterior: lancamento.valor,
         valor_posterior: lancamento.valor,
@@ -109,8 +115,8 @@ export default function ExtratoPagamentos() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <FileCheck className="w-3 h-3 text-blue-400 shrink-0" />
-                      <span className="font-medium text-slate-600 capitalize truncate max-w-[250px]">
-                        {l.item_label?.toLowerCase() || "Item não especificado"}
+                      <span className="font-medium text-slate-600 truncate max-w-[250px]">
+                        {formatLabel(l.item_label)}
                       </span>
                     </div>
                   </TableCell>
