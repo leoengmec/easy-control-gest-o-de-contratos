@@ -47,17 +47,17 @@ export default function ExtratoPagamentos() {
       await base44.entities.LogAuditoria.create({
         entidade_id: lancamento.id,
         entidade_tipo: "LancamentoFinanceiro",
-        acao: "ALTERACAO_STATUS_FISCAL",
+        tipo_acao: "ALTERACAO_STATUS_FISCAL",
         justificativa: `Mudança de status manual: [${statusAntigo}] para [${novoStatus}]`,
         responsavel: USUARIO_LOGADO,
-        valor_anterior: lancamento.valor,
-        valor_posterior: lancamento.valor,
-        data_log: new Date().toISOString()
+        valor_operacao: lancamento.valor,
+        data_acao: new Date().toISOString()
       });
 
       alert(`Auditoria registrada: Status do item alterado para ${novoStatus}`);
       carregarDados();
     } catch (error) {
+      console.error(error);
       alert("Falha crítica ao gravar log de auditoria.");
     }
   };
