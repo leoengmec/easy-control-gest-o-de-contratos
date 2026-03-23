@@ -32,7 +32,7 @@ export default function ContractFinancialOverview({ contrato }) {
     });
   }, [contrato.id, ano]);
 
-  // Função de Padronização: Capitalize + Exceção MOR
+  // Regra de Padronização: Capitalize + MOR Sempre em Caixa Alta
   const formatLabel = (label) => {
     if (!label) return "";
     return label.split(' ').map(w => {
@@ -42,27 +42,30 @@ export default function ContractFinancialOverview({ contrato }) {
     }).join(' ');
   };
 
-  // Processamento de Itens para o Dropdown (Aglutinação MOR)
-  const processarListaDropdown = () => {
+  // Lógica de Aglutinação MOR Natal e Mossoró
+  const processarItensDropdown = () => {
+    // Filtrar apenas itens marcados como ativos: true (ou sem a propriedade falso)
     const ativos = itensContrato.filter(i => i.ativo !== false);
-    const morNatal = ativos.some(i => i.nome.toUpperCase().includes("NATAL"));
-    const morMossoro = ativos.some(i => i.nome.toUpperCase().includes("MOSSORO"));
     
+    const morNatalExists = ativos.some(i => i.nome.toUpperCase().includes("NATAL"));
+    const morMossoroExists = ativos.some(i => i.nome.toUpperCase().includes("MOSSORO"));
+    
+    // Itens que não pertencem aos grupos MOR
     const avulsos = ativos
       .filter(i => !i.nome.toUpperCase().includes("NATAL") && !i.nome.toUpperCase().includes("MOSSORO"))
       .map(i => formatLabel(i.nome));
 
     const final = [...avulsos];
-    if (morNatal) final.push("MOR Natal");
-    if (morMossoro) final.push("MOR Mossoró");
+    if (morNatalExists) final.push("MOR Natal");
+    if (morMossoroExists) final.push("MOR Mossoró");
     
     return [...new Set(final)].sort();
   };
 
-  const itensDropdown = processarListaDropdown();
+  const itensDropdown = processarItensDropdown();
 
-  // Cálculo Dinâmico de Valores (Consolidando se for MOR)
-  const calcularValoresExibicao = () => {
+  // Cálculo de Valores Consolidados para os Gauges
+  const calcularDadosExibicao = () => {
     let selecionados = [];
     let orcado = 0;
 
@@ -84,31 +87,29 @@ export default function ContractFinancialOverview({ contrato }) {
     const aprov = selecionados.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
 
     return { 
-      pago, 
-      aprov, 
-      orcado,
+      pago, aprov, orcado,
       pctPago: orcado > 0 ? (pago / orcado) * 100 : 0,
       pctAprov: orcado > 0 ? (aprov / orcado) * 100 : 0
     };
   };
 
-  const dados = calcularValoresExibicao();
+  const d = calcularDadosExibicao();
 
   return (
-    <Card className="border border-blue-100 shadow-sm">
-      <CardHeader className="pb-2 pt-4 px-4 bg-slate-50/50">
+    <Card className="border border-blue-100 shadow-sm overflow-hidden mb-6">
+      <CardHeader className="pb-3 pt-4 px-4 bg-slate-50/80 border-b">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="text-sm font-bold text-[#1a2e4a]">{contrato.numero}</div>
-            <div className="text-xs text-gray-500 truncate max-w-md">{contrato.contratada}</div>
+            <div className="text-[11px] text-gray-500 truncate max-w-md italic">{contrato.contratada}</div>
           </div>
           <div className="flex gap-2">
             <Select value={String(ano)} onValueChange={v => setAno(Number(v))}>
-              <SelectTrigger className="h-8 text-xs w-24 bg-white"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-24 bg-white shadow-sm border-blue-200"><SelectValue /></SelectTrigger>
               <SelectContent>{ANOS.map(a => <SelectItem key={a} value={String(a)}>{a}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={itemFiltro} onValueChange={setItemFiltro}>
-              <SelectTrigger className="h-8 text-xs w-56 bg-white"><SelectValue placeholder="Selecione o Item" /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs w-52 bg-white shadow-sm border-blue-200"><SelectValue placeholder="Selecionar Item" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os itens</SelectItem>
                 {itensDropdown.map(it => <SelectItem key={it} value={it}>{it}</SelectItem>)}
@@ -118,45 +119,52 @@ export default function ContractFinancialOverview({ contrato }) {
         </div>
       </CardHeader>
 
-      <CardContent className="px-4 pb-6 mt-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <CardContent className="px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {/* Gauge Pago */}
           <div className="flex flex-col items-center">
-            <GaugeChart value={dados.pctPago} label="Pago vs Orçado" sublabel={`/ ${fmt(dados.orcado)}`} rawValue={dados.pago} />
-            {itemFiltro !== "todos" && <div className="mt-2 text-sm font-black text-blue-800 uppercase tracking-tighter">{itemFiltro}</div>}
+            <GaugeChart value={d.pctPago} label="Execução Financeira (PAGO)" sublabel={`/ ${fmt(d.orcado)}`} rawValue={d.pago} />
+            {itemFiltro !== "todos" && (
+              <div className="mt-4 px-6 py-1.5 bg-blue-100/50 text-[#1a2e4a] font-bold rounded-full border border-blue-200 text-xs uppercase tracking-wider">
+                {itemFiltro}
+              </div>
+            )}
           </div>
+          
+          {/* Gauge Aprovisionado */}
           <div className="flex flex-col items-center">
-            <GaugeChart value={dados.pctAprov} label="Aprovisionado" sublabel={`/ ${fmt(dados.orcado)}`} rawValue={dados.aprov} color="#f59e0b" />
-            {itemFiltro !== "todos" && <div className="mt-2 text-sm font-black text-amber-700 uppercase tracking-tighter">{itemFiltro}</div>}
+            <GaugeChart value={d.pctAprov} label="Aprovisionado (SALDO RESERVADO)" sublabel={`/ ${fmt(d.orcado)}`} rawValue={d.aprov} color="#f59e0b" />
+            {itemFiltro !== "todos" && (
+              <div className="mt-4 px-6 py-1.5 bg-amber-100/50 text-amber-700 font-bold rounded-full border border-amber-200 text-xs uppercase tracking-wider">
+                {itemFiltro}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Tabela só aparece na visão "todos" */}
+        {/* Tabela de Itens: Ocultada quando um item específico é selecionado */}
         {itemFiltro === "todos" && (
-          <div className="mt-10 border-t pt-6">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-widest">Distribuição por Item Financeiro</h4>
-            <div className="overflow-x-auto">
+          <div className="mt-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase mb-4 tracking-[0.2em] text-center">Distribuição Orçamentária por Item</h4>
+            <div className="overflow-x-auto border rounded-lg">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-slate-500 border-b">
-                    <th className="text-left py-2 font-semibold">Item</th>
-                    <th className="text-right py-2 font-semibold">Planejado</th>
-                    <th className="text-right py-2 font-semibold">Pago</th>
-                    <th className="text-right py-2 font-semibold text-blue-900">Saldo</th>
+                  <tr className="bg-slate-50 text-slate-500 border-b">
+                    <th className="text-left p-3 font-semibold">Item do Contrato</th>
+                    <th className="text-right p-3 font-semibold">Status</th>
+                    <th className="text-right p-3 font-semibold text-blue-900">Configurado no Filtro</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {itensDropdown.map(label => {
-                    const info = itemFiltro === "todos" ? { pago: 0, aprov: 0, orcado: 0 } : {}; // Placeholder logic
-                    // Aqui você pode mapear uma versão resumida da tabela usando a mesma função calcularValoresExibicao(label)
-                    return (
-                      <tr key={label} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 font-medium text-slate-700">{label}</td>
-                        <td className="py-2.5 text-right text-slate-400 italic">No filtro individual</td>
-                        <td className="py-2.5 text-right text-green-600">---</td>
-                        <td className="py-2.5 text-right font-bold text-slate-900">---</td>
-                      </tr>
-                    );
-                  })}
+                  {itensDropdown.map(label => (
+                    <tr key={label} className="border-b border-slate-50 hover:bg-blue-50/30 transition-colors">
+                      <td className="p-3 font-medium text-slate-700">{label}</td>
+                      <td className="p-3 text-right">
+                        <span className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-[10px] font-bold border border-green-100 uppercase">Monitorado</span>
+                      </td>
+                      <td className="p-3 text-right text-slate-400 italic">Selecione no menu acima para detalhes</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
