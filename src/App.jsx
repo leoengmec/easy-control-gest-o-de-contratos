@@ -12,6 +12,7 @@ import Layout from './Layout';
 // Importação das suas páginas conforme seus arquivos
 import ExtratoPagamentos from './pages/ExtratoPagamentos';
 import Empenhos from './pages/Empenhos';
+import ContratoDetalhe from './pages/ContratoDetalhe';
 
 const { Pages, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -42,6 +43,7 @@ const AuthenticatedApp = () => {
         {/* Rotas específicas que você definiu */}
         <Route path="/extrato" element={<ExtratoPagamentos />} />
         <Route path="/empenhos" element={<Empenhos />} />
+        <Route path="/contratos/:id" element={<ContratoDetalhe />} />
 
         {/* Mapeamento Automático do pagesConfig - Essencial para não quebrar o App */}
         {Object.entries(Pages).map(([path, Page]) => (

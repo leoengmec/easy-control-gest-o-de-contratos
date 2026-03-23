@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
+import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X, AlertTriangle } from "lucide-react";
 import ContratoCard from "@/components/dashboard/ContratoCard";
 import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
 import ContractFinancialOverview from "@/components/dashboard/ContractFinancialOverview";
@@ -15,8 +15,10 @@ export default function Dashboard() {
   const [lancamentos, setLancamentos] = useState([]);
   const [empenhos, setEmpenhos] = useState([]);
   const [orcamentosContratuais, setOrcamentosContratuais] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState("ativo");
+  const [filtroAlertaCritico, setFiltroAlertaCritico] = useState(false);
   const [filtroBusca, setFiltroBusca] = useState("");
   const [contratoSelecionado, setContratoSelecionado] = useState("todos");
   const [paginaAtual, setPaginaAtual] = useState(1);
@@ -69,10 +71,12 @@ export default function Dashboard() {
       base44.entities.Contrato.filter(query),
       base44.entities.Contrato.filter({ status: "ativo" }),
       base44.entities.LancamentoFinanceiro.list(),
-      base44.entities.OrcamentoContratualAnual.list()
-    ]).then(([todosContratos, contratosAtivos, todosLancamentos, todosOrcamentos]) => {
+      base44.entities.OrcamentoContratualAnual.list(),
+      base44.entities.LogAuditoria.list()
+    ]).then(([todosContratos, contratosAtivos, todosLancamentos, todosOrcamentos, todosLogs]) => {
       setTotalContratos(todosContratos.length);
       setTotalContratosAtivos(contratosAtivos.length);
+      setLogs(todosLogs || []);
       
       // Extrair anos únicos de lançamentos e orçamentos
       const anosLanc = todosLancamentos.map(l => l.ano).filter(Boolean);
@@ -100,13 +104,24 @@ export default function Dashboard() {
   const totalProvisionadoAno = lancamentosAno.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
   const totalEmpenhado = empenhosFiltrados.filter(e => e.ano === anoFiltro).reduce((s, e) => s + (e.valor_total || 0), 0);
 
-  const contratosFiltrados = filtroBusca
-    ? contratos.filter(c =>
-        c.numero?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-        c.contratada?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-        c.objeto?.toLowerCase().includes(filtroBusca.toLowerCase())
-      )
-    : contratos;
+  const logsNegativos = logs.filter(l => l.valor_posterior < 0);
+  const contratosComEstouroIds = logsNegativos.map(log => {
+    const lanc = lancamentos.find(l => l.id === log.entidade_id);
+    return lanc ? lanc.contrato_id : null;
+  }).filter(Boolean);
+  const totalAlertasCriticos = [...new Set(contratosComEstouroIds)].length;
+
+  let contratosFiltrados = contratos;
+  if (filtroBusca) {
+    contratosFiltrados = contratosFiltrados.filter(c =>
+      c.numero?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
+      c.contratada?.toLowerCase().includes(filtroBusca.toLowerCase()) ||
+      c.objeto?.toLowerCase().includes(filtroBusca.toLowerCase())
+    );
+  }
+  if (filtroAlertaCritico) {
+    contratosFiltrados = contratosFiltrados.filter(c => contratosComEstouroIds.includes(c.id));
+  }
 
   const totalPaginas = Math.ceil(totalContratos / itensPorPagina);
 
@@ -150,7 +165,22 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card 
+          className={`border-l-4 border-l-red-500 cursor-pointer transition-all ${filtroAlertaCritico ? 'ring-2 ring-red-400 bg-red-50' : 'hover:bg-red-50'}`}
+          onClick={() => {
+            setFiltroAlertaCritico(!filtroAlertaCritico);
+            setPaginaAtual(1);
+          }}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="w-4 h-4 text-red-500" />
+              <span className="text-xs text-gray-500 font-medium">Alertas Críticos</span>
+            </div>
+            <div className="text-2xl font-bold text-[#1a2e4a]">{totalAlertasCriticos}</div>
+          </CardContent>
+        </Card>
         <Card className="border-l-4 border-l-blue-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
