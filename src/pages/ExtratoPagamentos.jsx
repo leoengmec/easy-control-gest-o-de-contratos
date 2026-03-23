@@ -54,7 +54,7 @@ export default function ExtratoPagamentos() {
         data_acao: new Date().toISOString()
       });
 
-      alert(`Auditoria registrada: Status do item alterado para ${novoStatus}`);
+      alert(`Sucesso! O status foi atualizado para: ${novoStatus}`);
       carregarDados();
     } catch (error) {
       console.error(error);
