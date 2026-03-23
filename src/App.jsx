@@ -11,8 +11,12 @@ import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
 import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
 
+// Importaremos a nova tela de Admin (que criaremos nos próximos passos)
+import AdminUsuarios from "@/pages/AdminUsuarios";
+
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  // Adicionamos a extração do 'user' atual do nosso contexto de autenticação
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
@@ -26,6 +30,15 @@ const AuthenticatedApp = () => {
     if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
     if (authError.type === 'auth_required') { navigateToLogin(); return null; }
   }
+
+  // Componente de Barreira: Só deixa passar se o perfil for Administrador
+  const AdminRoute = ({ children }) => {
+    // Caso o usuário não tenha o perfil Administrador, ele é chutado de volta pra Home
+    if (!user || user.perfil !== "Administrador") {
+      return <Navigate to="/" replace />;
+    }
+    return children;
+  };
 
   return (
     <Routes>
@@ -42,6 +55,13 @@ const AuthenticatedApp = () => {
         <Route path="/contratos/:id/empenhos" element={<ContratoDetalhe tab="empenhos" />} />
         
         <Route path="/empenhos" element={<Empenhos />} />
+
+        {/* NOVA ROTA: Painel Administrativo (Protegida) */}
+        <Route path="/admin" element={
+          <AdminRoute>
+            <AdminUsuarios />
+          </AdminRoute>
+        } />
 
         {/* Rotas de fallback para itens do menu ainda não implementados */}
         <Route path="/contratos" element={<Navigate to="/" replace />} />
