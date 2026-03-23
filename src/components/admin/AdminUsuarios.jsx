@@ -12,7 +12,7 @@ import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
 
 // Importaremos a nova tela de Admin (que criaremos nos próximos passos)
-import AdminUsuarios from "@/pages/AdminUsuarios";
+import AdminUsuarios from "@/components/admin/AdminUsuarios";
 
 const AuthenticatedApp = () => {
   // Adicionamos a extração do 'user' atual do nosso contexto de autenticação
