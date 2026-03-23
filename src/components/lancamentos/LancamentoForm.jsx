@@ -13,12 +13,6 @@ import { toast } from "sonner";
 const mesesNomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução", "Em bloco de assinatura"];
 
-// Definição dos Aglutinadores de Mão de Obra Residente
-const AGLUTINADORES = [
-  { id: "mor-natal", nome: "MOR Natal", keywords: ["NATAL", "ENGENHEIRO"], natureza: "servico" },
-  { id: "mor-mossoro", nome: "MOR Mossoró", keywords: ["MOSSORÓ", "MOSSORO"], natureza: "servico" }
-];
-
 const formatarMoeda = (v) => {
   if (v === undefined || v === null || isNaN(v)) return "0,00";
   return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -34,15 +28,40 @@ export default function LancamentoForm({ contratos, itens, onSave, onCancel, use
   const [nfsData, setNfsData] = useState({});
   const [processoPagSei, setProcessoPagSei] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aglutinadoresDinamicos, setAglutinadoresDinamicos] = useState([]);
+
+  useEffect(() => {
+    const fetchAglutinadores = async () => {
+      try {
+        const configs = await base44.entities.ConfiguracaoApp.filter({ chave: 'AGLUTINADOR_MOR' });
+        const parsed = configs.map(c => {
+          try { return JSON.parse(c.valor); } catch(e) { return null; }
+        }).filter(Boolean);
+        
+        if (parsed.length === 0) {
+          // Fallback seguro caso os aglutinadores ainda não tenham sido inseridos na config do banco
+          setAglutinadoresDinamicos([
+            { id: "mor-natal", nome: "MOR Natal", keywords: ["NATAL", "ENGENHEIRO"], natureza: "servico" },
+            { id: "mor-mossoro", nome: "MOR Mossoró", keywords: ["MOSSORÓ", "MOSSORO"], natureza: "servico" }
+          ]);
+        } else {
+          setAglutinadoresDinamicos(parsed);
+        }
+      } catch (e) {
+        console.error("Erro ao buscar aglutinadores", e);
+      }
+    };
+    fetchAglutinadores();
+  }, []);
 
   // Filtra itens do contrato e remove os que pertencem aos aglutinadores para não duplicar na lista
   const itensFiltrados = (itens || []).filter(i => {
     const nome = (i.nome || "").toUpperCase();
-    const pertenceAglutinador = AGLUTINADORES.some(a => a.keywords.some(k => nome.includes(k)));
+    const pertenceAglutinador = aglutinadoresDinamicos.some(a => a.keywords.some(k => nome.includes(k)));
     return i.contrato_id === contratoId && !pertenceAglutinador;
   });
 
-  const opcoesEscolha = [...AGLUTINADORES, ...itensFiltrados];
+  const opcoesEscolha = [...aglutinadoresDinamicos, ...itensFiltrados];
 
   const toggleItem = (itemId) => {
     const idStr = String(itemId);
@@ -70,6 +89,37 @@ export default function LancamentoForm({ contratos, itens, onSave, onCancel, use
         // REGRA: Se for aglutinador, o item_contrato_id fica nulo, mas o item_label identifica o grupo
         // Se for item comum, salvamos o ID para o cálculo de saldo individual.
         const isAglutinador = String(itemId).startsWith("mor-");
+        const valorLancamento = nf.valor || 0;
+
+        // --- CÁLCULO DE SALDO E ALERTA DE ESTOURO ---
+        // Aglutinadores costumam gastar o valor global, itens específicos usam seu próprio valor total.
+        const contratoAtual = contratos.find(c => String(c.id) === String(contratoId));
+        const valorTotalContratado = isAglutinador ? (contratoAtual?.valor_global || 0) : (opcao?.valor_total_contratado || 0);
+
+        const lancamentosAnteriores = await base44.entities.LancamentoFinanceiro.filter({
+          contrato_id: contratoId,
+          item_label: opcao?.nome
+        });
+        
+        const somaAnteriores = lancamentosAnteriores.reduce((acc, l) => acc + (l.valor || 0), 0);
+        const novoSaldo = valorTotalContratado - somaAnteriores - valorLancamento;
+
+        if (novoSaldo < 0) {
+          toast.warning(`⚠️ ESTOURO DE ORÇAMENTO! Item: ${opcao?.nome}. O Admin foi notificado.`, { duration: 8000 });
+          
+          try {
+            await base44.functions.invoke('notificarEstouroOrcamento', {
+              contrato_id: contratoId,
+              item_label: opcao?.nome,
+              valor_lancamento: valorLancamento,
+              saldo_restante: novoSaldo,
+              usuario_responsavel: nomeResponsavel
+            });
+          } catch (notifErr) {
+            console.error("Erro ao enviar email de estouro:", notifErr);
+          }
+        }
+        // --- FIM CÁLCULO ---
 
         const createdLancamento = await base44.entities.LancamentoFinanceiro.create({
           contrato_id: contratoId, 
@@ -89,12 +139,14 @@ export default function LancamentoForm({ contratos, itens, onSave, onCancel, use
           responsavel_por_lancamento: nomeResponsavel
         });
 
-        // 2. Registro na LogAuditoria (Correção da Divergência Arquitetural)
+        // 2. Registro na LogAuditoria (Com registro condicional de estouro)
         await base44.entities.LogAuditoria.create({
           entidade_id: createdLancamento.id,
-          tipo_acao: "CRIACAO_LANCAMENTO",
-          valor_operacao: nf.valor || 0,
-          justificativa: `Lançamento inicial: ${opcao?.nome} - Ref: ${mes}/${ano}`,
+          tipo_acao: novoSaldo < 0 ? "ESTOURO_ORCAMENTO_LANCAMENTO" : "CRIACAO_LANCAMENTO",
+          valor_operacao: valorLancamento,
+          justificativa: novoSaldo < 0 
+            ? `⚠️ ESTOURO DE ORÇAMENTO: ${opcao?.nome} (Ref: ${mes}/${ano}). Saldo Negativo gerado: R$ ${novoSaldo.toFixed(2)}`
+            : `Lançamento inicial: ${opcao?.nome} - Ref: ${mes}/${ano}`,
           responsavel: nomeResponsavel,
           data_acao: agoraISO
         });
