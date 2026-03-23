@@ -3,12 +3,15 @@ import { base44 } from "@/api/base44Client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { History, Search, FileCheck, ShieldCheck } from "lucide-react";
+import { History, Search, FileCheck, ShieldCheck, CheckCircle2 } from "lucide-react";
 
 export default function ExtratoPagamentos() {
   const [lancamentos, setLancamentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [termoBusca, setTermoBusca] = useState("");
+  
+  // Novo estado para controlar a nossa notificação visual
+  const [toast, setToast] = useState(null);
 
   const USUARIO_LOGADO = "Leonardo (Eng. Mecânico)";
 
@@ -37,6 +40,13 @@ export default function ExtratoPagamentos() {
     }).join(' ');
   };
 
+  const mostrarNotificacao = (mensagem) => {
+    setToast(mensagem);
+    setTimeout(() => {
+      setToast(null);
+    }, 3000); // Some após 3 segundos
+  };
+
   const handleStatusChange = async (lancamento, novoStatus) => {
     const statusAntigo = lancamento.status;
     if (statusAntigo === novoStatus) return;
@@ -54,11 +64,12 @@ export default function ExtratoPagamentos() {
         data_acao: new Date().toISOString()
       });
 
-      alert(`Sucesso! O status foi atualizado para: ${novoStatus}`);
+      // Substituímos o alert nativo pela nossa função visual
+      mostrarNotificacao(`Auditoria registrada: Status alterado para ${novoStatus}`);
       carregarDados();
     } catch (error) {
       console.error(error);
-      alert("Falha crítica ao gravar log de auditoria.");
+      alert("Falha crítica ao gravar log de auditoria."); // Mantemos o alert nativo apenas para erros críticos
     }
   };
 
@@ -68,7 +79,7 @@ export default function ExtratoPagamentos() {
   );
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-slate-50 min-h-screen relative">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-[#1a2e4a] flex items-center gap-2">
@@ -154,6 +165,14 @@ export default function ExtratoPagamentos() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Nosso componente visual de Notificação (Toast) */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 bg-green-600 text-white px-5 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 z-50 border border-green-500">
+          <CheckCircle2 className="w-5 h-5 text-green-100" />
+          <span className="font-bold text-sm">{toast}</span>
+        </div>
+      )}
     </div>
   );
 }
