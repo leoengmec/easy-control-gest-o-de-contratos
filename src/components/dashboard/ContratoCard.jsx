@@ -73,7 +73,7 @@ export default function ContratoCard({ contrato, lancamentos = [], orcamentoCont
                 <Link to={`/empenhos?contrato=${contrato.id}`} className="flex items-center gap-2 cursor-pointer"><Plus size={14}/> Novo Empenho</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link to={`/contratos/${contrato.id}?tab=aditivos`} className="flex items-center gap-2 cursor-pointer"><FileText size={14}/> Aditivos</Link>
+                <Link to={`/contratos/${contrato.id}/aditivos`} className="flex items-center gap-2 cursor-pointer"><FileText size={14}/> Aditivos</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to={`/lancamentos?contrato=${contrato.id}`} className="flex items-center gap-2 cursor-pointer"><Activity size={14}/> Novo Lançamento</Link>

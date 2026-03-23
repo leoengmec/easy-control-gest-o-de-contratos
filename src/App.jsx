@@ -44,6 +44,7 @@ const AuthenticatedApp = () => {
         <Route path="/extrato" element={<ExtratoPagamentos />} />
         <Route path="/empenhos" element={<Empenhos />} />
         <Route path="/contratos/:id" element={<ContratoDetalhe />} />
+        <Route path="/contratos/:id/aditivos" element={<ContratoDetalhe />} />
 
         {/* Mapeamento Automático do pagesConfig - Essencial para não quebrar o App */}
         {Object.entries(Pages).map(([path, Page]) => (

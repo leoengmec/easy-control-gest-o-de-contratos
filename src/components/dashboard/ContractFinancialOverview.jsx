@@ -55,23 +55,31 @@ export default function ContractFinancialOverview({ contrato }) {
   const pctPagoOrcado = orcadoFiltrado > 0 ? (totalPago / orcadoFiltrado) * 100 : 0;
   const pctAprovOrcado = orcadoFiltrado > 0 ? (totalAprov / orcadoFiltrado) * 100 : 0;
 
-  // Itens únicos para o filtro (todos do contrato, independente do saldo)
-  const itensDisponiveis = [
+  const itensAtivosContrato = itensContrato.filter(ic => ic.ativo !== false).map(ic => formatLabel(ic.nome));
+  
+  const labelsUnicos = [
     ...new Set([
-      ...itensContrato.map(ic => formatLabel(ic.nome)),
+      ...itensAtivosContrato,
       ...lancamentos.map(l => formatLabel(l.item_label)),
       ...itensOrcados.map(i => formatLabel(i.item_label))
     ].filter(Boolean))
-  ].sort();
+  ];
 
-  // Tabela detalhada por item (Distribuição de Itens por Empenho)
-  const todosItens = [
-    ...new Set([
-      ...itensContrato.map(ic => formatLabel(ic.nome)),
-      ...lancamentos.map(l => formatLabel(l.item_label)),
-      ...itensOrcados.map(i => formatLabel(i.item_label)),
-    ].filter(Boolean)),
-  ].sort();
+  // Aglutinação MOR
+  const hasMOR = labelsUnicos.some(l => l.includes('MOR'));
+  
+  let itensFiltrados = labelsUnicos;
+  if (hasMOR) {
+    itensFiltrados = labelsUnicos.filter(l => l.includes('MOR'));
+  } else {
+    itensFiltrados = labelsUnicos.filter(label => {
+      const ic = itensContrato.find(i => formatLabel(i.nome) === label);
+      return !ic || ic.ativo !== false;
+    });
+  }
+
+  const itensDisponiveis = [...itensFiltrados].sort();
+  const todosItens = [...itensFiltrados].sort();
 
   const tabelaItens = todosItens.map(label => {
     const orcado = itensOrcados.find(i => formatLabel(i.item_label) === label)?.valor_orcado || 
@@ -126,27 +134,35 @@ export default function ContractFinancialOverview({ contrato }) {
       <CardContent className="px-4 pb-4">
         {/* Gauge Charts */}
         <div className="flex flex-wrap justify-around gap-4 py-2">
-          <GaugeChart
-            value={pctPagoOrcado}
-            label="Pago vs Orçado"
-            sublabel={`/ ${fmt(orcadoFiltrado)}`}
-            rawValue={totalPago}
-          />
-          <GaugeChart
-            value={pctAprovOrcado}
-            label="Aprovisionado vs Orçado"
-            sublabel={`/ ${fmt(orcadoFiltrado)}`}
-            rawValue={totalAprov}
-            color="#f59e0b"
-          />
+          <div className="flex flex-col items-center">
+            <GaugeChart
+              value={pctPagoOrcado}
+              label="Pago vs Orçado"
+              sublabel={`/ ${fmt(orcadoFiltrado)}`}
+              rawValue={totalPago}
+            />
+            {itemFiltro !== "todos" && <div className="mt-2 text-sm font-bold text-[#1a2e4a]">{itemFiltro}</div>}
+          </div>
+          <div className="flex flex-col items-center">
+            <GaugeChart
+              value={pctAprovOrcado}
+              label="Aprovisionado vs Orçado"
+              sublabel={`/ ${fmt(orcadoFiltrado)}`}
+              rawValue={totalAprov}
+              color="#f59e0b"
+            />
+            {itemFiltro !== "todos" && <div className="mt-2 text-sm font-bold text-[#1a2e4a]">{itemFiltro}</div>}
+          </div>
         </div>
 
         {/* Filtros aplicados */}
-        <div className="mb-4 mt-3 text-center">
-          <div className="text-xl font-bold text-[#1a2e4a]">
-            {itemFiltro === "todos" ? `Visão Geral ${ano}` : itemFiltro}
+        {itemFiltro === "todos" && (
+          <div className="mb-4 mt-3 text-center">
+            <div className="text-xl font-bold text-[#1a2e4a]">
+              Visão Geral {ano}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Tabela detalhada por item (DISTRIBUIÇÃO DE ITENS POR EMPENHO) */}
         {itemFiltro === "todos" && tabelaItens.length > 0 && (
