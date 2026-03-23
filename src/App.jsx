@@ -1,48 +1,33 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Layout from "@/components/Layout"; // Ajuste o caminho se necessário
 import Dashboard from "@/pages/Dashboard";
 import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
-
-// IMPORTANTE: Este componente (ContratoDetalhe) deve existir em src/pages/ContratoDetalhe.jsx
-// para que as rotas dinâmicas abaixo funcionem.
 import ContratoDetalhe from "@/pages/ContratoDetalhe"; 
 
-// IMPORTANTE: Este componente (Layout) deve existir em src/components/layout/Layout.jsx
-// Ele deve conter o <Sidebar> e o <Outlet /> para renderizar o conteúdo.
-import Layout from "@/components/layout/Layout"; 
-
-/**
- * App Component - Configuração Principal de Rotas da Sprint 9
- * Resolve os erros 404 de navegação dinâmica (/contratos/:id).
- */
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Rota Raiz que renderiza o Layout Base (Sidebar + Topbar) */}
+        {/* O Layout envolve todas as rotas para exibir a Sidebar e o Header */}
         <Route element={<Layout />}>
           
-          {/* Página Principal do Dashboard */}
+          {/* Dashboard - Gestão Inteligente */}
           <Route path="/" element={<Dashboard />} />
           
-          {/* Página de Fiscalização e Auditoria (Requisito Sprint 9) */}
+          {/* Extrato - Controle Financeiro */}
           <Route path="/extrato" element={<ExtratoPagamentos />} />
           
-          {/* --- Rotas Dinâmicas de Contrato (/contratos/:id) --- */}
-          
-          {/* Rota Base de Detalhes do Contrato */}
+          {/* Fiscalização Contratual - Rotas Dinâmicas */}
           <Route path="/contratos/:id" element={<ContratoDetalhe />} />
-          
-          {/* Rota para Aba de Aditivos dentro do Detalhe (evita 404) */}
           <Route path="/contratos/:id/aditivos" element={<ContratoDetalhe tab="aditivos" />} />
-          
-          {/* Outras Abas Dinâmicas que podem ser necessárias no futuro */}
           <Route path="/contratos/:id/empenhos" element={<ContratoDetalhe tab="empenhos" />} />
-          <Route path="/contratos/:id/itens" element={<ContratoDetalhe tab="itens" />} />
-        
+          
+          {/* Rotas de fallback para itens do menu ainda não implementados */}
+          <Route path="/contratos" element={<Navigate to="/" replace />} />
+          <Route path="/relatorios" element={<Navigate to="/" replace />} />
         </Route>
 
-        {/* --- Fallback de Segurança --- */}
-        {/* Se o usuário digitar uma rota não mapeada, redireciona para o Dashboard */}
+        {/* Fallback Geral */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
