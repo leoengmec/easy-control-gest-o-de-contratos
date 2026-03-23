@@ -1,35 +1,67 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Layout from "@/components/Layout"; // Ajuste o caminho se necessário
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClientInstance } from '@/lib/query-client';
+import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { Toaster } from "@/components/ui/toaster";
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
+
+import Layout from "./Layout";
 import Dashboard from "@/pages/Dashboard";
 import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
-import ContratoDetalhe from "@/pages/ContratoDetalhe"; 
+import ContratoDetalhe from "@/pages/ContratoDetalhe";
+import Empenhos from "@/pages/Empenhos";
+
+const AuthenticatedApp = () => {
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+
+  if (isLoadingPublicSettings || isLoadingAuth) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (authError) {
+    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
+    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
+  }
+
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        {/* Dashboard - Gestão Inteligente */}
+        <Route path="/" element={<Dashboard />} />
+        
+        {/* Extrato - Controle Financeiro */}
+        <Route path="/extrato" element={<ExtratoPagamentos />} />
+        
+        {/* Fiscalização Contratual - Rotas Dinâmicas */}
+        <Route path="/contratos/:id" element={<ContratoDetalhe />} />
+        <Route path="/contratos/:id/aditivos" element={<ContratoDetalhe tab="aditivos" />} />
+        <Route path="/contratos/:id/empenhos" element={<ContratoDetalhe tab="empenhos" />} />
+        
+        <Route path="/empenhos" element={<Empenhos />} />
+
+        {/* Rotas de fallback para itens do menu ainda não implementados */}
+        <Route path="/contratos" element={<Navigate to="/" replace />} />
+        <Route path="/relatorios" element={<Navigate to="/" replace />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* O Layout envolve todas as rotas para exibir a Sidebar e o Header */}
-        <Route element={<Layout />}>
-          
-          {/* Dashboard - Gestão Inteligente */}
-          <Route path="/" element={<Dashboard />} />
-          
-          {/* Extrato - Controle Financeiro */}
-          <Route path="/extrato" element={<ExtratoPagamentos />} />
-          
-          {/* Fiscalização Contratual - Rotas Dinâmicas */}
-          <Route path="/contratos/:id" element={<ContratoDetalhe />} />
-          <Route path="/contratos/:id/aditivos" element={<ContratoDetalhe tab="aditivos" />} />
-          <Route path="/contratos/:id/empenhos" element={<ContratoDetalhe tab="empenhos" />} />
-          
-          {/* Rotas de fallback para itens do menu ainda não implementados */}
-          <Route path="/contratos" element={<Navigate to="/" replace />} />
-          <Route path="/relatorios" element={<Navigate to="/" replace />} />
-        </Route>
-
-        {/* Fallback Geral */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <QueryClientProvider client={queryClientInstance}>
+        <BrowserRouter>
+          <AuthenticatedApp />
+        </BrowserRouter>
+        <Toaster />
+      </QueryClientProvider>
+    </AuthProvider>
   );
 }
