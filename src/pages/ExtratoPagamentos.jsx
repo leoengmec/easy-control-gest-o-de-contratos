@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Filter, Calendar, DollarSign } from "lucide-react";
+import { Search, Filter, Calendar, DollarSign, AlertTriangle, MapPin } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
@@ -15,6 +16,8 @@ const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency:
 export default function ExtratoPagamentos() {
   const [lancamentos, setLancamentos] = useState([]);
   const [contratos, setContratos] = useState([]);
+  const [naturezas, setNaturezas] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
   const [statusSelecionados, setStatusSelecionados] = useState([]);
@@ -22,12 +25,16 @@ export default function ExtratoPagamentos() {
   useEffect(() => {
     const carregar = async () => {
       try {
-        const [resL, resC] = await Promise.all([
+        const [resL, resC, resN, resLog] = await Promise.all([
           base44.entities.LancamentoFinanceiro.list("-data_nf"),
-          base44.entities.Contrato.list()
+          base44.entities.Contrato.list(),
+          base44.entities.NaturezaDespesa.list(),
+          base44.entities.LogAuditoria.list("-data_acao")
         ]);
         setLancamentos(resL || []);
         setContratos(resC || []);
+        setNaturezas(resN || []);
+        setLogs(resLog || []);
       } catch (e) {
         toast.error("Erro ao carregar dados financeiros.");
       } finally {
@@ -103,6 +110,12 @@ export default function ExtratoPagamentos() {
           <TableBody>
             {filtrados.map(l => {
               const c = contratos.find(con => con.id === l.contrato_id);
+              const n = naturezas.find(nat => nat.id === l.natureza_id);
+              const log = logs.find(lg => lg.entidade_id === l.id);
+              const isEstouro = log && log.valor_posterior < 0;
+              const hasNatal = l.item_label?.toUpperCase().includes('NATAL');
+              const hasMossoro = l.item_label?.toUpperCase().includes('MOSSORO');
+
               return (
                 <TableRow key={l.id} className="h-20 hover:bg-blue-50/30">
                   <TableCell>
@@ -114,13 +127,42 @@ export default function ExtratoPagamentos() {
                   <TableCell>
                     <div className="text-base font-black text-amber-700 uppercase">{c?.numero || "N/A"}</div>
                     <div className="text-[10px] font-bold text-gray-400 uppercase truncate max-w-[250px]">{c?.contratada}</div>
+                    {n && (
+                      <Badge variant="outline" className="mt-1 text-[9px] text-blue-600 border-blue-200 uppercase">
+                        ND: {n.codigo}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="text-2xl font-black text-[#1a2e4a]">{fmt(l.valor)}</div>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center justify-end gap-2 cursor-help">
+                            {isEstouro && <AlertTriangle className="w-5 h-5 text-yellow-500 animate-pulse" />}
+                            <div className="text-2xl font-black text-[#1a2e4a]">{fmt(l.valor)}</div>
+                          </div>
+                        </TooltipTrigger>
+                        {log && (
+                          <TooltipContent className="bg-white border shadow-xl p-3 max-w-xs" side="left">
+                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Auditoria</p>
+                            <p className="text-xs text-[#1a2e4a] mb-1"><strong>Responsável:</strong> {log.responsavel}</p>
+                            <p className="text-xs text-gray-600"><strong>Justificativa:</strong> {log.justificativa}</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                     {l.glosa > 0 && <div className="text-[10px] font-bold text-red-500 uppercase">Glosa: {fmt(l.glosa)}</div>}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge className="font-black uppercase text-[10px] px-3 py-1">{l.status}</Badge>
+                    <div className="flex flex-col items-center justify-center gap-1.5 h-full">
+                      <Badge className="font-black uppercase text-[10px] px-3 py-1">{l.status}</Badge>
+                      {(hasNatal || hasMossoro) && (
+                        <Badge variant="secondary" className="text-[9px] px-2 py-0 h-4 bg-amber-100 text-amber-700 hover:bg-amber-100 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {hasNatal ? 'NATAL' : 'MOSSORÓ'}
+                        </Badge>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
