@@ -11,6 +11,7 @@ import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
 import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
+import LandingPage from "@/pages/LandingPage";
 
 // ... seus imports permanecem iguais
 
@@ -39,6 +40,14 @@ const AuthenticatedApp = () => {
     
     if (!user || (user.perfil === "Pendente" && !isSuperUser)) {
       return <Navigate to="/pendente" replace />;
+    }
+    return children;
+  };
+
+  // Componente de Barreira: Só deixa passar se o perfil for Administrador
+  const AdminRoute = ({ children }) => {
+    if (!user || user.perfil !== "Administrador") {
+      return <Navigate to="/" replace />;
     }
     return children;
   };
