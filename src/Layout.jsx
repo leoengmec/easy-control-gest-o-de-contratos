@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
+import { useAuth } from "@/lib/AuthContext"; // Importamos o hook
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth(); // Pegamos os dados do usuário e a função de logout
 
   const menus = [
     {
@@ -85,8 +87,15 @@ export default function Layout() {
           </button>
           <div className="flex-1"></div>
           <div className="flex items-center gap-4">
-            <div className="text-sm font-bold text-[#1a2e4a] uppercase">Leonardo</div>
-            <button className="p-2 bg-red-50 text-red-600 rounded font-bold text-xs uppercase hover:bg-red-100 transition-colors">
+            {/* Dinâmico: Mostra o nome do usuário vindo do perfil */}
+            <div className="text-sm font-bold text-[#1a2e4a] uppercase">
+              {user?.nome || "Carregando..."}
+            </div>
+            {/* Conectado: Agora o logout funciona via SDK */}
+            <button 
+              onClick={() => logout()}
+              className="p-2 bg-red-50 text-red-600 rounded font-bold text-xs uppercase hover:bg-red-100 transition-colors"
+            >
               Sair
             </button>
           </div>
