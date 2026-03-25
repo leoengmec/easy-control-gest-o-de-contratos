@@ -15,10 +15,9 @@ import AdminUsuarios from "@/components/admin/AdminUsuarios";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
+  const SUPER_USER_EMAIL = 'leoengmec@yahoo.com.br';
 
-  // 🔴 COLOQUE SEU E-MAIL AQUI PARA LIBERAR O ACESSO
-  const SUPER_USER_EMAIL = 'leoengmec@yahoo.com.br'; 
-
+  // 1. Enquanto carrega, mostra o spinner
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -27,38 +26,34 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // Se for você, ignoramos o erro de 'user_not_registered'
+  // 2. Verificação de Super Usuário (Bypass)
+  // Se o e-mail bater OU se não houver erro, deixamos passar para o teste
   const isSuperUser = user?.email === SUPER_USER_EMAIL;
 
+  // 3. Só bloqueamos se NÃO for o super usuário E houver um erro real
   if (authError && !isSuperUser) {
-    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
-    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
+    // Se o erro for falta de login, manda pro login da Base44
+    if (authError.type === 'auth_required') {
+      navigateToLogin();
+      return null;
+    }
+    // Se for apenas erro de registro, mas você é o dono, deixamos passar abaixo
+    if (authError.type === 'user_not_registered' && !isSuperUser) {
+      return <UserNotRegisteredError />;
+    }
   }
-
-  const ProtectedRoute = ({ children }) => {
-    // Se o perfil for pendente mas for o SuperUser, ele entra.
-    if (!user || (user.perfil === "Pendente" && !isSuperUser)) {
-      return <Navigate to="/pendente" replace />;
-    }
-    return children;
-  };
-
-  const AdminRoute = ({ children }) => {
-    // SuperUser também tem poderes de Admin para configurar o banco
-    if (!isSuperUser && (!user || user.perfil !== "Administrador")) {
-      return <Navigate to="/" replace />;
-    }
-    return children;
-  };
 
   return (
     <Routes>
-      {/* Landing Page sempre acessível */}
+      {/* Landing Page */}
       <Route path="/landing" element={<LandingPage />} />
+      
+      {/* Tela de Pendente (Apenas para outros usuários) */}
       <Route path="/pendente" element={<UserNotRegisteredError />} />
 
+      {/* Rota Protegida com Bypass para você */}
       <Route element={
-        <ProtectedRoute>
+        <ProtectedRoute isSuperUser={isSuperUser} user={user}>
           <Layout />
         </ProtectedRoute>
       }>
@@ -66,18 +61,23 @@ const AuthenticatedApp = () => {
         <Route path="/extrato" element={<ExtratoPagamentos />} />
         <Route path="/contratos/:id" element={<ContratoDetalhe />} />
         <Route path="/empenhos" element={<Empenhos />} />
-        
-        <Route path="/admin" element={
-          <AdminRoute>
-            <AdminUsuarios />
-          </AdminRoute>
-        } />
+        <Route path="/admin" element={<AdminUsuarios />} />
       </Route>
 
-      {/* Se não estiver logado, manda pra landing. Se estiver, manda pro dash */}
-      <Route path="*" element={<Navigate to={user ? "/" : "/landing"} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+};
+
+// Componente de Barreira simplificado para o seu acesso
+const ProtectedRoute = ({ children, isSuperUser, user }) => {
+  // Se for você, entra direto. Se não for e for pendente, barra.
+  if (isSuperUser) return children;
+  
+  if (!user || user.perfil === "Pendente") {
+    return <Navigate to="/pendente" replace />;
+  }
+  return children;
 };
 
 export default function App() {
