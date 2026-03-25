@@ -3,57 +3,70 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClientInstance } from '@/lib/query-client';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { Toaster } from "@/components/ui/toaster";
-import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
+// Componentes e Páginas
+import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from "./Layout";
 import Dashboard from "@/pages/Dashboard";
 import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
 import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
-import LandingPage from "@/pages/LandingPage"; 
+import LandingPage from "@/pages/LandingPage"; // ✅ Importação corrigida
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
+  
+  // 🔴 SEU E-MAIL DE ACESSO
   const SUPER_USER_EMAIL = 'leoengmec@yahoo.com.br';
 
-  // 1. Enquanto carrega, mostra o spinner
+  // 1. Splash Screen de Carregamento
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <div className="w-8 h-8 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-slate-200 border-t-[#1a2e4a] rounded-full animate-spin"></div>
+          <span className="text-slate-500 font-medium text-sm">Autenticando...</span>
+        </div>
       </div>
     );
   }
 
-  // 2. Verificação de Super Usuário (Bypass)
-  // Se o e-mail bater OU se não houver erro, deixamos passar para o teste
+  // 2. Lógica de Bypass para o Leonardo
   const isSuperUser = user?.email === SUPER_USER_EMAIL;
 
-  // 3. Só bloqueamos se NÃO for o super usuário E houver um erro real
+  // 3. Tratamento de Erros de Autenticação
   if (authError && !isSuperUser) {
-    // Se o erro for falta de login, manda pro login da Base44
     if (authError.type === 'auth_required') {
       navigateToLogin();
       return null;
     }
-    // Se for apenas erro de registro, mas você é o dono, deixamos passar abaixo
-    if (authError.type === 'user_not_registered' && !isSuperUser) {
+    // Usuários comuns caem aqui se não estiverem no banco
+    if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     }
   }
 
+  // 4. Componente de Barreira Interno
+  const ProtectedRoute = ({ children }) => {
+    // Se for o Leonardo, passa sempre. Se for outro e estiver pendente, barra.
+    if (isSuperUser) return children;
+    
+    if (!user || user.perfil === "Pendente") {
+      return <Navigate to="/pendente" replace />;
+    }
+    return children;
+  };
+
   return (
     <Routes>
-      {/* Landing Page */}
+      {/* Rotas Públicas */}
       <Route path="/landing" element={<LandingPage />} />
-      
-      {/* Tela de Pendente (Apenas para outros usuários) */}
       <Route path="/pendente" element={<UserNotRegisteredError />} />
 
-      {/* Rota Protegida com Bypass para você */}
+      {/* Estrutura Protegida (com Bypass para SuperUser) */}
       <Route element={
-        <ProtectedRoute isSuperUser={isSuperUser} user={user}>
+        <ProtectedRoute>
           <Layout />
         </ProtectedRoute>
       }>
@@ -64,20 +77,10 @@ const AuthenticatedApp = () => {
         <Route path="/admin" element={<AdminUsuarios />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Redirecionamento Inteligente */}
+      <Route path="*" element={<Navigate to={user ? "/" : "/landing"} replace />} />
     </Routes>
   );
-};
-
-// Componente de Barreira simplificado para o seu acesso
-const ProtectedRoute = ({ children, isSuperUser, user }) => {
-  // Se for você, entra direto. Se não for e for pendente, barra.
-  if (isSuperUser) return children;
-  
-  if (!user || user.perfil === "Pendente") {
-    return <Navigate to="/pendente" replace />;
-  }
-  return children;
 };
 
 export default function App() {
