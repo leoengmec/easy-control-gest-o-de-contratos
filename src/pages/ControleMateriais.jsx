@@ -1,181 +1,168 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Package, Search, X, Loader2 } from "lucide-react";
-
-const fmt = (v) => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const fmtNum = (v) => Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-const LOCAIS = ["Natal", "Mossoró", "Assú", "Caicó", "Pau dos Ferros", "Ceará Mirim"];
+import { Search, Package, FileText, MapPin, Calculator, Download } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ControleMateriais() {
-  // Inicializamos como array vazio para evitar erro de .map()
   const [itens, setItens] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedNFs, setExpandedNFs] = useState({});
+  const [busca, setBusca] = useState("");
+  const [filtroContrato, setFiltroContrato] = useState("todos");
+  const [contratos, setContratos] = useState([]);
 
-  const [filtroOS, setFiltroOS] = useState("");
-  const [filtroNF, setFiltroNF] = useState("");
-  const [filtroLocal, setFiltroLocal] = useState("todos");
-  const [filtroDataInicio, setFiltroDataInicio] = useState("");
-  const [filtroDataFim, setFiltroDataFim] = useState("");
+  const fmtBRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+  const fmtData = (d) => d ? new Date(d).toLocaleDateString("pt-BR") : "---";
 
   useEffect(() => {
-    base44.entities.ItemMaterialNF.list("-created_date", 1000)
-      .then((res) => setItens(res || []))
-      .catch(() => setItens([]))
-      .finally(() => setLoading(false));
+    loadDados();
   }, []);
 
-  // Filtro seguro usando optional chaining
-  const itensFiltrados = itens?.filter(item => {
-    const osOk    = !filtroOS    || (item.os_numero || "").toLowerCase().includes(filtroOS.toLowerCase());
-    const nfOk    = !filtroNF    || (item.numero_nf || "").toLowerCase().includes(filtroNF.toLowerCase());
-    const localOk = filtroLocal === "todos" || item.os_local === filtroLocal;
-    const dataOk  = (() => {
-      if (!filtroDataInicio && !filtroDataFim) return true;
-      const dataNF = item.data_nf;
-      if (!dataNF) return false;
-      if (filtroDataInicio && dataNF < filtroDataInicio) return false;
-      if (filtroDataFim    && dataNF > filtroDataFim)    return false;
-      return true;
-    })();
-    return osOk && nfOk && localOk && dataOk;
-  }) || [];
-
-  // Agrupar itens por NF
-  const nfsMap = {};
-  itensFiltrados.forEach(item => {
-    const key = item.numero_nf || "S-NF-" + (item.os_numero || "Geral");
-    if (!nfsMap[key]) {
-      nfsMap[key] = {
-        numero_nf: item.numero_nf || "Não Informada",
-        data_nf: item.data_nf,
-        os_numero: item.os_numero,
-        os_local: item.os_local,
-        valor_total_nota: item.valor_total_nota || 0,
-        itens: []
-      };
+  const loadDados = async () => {
+    setLoading(true);
+    try {
+      const [resItens, resContratos] = await Promise.all([
+        base44.entities.ItemMaterialNF.list("-created_date"),
+        base44.entities.Contrato.list()
+      ]);
+      setItens(resItens || []);
+      setContratos(resContratos || []);
+    } catch (error) {
+      toast.error("Erro ao carregar dados de materiais.");
+    } finally {
+      setLoading(false);
     }
-    nfsMap[key].itens.push(item);
-  });
-
-  const nfsList = Object.entries(nfsMap).sort((a, b) => new Date(b[1].data_nf) - new Date(a[1].data_nf));
-
-  const toggleNF = (key) => setExpandedNFs(prev => ({ ...prev, [key]: !prev[key] }));
-  const temFiltroAtivo = filtroOS || filtroNF || filtroLocal !== "todos" || filtroDataInicio || filtroDataFim;
-  
-  const limparFiltros = () => {
-    setFiltroOS(""); setFiltroNF(""); setFiltroLocal("todos");
-    setFiltroDataInicio(""); setFiltroDataFim("");
   };
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-64 gap-3">
-      <Loader2 className="animate-spin text-blue-600" />
-      <p className="text-gray-500 font-medium font-sans">Carregando base de materiais...</p>
-    </div>
-  );
+  const itensFiltrados = itens.filter(item => {
+    const matchBusca = 
+      item.os_numero?.toLowerCase().includes(busca.toLowerCase()) ||
+      item.numero_nf?.toLowerCase().includes(busca.toLowerCase()) ||
+      item.descricao?.toLowerCase().includes(busca.toLowerCase()) ||
+      item.os_local?.toLowerCase().includes(busca.toLowerCase());
+    
+    const matchContrato = filtroContrato === "todos" || String(item.contrato_id) === filtroContrato;
+    
+    return matchBusca && matchContrato;
+  });
+
+  const totalGeral = itensFiltrados.reduce((acc, curr) => acc + (curr.valor_total_item || 0), 0);
 
   return (
-    <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center gap-4 border-b pb-6">
-        <div className="w-12 h-12 bg-[#1a2e4a] rounded-xl flex items-center justify-center shadow-lg">
-          <Package className="w-6 h-6 text-blue-400" />
-        </div>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#1a2e4a] tracking-tight font-sans">Controle de Materiais</h1>
-          <p className="text-sm text-gray-500 font-medium">Itens extraídos por IA vinculados às ordens de serviço</p>
+          <h1 className="text-2xl font-black text-[#1a2e4a] uppercase tracking-tighter flex items-center gap-2">
+            <Package className="w-6 h-6 text-blue-600" /> Controle de Materiais e OS
+          </h1>
+          <p className="text-sm text-gray-500 font-medium">Gestão detalhada de itens extraídos via NF</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="font-bold text-[10px] uppercase" onClick={loadDados}>
+            Atualizar Base
+          </Button>
+          <Button size="sm" className="bg-green-600 hover:bg-green-700 text-white font-bold text-[10px] uppercase gap-2">
+            <Download size={14} /> Exportar Relatório
+          </Button>
         </div>
       </div>
 
-      <Card className="bg-white/50 border-none shadow-sm">
-        <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end font-sans">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-400 uppercase">OS</Label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-300" />
-              <Input value={filtroOS} onChange={e => setFiltroOS(e.target.value)} placeholder="024.2025" className="pl-8" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-blue-50/50 border-blue-100">
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="bg-blue-600 p-2 rounded-lg text-white"><Calculator size={20}/></div>
+            <div>
+              <p className="text-[10px] font-bold uppercase text-blue-600">Total em Itens</p>
+              <p className="text-lg font-black text-[#1a2e4a]">{fmtBRL(totalGeral)}</p>
             </div>
+          </CardContent>
+        </Card>
+        {/* Outros cards de resumo aqui */}
+      </div>
+
+      <Card className="shadow-sm border-slate-200">
+        <CardHeader className="bg-slate-50/50 border-b p-4">
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative flex-1 min-w-[300px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input 
+                placeholder="Buscar por OS, NF, Local ou Descrição..." 
+                className="pl-9 h-10 text-sm border-slate-300"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+              />
+            </div>
+            <select 
+              className="h-10 px-3 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={filtroContrato}
+              onChange={(e) => setFiltroContrato(e.target.value)}
+            >
+              <option value="todos">Todos os Contratos</option>
+              {contratos.map(c => (
+                <option key={c.id} value={String(c.id)}>{c.numero} - {c.contratada?.substring(0, 15)}</option>
+              ))}
+            </select>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-400 uppercase">NF</Label>
-            <Input value={filtroNF} onChange={e => setFiltroNF(e.target.value)} placeholder="000.000.117" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-gray-400 uppercase">Local</Label>
-            <Select value={filtroLocal} onValueChange={setFiltroLocal}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os locais</SelectItem>
-                {LOCAIS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button variant="outline" onClick={limparFiltros} disabled={!temFiltroAtivo} className="font-bold">
-            <X className="w-4 h-4 mr-2" /> Limpar Filtros
-          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead className="text-[10px] font-black uppercase">Data/NF</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">OS / Local</TableHead>
+                <TableHead className="text-[10px] font-black uppercase">Descrição do Item</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-center">Qtd/Un</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">V. Unitário</TableHead>
+                <TableHead className="text-[10px] font-black uppercase text-right">Total Item</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-10 text-gray-400 font-bold uppercase animate-pulse">Carregando Materiais...</TableCell></TableRow>
+              ) : itensFiltrados.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-10 text-gray-400">Nenhum item encontrado.</TableCell></TableRow>
+              ) : (
+                itensFiltrados.map((item) => (
+                  <TableRow key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-[#1a2e4a]">{item.numero_nf}</span>
+                        <span className="text-[10px] text-gray-400 font-mono">{fmtData(item.data_nf)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Badge variant="outline" className="w-fit text-[9px] font-black bg-blue-50 text-blue-700 border-blue-200 uppercase">
+                          OS: {item.os_numero || "N/A"}
+                        </Badge>
+                        <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium italic">
+                          <MapPin size={10} /> {item.os_local || "Local não informado"}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      <p className="text-[11px] text-gray-700 font-medium leading-relaxed line-clamp-2">
+                        {item.descricao}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-center font-bold text-gray-600">
+                      {item.quantidade} <span className="text-[9px] text-gray-400">{item.unidade}</span>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-[11px]">{fmtBRL(item.valor_unitario)}</TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-black text-[#1a2e4a] font-mono">{fmtBRL(item.valor_total_item)}</span>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
-
-      <div className="space-y-3">
-        {nfsList.length === 0 ? (
-          <div className="text-center py-10 text-gray-400 font-sans">Nenhum registro encontrado.</div>
-        ) : (
-          nfsList.map(([key, nf]) => (
-            <Card key={key} className="overflow-hidden border-none shadow-sm">
-              <button onClick={() => toggleNF(key)} className="w-full text-left p-4 hover:bg-gray-50 transition-colors font-sans">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="text-blue-600">
-                      {expandedNFs[key] ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                    </div>
-                    <div>
-                      <div className="font-bold text-[#1a2e4a]">NF {nf.numero_nf}</div>
-                      <div className="text-xs text-gray-500">
-                        OS <span className="text-blue-600 font-bold">{nf.os_numero || "—"}</span> • {nf.os_local || "Local não informado"}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase">Valor Total da Nota</div>
-                    <div className="text-lg font-black text-[#1a2e4a]">{fmt(nf.valor_total_nota)}</div>
-                  </div>
-                </div>
-              </button>
-
-              {expandedNFs[key] && (
-                <div className="border-t bg-gray-50/50 p-4 overflow-x-auto">
-                  <table className="w-full text-sm font-sans">
-                    <thead>
-                      <tr className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b">
-                        <th className="pb-2">Descrição</th>
-                        <th className="pb-2 text-center">UN</th>
-                        <th className="pb-2 text-right">Qtd</th>
-                        <th className="pb-2 text-right">Valor Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {nf.itens.map((item, i) => (
-                        <tr key={i} className="hover:bg-white/50">
-                          <td className="py-2.5 font-medium text-gray-700">{item.descricao}</td>
-                          <td className="py-2.5 text-center text-gray-500 font-bold">{item.unidade}</td>
-                          <td className="py-2.5 text-right text-gray-600">{fmtNum(item.quantidade)}</td>
-                          <td className="py-2.5 text-right font-bold text-[#1a2e4a]">{fmt(item.valor_total_item)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
-          ))
-        )}
-      </div>
     </div>
   );
 }
