@@ -12,9 +12,12 @@ import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
 
+// ... seus imports permanecem iguais
+
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
 
+  // 1. Loading States
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -23,33 +26,32 @@ const AuthenticatedApp = () => {
     );
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
-    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
+  // 2. Tratamento de Erro de Registro
+  if (authError && authError.type === 'user_not_registered') {
+    return <UserNotRegisteredError />;
   }
 
-  // BARREIRA 1: Protege contra usuários que logaram mas não foram aprovados (Perfil Pendente)
+  // 3. Componente de Barreira (Refinado)
   const ProtectedRoute = ({ children }) => {
-    if (!user || user.perfil === "Pendente") {
+    // Se não houver usuário ou o perfil for pendente, e NÃO for você (SuperUser)
+    // Substitua 'seu-email@exemplo.com' pelo seu e-mail real do Google
+    const isSuperUser = user?.email === 'seu-email@exemplo.com'; 
+    
+    if (!user || (user.perfil === "Pendente" && !isSuperUser)) {
       return <Navigate to="/pendente" replace />;
-    }
-    return children;
-  };
-
-  // BARREIRA 2: Só deixa passar se o perfil for Administrador
-  const AdminRoute = ({ children }) => {
-    if (!user || user.perfil !== "Administrador") {
-      return <Navigate to="/" replace />;
     }
     return children;
   };
 
   return (
     <Routes>
-      {/* Rota para usuários que ainda não tiveram o acesso liberado */}
+      {/* 🔓 ROTA PÚBLICA: Landing Page não pode ser bloqueada */}
+      <Route path="/landing" element={<LandingPage />} />
+      
+      {/* Rota de aviso para pendentes */}
       <Route path="/pendente" element={<UserNotRegisteredError />} />
 
-      {/* Todas as rotas abaixo do Layout agora estão protegidas pela ProtectedRoute */}
+      {/* 🔒 ROTAS PROTEGIDAS */}
       <Route element={
         <ProtectedRoute>
           <Layout />
@@ -57,24 +59,18 @@ const AuthenticatedApp = () => {
       }>
         <Route path="/" element={<Dashboard />} />
         <Route path="/extrato" element={<ExtratoPagamentos />} />
-        
         <Route path="/contratos/:id" element={<ContratoDetalhe />} />
-        <Route path="/contratos/:id/aditivos" element={<ContratoDetalhe tab="aditivos" />} />
-        <Route path="/contratos/:id/empenhos" element={<ContratoDetalhe tab="empenhos" />} />
-        
         <Route path="/empenhos" element={<Empenhos />} />
-
+        
+        {/* Painel Admin */}
         <Route path="/admin" element={
           <AdminRoute>
             <AdminUsuarios />
           </AdminRoute>
         } />
-
-        {/* Fallbacks para itens do menu não implementados */}
-        <Route path="/contratos" element={<Navigate to="/" replace />} />
-        <Route path="/relatorios" element={<Navigate to="/" replace />} />
       </Route>
 
+      {/* Redirecionamento padrão */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
