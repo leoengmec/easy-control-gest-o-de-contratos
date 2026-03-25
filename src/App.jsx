@@ -17,7 +17,7 @@ const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
 
   // 🔴 COLOQUE SEU E-MAIL AQUI PARA LIBERAR O ACESSO
-  const SUPER_USER_EMAIL = 'seu-email-aqui@gmail.com'; 
+  const SUPER_USER_EMAIL = 'leoengmec@yahoo.com.br'; 
 
   if (isLoadingPublicSettings || isLoadingAuth) {
     return (
