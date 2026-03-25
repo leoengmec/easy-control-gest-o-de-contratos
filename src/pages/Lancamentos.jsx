@@ -1,4 +1,50 @@
-// 📄 Motor de Extração de PDF (Versão Refinada para JFRN)
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { useAuth } from "@/lib/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
+import { Loader2, FileSearch, Upload } from "lucide-react";
+
+// ✅ IMPORTAÇÃO DO PACOTE INSTALADO PELO BASE44
+import * as pdfjsLib from "pdfjs-dist";
+
+// ✅ CONFIGURAÇÃO DO WORKER (Essencial para não travar a tela na leitura)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+export default function Lancamentos() {
+  const { user } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [contratos, setContratos] = useState([]);
+  const [contratoId, setContratoId] = useState("");
+
+  // Estado dos dados extraídos/editáveis
+  const [dados, setDados] = useState({
+    numero_nf: "",
+    data_nf: "", 
+    valor_total: 0,
+    os_numero: "",
+    descricao: ""
+  });
+
+  // Carrega contratos para vincular o PDF
+  useEffect(() => {
+    base44.entities.Contrato.list().then(setContratos).catch(console.error);
+  }, []);
+
+  // 💰 Requisito 6: Lógica "Centavos First" (10 -> 0,10 | 125000 -> 1.250,00)
+  const handleMoneyInput = (val) => {
+    const clean = val.replace(/\D/g, "");
+    setDados({ ...dados, valor_total: Number(clean) });
+  };
+
+  const fmtBRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v / 100);
+
+  // 📄 Motor de Extração de PDF (Versão Refinada para JFRN)
   const handlePDF = async (file) => {
     if (!file) return;
     setLoading(true);
@@ -96,3 +142,83 @@
       setLoading(false);
     }
   };
+
+  return (
+    <div className="p-8 max-w-4xl mx-auto space-y-8">
+      <div className="flex justify-between items-center bg-white p-6 rounded-xl border shadow-sm">
+        <div>
+          <h1 className="text-2xl font-black text-[#1a2e4a] uppercase">Lançamentos Financeiros</h1>
+          <p className="text-gray-500 text-sm">Extração inteligente de faturas (PDF)</p>
+        </div>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-blue-900 hover:bg-blue-800 uppercase font-black text-[10px] px-6 h-12 shadow-lg">
+          <Upload className="mr-2 h-4 w-4" /> Novo Lançamento (PDF)
+        </Button>
+      </div>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl border-t-8 border-blue-900">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 uppercase font-black text-blue-900">
+              <FileSearch /> Processar Nota Fiscal
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Seleção de Contrato Obrigatória */}
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase text-gray-400">1. Selecione o Contrato</Label>
+              <Select value={contratoId} onValueChange={setContratoId}>
+                <SelectTrigger className="h-12 border-slate-300">
+                  <SelectValue placeholder="Escolha o contrato para vincular a NF" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contratos.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.numero} - {c.contratada}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="border-2 border-dashed border-slate-200 p-10 text-center rounded-xl bg-slate-50 hover:bg-blue-50 transition-all group">
+              <input type="file" id="pdf" className="hidden" accept="application/pdf" onChange={(e) => handlePDF(e.target.files[0])} />
+              <label htmlFor="pdf" className="cursor-pointer flex flex-col items-center gap-3">
+                {loading ? <Loader2 className="animate-spin h-10 w-10 text-blue-900" /> : <Upload className="h-10 w-10 text-slate-300 group-hover:text-blue-500" />}
+                <span className="text-xs font-bold uppercase text-slate-500">Arraste ou clique para processar o PDF</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase">Nº Nota Fiscal</Label>
+                <Input value={dados.numero_nf} onChange={e => setDados({...dados, numero_nf: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-black uppercase">Data Emissão (DD/MM/AAAA)</Label>
+                <Input value={dados.data_nf} placeholder="01/03/2026" onChange={e => setDados({...dados, data_nf: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase text-blue-700">Valor Bruto (Auto-preenchimento)</Label>
+              <Input 
+                className="text-xl font-mono font-black text-blue-900 h-14" 
+                value={fmtBRL(dados.valor_total)} 
+                onChange={e => handleMoneyInput(e.target.value)} 
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[10px] font-black uppercase">OS Identificada</Label>
+              <Input value={dados.os_numero} onChange={e => setDados({...dados, os_numero: e.target.value})} />
+            </div>
+          </div>
+
+          <DialogFooter className="bg-slate-50 p-4 -mx-6 -mb-6 rounded-b-lg">
+            <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="uppercase text-[10px] font-bold">Cancelar</Button>
+            <Button onClick={salvar} disabled={loading || !dados.numero_nf || !contratoId} className="bg-blue-900 text-white uppercase font-black text-[10px] px-10 h-11">
+              Confirmar e Gravar Dados
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
