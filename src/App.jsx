@@ -4,7 +4,6 @@ import { queryClientInstance } from '@/lib/query-client';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { Toaster } from "@/components/ui/toaster";
 
-// Importações
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import Layout from "./Layout";
 import Dashboard from "@/pages/Dashboard";
@@ -13,12 +12,17 @@ import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
 import LandingPage from "@/pages/LandingPage";
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
+import Lancamentos from "@/pages/Lancamentos"; 
+import Relatorios from "@/pages/Relatorios";
+import Revisao from "@/pages/Revisao";
+import ControleMateriais from "@/pages/ControleMateriais";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, authError, navigateToLogin, user } = useAuth();
-  const SUPER_USER_EMAIL = 'leoengmec@yahoo.com.br';
+  
+  // ✅ ATUALIZADO: E-mail que aparece no seu print de login
+  const SUPER_USER_EMAIL = 'bielribeirogamer@gmail.com'; 
 
-  // 1. Enquanto carrega, mostra apenas o spinner
   if (isLoadingAuth) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white">
@@ -27,34 +31,31 @@ const AuthenticatedApp = () => {
     );
   }
 
-  // 2. Lógica de Bypass: Se for você, ignoramos o bloqueio
   const isSuperUser = user?.email === SUPER_USER_EMAIL;
 
-  // 3. Se houver erro de falta de login (não está logado na Base44)
-  if (authError?.type === 'auth_required' && !isSuperUser) {
-    navigateToLogin();
-    return null;
+  if (authError && !isSuperUser) {
+    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
+    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
   }
 
   return (
     <Routes>
-      {/* Landing Page */}
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/pendente" element={<UserNotRegisteredError />} />
 
-      {/* Rota Raiz: Se for o SuperUser ou não houver erro de registro, entra no Layout */}
-      <Route element={
-        (isSuperUser || !authError) ? <Layout /> : <Navigate to="/pendente" replace />
-      }>
+      <Route element={<Layout />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/extrato" element={<ExtratoPagamentos />} />
-        <Route path="/contratos/:id" element={<ContratoDetalhe />} />
         <Route path="/empenhos" element={<Empenhos />} />
+        <Route path="/lancamentos" element={<Lancamentos />} />
+        <Route path="/relatorios" element={<Relatorios />} />
+        <Route path="/revisao" element={<Revisao />} />
+        <Route path="/controle-materiais" element={<ControleMateriais />} />
+        <Route path="/contratos/:id" element={<ContratoDetalhe />} />
         <Route path="/admin" element={<AdminUsuarios />} />
       </Route>
 
-      {/* Fallback total */}
-      <Route path="*" element={<Navigate to={user ? "/" : "/landing"} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
