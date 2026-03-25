@@ -10,13 +10,9 @@ import Dashboard from "@/pages/Dashboard";
 import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
 import ContratoDetalhe from "@/pages/ContratoDetalhe";
 import Empenhos from "@/pages/Empenhos";
-
-// Importaremos a nova tela de Admin (que criaremos nos próximos passos)
-// ✅ Correto
 import AdminUsuarios from "@/components/admin/AdminUsuarios";
 
 const AuthenticatedApp = () => {
-  // Adicionamos a extração do 'user' atual do nosso contexto de autenticação
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin, user } = useAuth();
 
   if (isLoadingPublicSettings || isLoadingAuth) {
@@ -32,9 +28,16 @@ const AuthenticatedApp = () => {
     if (authError.type === 'auth_required') { navigateToLogin(); return null; }
   }
 
-  // Componente de Barreira: Só deixa passar se o perfil for Administrador
+  // BARREIRA 1: Protege contra usuários que logaram mas não foram aprovados (Perfil Pendente)
+  const ProtectedRoute = ({ children }) => {
+    if (!user || user.perfil === "Pendente") {
+      return <Navigate to="/pendente" replace />;
+    }
+    return children;
+  };
+
+  // BARREIRA 2: Só deixa passar se o perfil for Administrador
   const AdminRoute = ({ children }) => {
-    // Caso o usuário não tenha o perfil Administrador, ele é chutado de volta pra Home
     if (!user || user.perfil !== "Administrador") {
       return <Navigate to="/" replace />;
     }
@@ -43,28 +46,31 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      <Route element={<Layout />}>
-        {/* Dashboard - Gestão Inteligente */}
+      {/* Rota para usuários que ainda não tiveram o acesso liberado */}
+      <Route path="/pendente" element={<UserNotRegisteredError />} />
+
+      {/* Todas as rotas abaixo do Layout agora estão protegidas pela ProtectedRoute */}
+      <Route element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
         <Route path="/" element={<Dashboard />} />
-        
-        {/* Extrato - Controle Financeiro */}
         <Route path="/extrato" element={<ExtratoPagamentos />} />
         
-        {/* Fiscalização Contratual - Rotas Dinâmicas */}
         <Route path="/contratos/:id" element={<ContratoDetalhe />} />
         <Route path="/contratos/:id/aditivos" element={<ContratoDetalhe tab="aditivos" />} />
         <Route path="/contratos/:id/empenhos" element={<ContratoDetalhe tab="empenhos" />} />
         
         <Route path="/empenhos" element={<Empenhos />} />
 
-        {/* NOVA ROTA: Painel Administrativo (Protegida) */}
         <Route path="/admin" element={
           <AdminRoute>
             <AdminUsuarios />
           </AdminRoute>
         } />
 
-        {/* Rotas de fallback para itens do menu ainda não implementados */}
+        {/* Fallbacks para itens do menu não implementados */}
         <Route path="/contratos" element={<Navigate to="/" replace />} />
         <Route path="/relatorios" element={<Navigate to="/" replace />} />
       </Route>
