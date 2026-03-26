@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configuração do Worker para o funcionamento do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Lancamentos = () => {
-  // --- NOVOS ESTADOS PARA MATURIDADE (SPRINT 1) ---
   const [contratos, setContratos] = useState([]);
   const [contratoSelecionado, setContratoSelecionado] = useState('');
   const [itensContratoRef, setItensContratoRef] = useState([]);
@@ -27,26 +25,23 @@ const Lancamentos = () => {
 
   const [valorPrevistoOS, setValorPrevistoOS] = useState(0);
 
-  // --- CARGA DINÂMICA DE DADOS (SPRINT 1) ---
-  
-  // Busca lista de contratos ao carregar a página
+  // Carga de contratos (Simulado/Base44)
   useEffect(() => {
-    // Exemplo de chamada ao Base44 para listar contratos
-    // base44.entities.Contrato.list().then(setContratos);
-    // Por enquanto, simularemos a lista para não quebrar a execução
     setContratos([{ id: '1', numero: '024/2025', empresa: 'Empresa A' }]);
   }, []);
 
-  // Busca itens do contrato quando um contrato é selecionado
+  // Busca itens do contrato no BD (Simulado/Base44)
   useEffect(() => {
     if (contratoSelecionado) {
-      console.log("Buscando itens do contrato:", contratoSelecionado);
-      // Aqui entrará a chamada:
-      // base44.entities.ItemContrato.list({ contrato_id: contratoSelecionado }).then(setItensContratoRef);
+      // Simulação de dados vindo do banco conforme o schema ItemContrato que você enviou
+      const mockItensBanco = [
+        { id: '101', nome: 'ENGENHEIRO DE CAMPO NATAL', grupo_servico: 'fixo' },
+        { id: '102', nome: 'AUXILIAR TÉCNICO MOSSORÓ', grupo_servico: 'fixo' },
+        { id: '103', nome: 'FORNECIMENTO DE MATERIAL', grupo_servico: 'material' }
+      ];
+      setItensContratoRef(mockItensBanco);
     }
   }, [contratoSelecionado]);
-
-  // --- LÓGICA DE EXTRAÇÃO E REGRAS DE NEGÓCIO (MANTIDAS) ---
 
   const extrairValor = (texto) => {
     if (!texto) return 0;
@@ -61,6 +56,10 @@ const Lancamentos = () => {
       alert("Por favor, selecione um arquivo de NF primeiro.");
       return;
     }
+    if (!contratoSelecionado) {
+      alert("Selecione o contrato antes de importar a NF para validação dos itens.");
+      return;
+    }
 
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
@@ -73,66 +72,74 @@ const Lancamentos = () => {
     }
 
     const txtUpper = fullText.toUpperCase();
-    const isNFe = txtUpper.includes("DANFE") || txtUpper.includes("NF-E") || txtUpper.includes("VENDA DE MATERIAL");
     
+    // --- LÓGICA DINÂMICA (SPRINT 1 - AÇÃO 2) ---
+    
+    let itensIdentificados = [];
+    let checksEncontrados = { ...checkboxes };
+
+    // Percorre os itens que vieram do Banco de Dados para este contrato
+    itensContratoRef.forEach(itemBD => {
+      if (txtUpper.includes(itemBD.nome.toUpperCase())) {
+        // Se achou o nome do item no PDF, tenta capturar o valor na mesma linha ou contexto
+        // Aqui estamos usando uma lógica simplificada de captura de valor para o item
+        const valorItem = extrairValor(txtUpper.split(itemBD.nome.toUpperCase())[1]);
+        
+        itensIdentificados.push({
+          descricao: itemBD.nome,
+          valorTotal: valorItem,
+          item_contrato_id: itemBD.id
+        });
+
+        // Atualiza os checkboxes de interface baseados nos itens do banco
+        if (itemBD.nome.includes("NATAL")) checksEncontrados.mor_natal = true;
+        if (itemBD.nome.includes("MOSSORÓ")) checksEncontrados.mor_mossoro = true;
+        if (itemBD.grupo_servico === "material") checksEncontrados.fornecimento_material = true;
+      }
+    });
+
+    // Extração de metadados (NF, Data, OS) mantida
+    const isNFe = txtUpper.includes("DANFE") || txtUpper.includes("NF-E");
     let numNf = "";
-    let valorTotal = 0;
+    let valorTotalNota = 0;
 
     if (isNFe) {
       const nfMatch = fullText.match(/(?:N°\.\s?)(\d{3}\.\d{3}\.\d{3})/i);
       if (nfMatch) numNf = nfMatch[1];
-      
       const valorMatch = fullText.match(/(?:VALOR TOTAL DA NOTA|VALOR TOTAL)\s?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
-      if (valorMatch) valorTotal = extrairValor(valorMatch[1]);
+      if (valorMatch) valorTotalNota = extrairValor(valorMatch[1]);
     } else {
       const nfMatch = fullText.match(/Número da NFS-e[\s\S]*?(\d+)/i);
       if (nfMatch) numNf = nfMatch[1];
-
       const valorMatch = fullText.match(/(?:Valor do Serviço|VALOR TOTAL DA NFS-E)[\s\S]*?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
-      if (valorMatch) valorTotal = extrairValor(valorMatch[1]);
+      if (valorMatch) valorTotalNota = extrairValor(valorMatch[1]);
     }
 
     const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
     const osMatch = fullText.match(/(\d{3}[\.\/]\d{4}-[A-Z]{2}|\d{3}\.\d{4})/i);
 
-    const ignoreAuxAdm = txtUpper.includes("AUXILIAR ADMINISTRATIVO NATAL");
-    const hasMorKeywords = txtUpper.includes("MÃO DE OBRA") || txtUpper.includes("ARTIFICE") || txtUpper.includes("AUXILIAR");
-    
-    const morNatal = !ignoreAuxAdm && hasMorKeywords && txtUpper.includes("NATAL");
-    const morMossoro = hasMorKeywords && txtUpper.includes("MOSSORÓ");
-    const fornecimento = txtUpper.includes("DANFE") || txtUpper.includes("VENDA DE MATERIAL");
-    const deslocamento = txtUpper.includes("DESLOCAMENTO") || txtUpper.includes("VISITA TÉCNICA");
-
-    setCheckboxes({
-      mor_natal: morNatal,
-      mor_mossoro: morMossoro,
-      fornecimento_material: fornecimento,
-      servicos_deslocamento: deslocamento
-    });
-
+    setCheckboxes(checksEncontrados);
     setFormData(prev => ({
       ...prev,
       numero_nf: numNf || prev.numero_nf,
       data_emissao: dataMatch ? dataMatch[0] : prev.data_emissao,
-      valor_total_nf: valorTotal || prev.valor_total_nf,
-      numero_os: osMatch ? osMatch[1] : prev.numero_os
+      valor_total_nf: valorTotalNota || prev.valor_total_nf,
+      numero_os: osMatch ? osMatch[1] : prev.numero_os,
+      itens: itensIdentificados // Agora preenche a tabela com itens reais do contrato
     }));
   };
 
   const handleFileChange = async (event, tipoDoc) => {
     const file = event.target.files[0];
     if (!file || tipoDoc !== 'OS') return;
-
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
     let fullText = "";
-
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       fullText += content.items.map(s => s.str).join(" ") + "\n";
     }
-
     const vPrev = extrairValor(fullText.split("TOTAL")[1] || fullText);
     setValorPrevistoOS(vPrev);
     const osMatch = fullText.match(/(\d{3}[\.\/]\d{4}-[A-Z]{2}|\d{3}\.\d{4})/i);
@@ -144,20 +151,18 @@ const Lancamentos = () => {
       alert("Selecione um contrato antes de confirmar o lançamento.");
       return;
     }
-
     const diferenca = formData.valor_total_nf - valorPrevistoOS;
     if (formData.valor_total_nf > valorPrevistoOS && valorPrevistoOS > 0) {
-      const msg = `Atenção: O valor desta NF (R$ ${formData.valor_total_nf.toLocaleString('pt-BR', {minimumFractionDigits: 2})}) excede o valor previsto na OS (R$ ${valorPrevistoOS.toLocaleString('pt-BR', {minimumFractionDigits: 2})}). A diferença é de R$ ${diferenca.toLocaleString('pt-BR', {minimumFractionDigits: 2})}. Deseja prosseguir com o lançamento?`;
+      const msg = `Atenção: O valor desta NF excede a OS em R$ ${diferenca.toLocaleString('pt-BR')}. Deseja prosseguir?`;
       if (!window.confirm(msg)) return;
     }
-    console.log("Salvando...", { ...formData, contrato_id: contratoSelecionado }, checkboxes);
+    console.log("Salvando Payload Maduro:", { ...formData, contrato_id: contratoSelecionado });
   };
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold border-b pb-2">Fiscalização JFRN - Lançamento</h1>
       
-      {/* SELEÇÃO DE CONTRATO (NOVO) */}
       <div className="bg-white p-4 border rounded shadow-sm">
         <label className="block text-xs text-gray-500 uppercase font-bold mb-2">Contrato Relacionado</label>
         <select 
@@ -216,23 +221,24 @@ const Lancamentos = () => {
         </div>
       </div>
 
+      {/* OS Checkboxes permanecem como indicadores visuais, mas agora são alimentados pela lógica do banco */}
       <div className="bg-white p-4 border rounded">
-        <label className="block text-xs text-gray-500 uppercase mb-3">Itens Identificados Automaticamente</label>
+        <label className="block text-xs text-gray-500 uppercase mb-3">Itens Identificados Automaticamente (Via Contrato)</label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <label className="flex items-center space-x-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={checkboxes.mor_natal} onChange={(e) => setCheckboxes({...checkboxes, mor_natal: e.target.checked})} className="rounded text-blue-600 focus:ring-blue-500" />
+          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
+            <input type="checkbox" checked={checkboxes.mor_natal} readOnly className="rounded text-blue-600" />
             <span>MOR Natal</span>
           </label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={checkboxes.mor_mossoro} onChange={(e) => setCheckboxes({...checkboxes, mor_mossoro: e.target.checked})} className="rounded text-blue-600 focus:ring-blue-500" />
+          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
+            <input type="checkbox" checked={checkboxes.mor_mossoro} readOnly className="rounded text-blue-600" />
             <span>MOR Mossoró</span>
           </label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={checkboxes.fornecimento_material} onChange={(e) => setCheckboxes({...checkboxes, fornecimento_material: e.target.checked})} className="rounded text-blue-600 focus:ring-blue-500" />
+          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
+            <input type="checkbox" checked={checkboxes.fornecimento_material} readOnly className="rounded text-blue-600" />
             <span>Material</span>
           </label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer">
-            <input type="checkbox" checked={checkboxes.servicos_deslocamento} onChange={(e) => setCheckboxes({...checkboxes, servicos_deslocamento: e.target.checked})} className="rounded text-blue-600 focus:ring-blue-500" />
+          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
+            <input type="checkbox" checked={checkboxes.servicos_deslocamento} readOnly className="rounded text-blue-600" />
             <span>Deslocamento</span>
           </label>
         </div>
@@ -242,19 +248,19 @@ const Lancamentos = () => {
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2 border-b">Descrição</th>
-              <th className="p-2 border-b text-right">Valor Total</th>
+              <th className="p-2 border-b">Descrição (Item do Contrato)</th>
+              <th className="p-2 border-b text-right">Valor Extraído</th>
             </tr>
           </thead>
           <tbody>
             {formData.itens.map((item, index) => (
               <tr key={index} className="hover:bg-gray-50">
-                <td className="p-2 border-b">{item.descricao}</td>
+                <td className="p-2 border-b font-medium">{item.descricao}</td>
                 <td className="p-2 border-b text-right">R$ {item.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
               </tr>
             ))}
             {formData.itens.length === 0 && (
-              <tr><td colSpan="2" className="p-4 text-center text-gray-400">Nenhum item extraído ainda.</td></tr>
+              <tr><td colSpan="2" className="p-4 text-center text-gray-400">Nenhum item do contrato identificado no PDF.</td></tr>
             )}
           </tbody>
         </table>
