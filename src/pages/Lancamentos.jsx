@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configuração do Worker do PDF.js para ambiente web
+// Configuração do Worker para o funcionamento do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Lancamentos = () => {
-  // Estado principal do formulário - Mantém os campos editáveis
   const [formData, setFormData] = useState({
     numero_nf: '',
     data_emissao: '',
@@ -14,18 +13,17 @@ const Lancamentos = () => {
     itens: []
   });
 
-  // Estado para controle do valor previsto da OS (para validação)
   const [valorPrevistoOS, setValorPrevistoOS] = useState(0);
 
-  // --- Lógica de Processamento de Dados ---
+  // --- LÓGICA DE EXTRAÇÃO E REGRAS DE NEGÓCIO ---
 
-  const extrairValorDaLinha = (linha) => {
-    const match = linha.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
+  const extrairValor = (texto) => {
+    const match = texto.match(/(\d{1,3}(?:\.\d{3})*,\d{2})/);
     return match ? parseFloat(match[0].replace('.', '').replace(',', '.')) : 0;
   };
 
-  const processarItensEAgrupamento = (textoBruto) => {
-    const linhas = textoBruto.split('\n');
+  const processarItensEAgrupamento = (texto) => {
+    const linhas = texto.split('\n');
     const itensFinais = [];
     let somaNatal = 0;
     let somaMossoro = 0;
@@ -33,31 +31,31 @@ const Lancamentos = () => {
 
     linhas.forEach(linha => {
       const desc = linha.toUpperCase();
-
-      // Regra de Inatividade
+      
+      // Regra 1: Ignorar Auxiliar Administrativo Natal
       if (desc.includes("AUXILIAR ADMINISTRATIVO NATAL")) return;
 
-      // Agrupamento MOR Natal
-      if (cargosMor.some(cargo => desc.includes(cargo)) && desc.includes("NATAL")) {
-        somaNatal += extrairValorDaLinha(linha);
+      const valor = extrairValor(linha);
+
+      // Regra 2: Aglutinador Natal
+      if (cargosMor.some(c => desc.includes(c)) && desc.includes("NATAL")) {
+        somaNatal += valor;
         return;
       }
 
-      // Agrupamento MOR Mossoró
-      if (cargosMor.some(cargo => desc.includes(cargo)) && desc.includes("MOSSORÓ")) {
-        somaMossoro += extrairValorDaLinha(linha);
+      // Regra 3: Aglutinador Mossoró
+      if (cargosMor.some(c => desc.includes(c)) && desc.includes("MOSSORÓ")) {
+        somaMossoro += valor;
         return;
       }
 
-      // Itens Avulsos (Materiais/Outros)
-      if (desc.includes("VALOR") || linha.trim().length < 10) return;
-      
-      itensFinais.push({
-        descricao: linha.substring(0, 60).trim(),
-        valorTotal: extrairValorDaLinha(linha),
-        quantidade: 1, // Valor padrão para edição posterior
-        unidade: 'UN'
-      });
+      // Regra 4: Itens individuais (Materiais/Outros)
+      if (valor > 0 && !desc.includes("TOTAL")) {
+        itensFinais.push({
+          descricao: linha.substring(0, 50).trim(),
+          valorTotal: valor
+        });
+      }
     });
 
     if (somaNatal > 0) itensFinais.push({ descricao: "MOR NATAL", valorTotal: somaNatal });
@@ -66,71 +64,56 @@ const Lancamentos = () => {
     return itensFinais;
   };
 
-  // --- Handlers Automáticos (Extração ao selecionar arquivo) ---
-
   const handleFileChange = async (event, tipoDoc) => {
     const file = event.target.files[0];
     if (!file) return;
 
     const buffer = await file.arrayBuffer();
-    const loadingTask = pdfjsLib.getDocument({ data: buffer });
-    const pdf = await loadingTask.promise;
-    let text = "";
+    const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    let fullText = "";
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
-      text += content.items.map(s => s.str).join(" ") + "\n";
+      fullText += content.items.map(s => s.str).join(" ") + "\n";
     }
 
     if (tipoDoc === 'OS') {
-      const vPrevistoMatch = text.match(/(?:TOTAL:?)\s?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
-      const valorNum = vPrevistoMatch ? parseFloat(vPrevistoMatch[1].replace('.', '').replace(',', '.')) : 0;
-      
-      setValorPrevistoOS(valorNum);
-      setFormData(prev => ({ 
-        ...prev, 
-        numero_os: text.match(/(\d{3}[\.\/]\d{4}-[A-Z]{2})/)?.[0] || '' 
-      }));
-
+      const vPrev = extrairValor(fullText.split("TOTAL")[1] || fullText);
+      setValorPrevistoOS(vPrev);
+      const osMatch = fullText.match(/(\d{3}[\.\/]\d{4}-[A-Z]{2})/);
+      setFormData(prev => ({ ...prev, numero_os: osMatch ? osMatch[0] : '' }));
     } else {
-      const numNF = text.match(/(?:N°\.\s?|Número\s?)(\d+)/i)?.[1];
-      const dataNF = text.match(/(\d{2}\/\d{2}\/\d{4})/)?.[0];
-      const vTotalMatch = text.match(/(?:VALOR TOTAL DA NOTA|TOTAL:?)\s?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
-      const vTotalNum = vTotalMatch ? parseFloat(vTotalMatch[1].replace('.', '').replace(',', '.')) : 0;
+      const nfMatch = fullText.match(/(?:N°\.\s?|Número\s?)(\d+)/i);
+      const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
+      const totalNF = extrairValor(fullText.match(/(?:TOTAL DA NOTA|TOTAL:?)\s?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i)?.[0] || "");
 
       setFormData(prev => ({
         ...prev,
-        numero_nf: numNF || '',
-        data_emissao: dataNF || '',
-        valor_total_nf: vTotalNum,
-        itens: processarItensEAgrupamento(text)
+        numero_nf: nfMatch ? nfMatch[1] : '',
+        data_emissao: dataMatch ? dataMatch[0] : '',
+        valor_total_nf: totalNF,
+        itens: processarItensEAgrupamento(fullText)
       }));
     }
   };
 
-  // --- Função de Salvamento com Alerta ---
-
   const validarESalvar = () => {
     const diferenca = formData.valor_total_nf - valorPrevistoOS;
-
     if (formData.valor_total_nf > valorPrevistoOS && valorPrevistoOS > 0) {
-      const msg = `Atenção: O valor desta NF (R$ ${formData.valor_total_nf.toLocaleString('pt-BR', {minimumFractionDigits: 2})}) excede o valor previsto na OS (R$ ${valorPrevistoOS.toLocaleString('pt-BR', {minimumFractionDigits: 2})}).\n\nA diferença é de R$ ${diferenca.toLocaleString('pt-BR', {minimumFractionDigits: 2})}.\n\nDeseja prosseguir com o lançamento?`;
-      
-      if (window.confirm(msg)) {
-        console.log("Enviando dados para Base44:", formData);
-        // Aqui você chamaria a função de integração com o Base44
-      }
-    } else {
-      console.log("Enviando dados para Base44:", formData);
+      const msg = `Atenção: O valor desta NF (R$ ${formData.valor_total_nf.toLocaleString('pt-BR')}) excede o valor previsto na OS (R$ ${valorPrevistoOS.toLocaleString('pt-BR')}). A diferença é de R$ ${diferenca.toLocaleString('pt-BR')}. Deseja prosseguir com o lançamento?`;
+      if (!window.confirm(msg)) return;
     }
+    console.log("Salvando...", formData);
+    // Adicione aqui sua chamada para o Base44
   };
+
+  // --- SEU LAYOUT ORIGINAL ABAIXO ---
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold border-b pb-2">Fiscalização JFRN - Lançamento</h1>
       
-      {/* Slots de Upload */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 border rounded shadow-sm bg-gray-50">
           <label className="block text-sm font-medium mb-2">Upload da OS (Previsão)</label>
@@ -142,7 +125,6 @@ const Lancamentos = () => {
         </div>
       </div>
 
-      {/* Formulário Editável */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border rounded">
         <div>
           <label className="block text-xs text-gray-500 uppercase">Número NF</label>
@@ -173,7 +155,6 @@ const Lancamentos = () => {
         </div>
       </div>
 
-      {/* Tabela de Itens Agrupados/Individuais */}
       <div className="border rounded overflow-hidden">
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-100">
