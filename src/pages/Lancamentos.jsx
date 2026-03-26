@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configuração do Worker para o funcionamento do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Lancamentos = () => {
+  // --- NOVOS ESTADOS PARA MATURIDADE (SPRINT 1) ---
+  const [contratos, setContratos] = useState([]);
+  const [contratoSelecionado, setContratoSelecionado] = useState('');
+  const [itensContratoRef, setItensContratoRef] = useState([]);
+
   const [formData, setFormData] = useState({
     numero_nf: '',
     data_emissao: '',
@@ -22,7 +27,26 @@ const Lancamentos = () => {
 
   const [valorPrevistoOS, setValorPrevistoOS] = useState(0);
 
-  // --- LÓGICA DE EXTRAÇÃO E REGRAS DE NEGÓCIO ---
+  // --- CARGA DINÂMICA DE DADOS (SPRINT 1) ---
+  
+  // Busca lista de contratos ao carregar a página
+  useEffect(() => {
+    // Exemplo de chamada ao Base44 para listar contratos
+    // base44.entities.Contrato.list().then(setContratos);
+    // Por enquanto, simularemos a lista para não quebrar a execução
+    setContratos([{ id: '1', numero: '024/2025', empresa: 'Empresa A' }]);
+  }, []);
+
+  // Busca itens do contrato quando um contrato é selecionado
+  useEffect(() => {
+    if (contratoSelecionado) {
+      console.log("Buscando itens do contrato:", contratoSelecionado);
+      // Aqui entrará a chamada:
+      // base44.entities.ItemContrato.list({ contrato_id: contratoSelecionado }).then(setItensContratoRef);
+    }
+  }, [contratoSelecionado]);
+
+  // --- LÓGICA DE EXTRAÇÃO E REGRAS DE NEGÓCIO (MANTIDAS) ---
 
   const extrairValor = (texto) => {
     if (!texto) return 0;
@@ -89,7 +113,7 @@ const Lancamentos = () => {
     setFormData(prev => ({
       ...prev,
       numero_nf: numNf || prev.numero_nf,
-      data_emissao: dataMatch ? dataMatch[1] : prev.data_emissao,
+      data_emissao: dataMatch ? dataMatch[0] : prev.data_emissao,
       valor_total_nf: valorTotal || prev.valor_total_nf,
       numero_os: osMatch ? osMatch[1] : prev.numero_os
     }));
@@ -97,7 +121,7 @@ const Lancamentos = () => {
 
   const handleFileChange = async (event, tipoDoc) => {
     const file = event.target.files[0];
-    if (!file || tipoDoc !== 'OS') return; // NF is handled by handleExtrairNF now
+    if (!file || tipoDoc !== 'OS') return;
 
     const buffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
@@ -116,21 +140,38 @@ const Lancamentos = () => {
   };
 
   const validarESalvar = () => {
+    if (!contratoSelecionado) {
+      alert("Selecione um contrato antes de confirmar o lançamento.");
+      return;
+    }
+
     const diferenca = formData.valor_total_nf - valorPrevistoOS;
     if (formData.valor_total_nf > valorPrevistoOS && valorPrevistoOS > 0) {
       const msg = `Atenção: O valor desta NF (R$ ${formData.valor_total_nf.toLocaleString('pt-BR', {minimumFractionDigits: 2})}) excede o valor previsto na OS (R$ ${valorPrevistoOS.toLocaleString('pt-BR', {minimumFractionDigits: 2})}). A diferença é de R$ ${diferenca.toLocaleString('pt-BR', {minimumFractionDigits: 2})}. Deseja prosseguir com o lançamento?`;
       if (!window.confirm(msg)) return;
     }
-    console.log("Salvando...", formData, checkboxes);
-    // Adicione aqui sua chamada para o Base44
+    console.log("Salvando...", { ...formData, contrato_id: contratoSelecionado }, checkboxes);
   };
-
-  // --- SEU LAYOUT ORIGINAL ABAIXO ---
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold border-b pb-2">Fiscalização JFRN - Lançamento</h1>
       
+      {/* SELEÇÃO DE CONTRATO (NOVO) */}
+      <div className="bg-white p-4 border rounded shadow-sm">
+        <label className="block text-xs text-gray-500 uppercase font-bold mb-2">Contrato Relacionado</label>
+        <select 
+          value={contratoSelecionado}
+          onChange={(e) => setContratoSelecionado(e.target.value)}
+          className="w-full border-b focus:border-blue-500 outline-none py-2 bg-transparent"
+        >
+          <option value="">Selecione um contrato...</option>
+          {contratos.map(c => (
+            <option key={c.id} value={c.id}>{c.numero} - {c.empresa}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 border rounded shadow-sm bg-gray-50">
           <label className="block text-sm font-medium mb-2">Upload da OS (Previsão)</label>
