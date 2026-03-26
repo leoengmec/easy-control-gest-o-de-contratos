@@ -17,6 +17,9 @@ const Lancamentos = () => {
     itens: []
   });
 
+  const [itensMaterial, setItensMaterial] = useState([]);
+  const [infoComplementares, setInfoComplementares] = useState('');
+
   const [checkboxes, setCheckboxes] = useState({
     mor_natal: false,
     mor_mossoro: false,
@@ -114,12 +117,29 @@ const Lancamentos = () => {
     const isNFe = txtUpper.includes("DANFE") || txtUpper.includes("NF-E");
     let numNf = "";
     let valorTotalNota = 0;
+    let extraInfo = "";
+    let extractedProducts = [];
 
     if (isNFe) {
-      const nfMatch = fullText.match(/(?:N°\.\s?)(\d{3}\.\d{3}\.\d{3})/i);
+      const nfMatch = fullText.match(/(?:N°\.\s?|Nº\s?)(\d{3}\.\d{3}\.\d{3}|\d+)/i);
       if (nfMatch) numNf = nfMatch[1];
       const valorMatch = fullText.match(/(?:VALOR TOTAL DA NOTA|VALOR TOTAL)\s?R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i);
       if (valorMatch) valorTotalNota = extrairValor(valorMatch[1]);
+
+      const infoMatch = fullText.match(/INFORMAÇÕES COMPLEMENTARES\s*([\s\S]*?)(?:RESERVADO AO FISCO|$)/i);
+      if (infoMatch) extraInfo = infoMatch[1].trim();
+
+      const productLines = fullText.matchAll(/([A-Z0-9\-\.\s]{3,})\s+(UN|CX|KG|M|L|PÇ|PC|PCT|CJ|RL)\s+(\d+(?:,\d{1,4})?)\s+(\d+(?:,\d{1,4})?)\s+(\d+(?:,\d{1,2})?)/gi);
+      for (const match of productLines) {
+        extractedProducts.push({
+          id: Date.now() + Math.random(),
+          descricao: match[1].trim(),
+          unidade: match[2],
+          quantidade: parseFloat(match[3].replace(',', '.')),
+          valor_unitario: extrairValor(match[4]),
+          valor_total: extrairValor(match[5])
+        });
+      }
     } else {
       const nfMatch = fullText.match(/Número da NFS-e[\s\S]*?(\d+)/i);
       if (nfMatch) numNf = nfMatch[1];
@@ -131,6 +151,8 @@ const Lancamentos = () => {
     const osMatch = fullText.match(/(\d{3}[\.\/]\d{4}-[A-Z]{2}|\d{3}\.\d{4})/i);
 
     setCheckboxes(checks);
+    setInfoComplementares(extraInfo);
+    setItensMaterial(extractedProducts);
     setFormData(prev => ({
       ...prev,
       numero_nf: numNf || prev.numero_nf,
@@ -176,16 +198,24 @@ const Lancamentos = () => {
         status: 'pendente'
       });
 
-      // 2. Criar Itens vinculados
-      for (const item of formData.itens) {
-        await window.base44.entities.ItemMaterialNF.create({
-          lancamento_financeiro_id: novoLancamento.id,
-          contrato_id: contratoSelecionado,
-          descricao: item.descricao,
-          valor_total_item: item.valorTotal,
-          quantidade: 1, // Padrão para agrupamento
-          valor_unitario: item.valorTotal
-        });
+      // 2. Criar Itens vinculados APENAS para produtos da DANFE
+      if (checkboxes.fornecimento_material) {
+        for (const item of itensMaterial) {
+          await window.base44.entities.ItemMaterialNF.create({
+            lancamento_financeiro_id: novoLancamento.id,
+            contrato_id: contratoSelecionado,
+            numero_nf: formData.numero_nf,
+            data_nf: formatarDataParaISO(formData.data_emissao),
+            os_numero: formData.numero_os,
+            descricao: item.descricao,
+            unidade: item.unidade || 'UN',
+            quantidade: item.quantidade || 1,
+            valor_unitario: item.valor_unitario || item.valor_total,
+            valor_total_item: item.valor_total,
+            valor_total_nota: formData.valor_total_nf,
+            observacoes: infoComplementares
+          });
+        }
       }
 
       alert("Lançamento realizado com sucesso!");
@@ -255,6 +285,7 @@ const Lancamentos = () => {
       </div>
 
       <div className="border rounded overflow-hidden">
+        <div className="bg-gray-50 p-2 border-b font-bold text-sm text-gray-700">Lançamentos Financeiros (Serviços e Materiais)</div>
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-100">
             <tr>
@@ -269,9 +300,61 @@ const Lancamentos = () => {
                 <td className="p-2 border-b text-right">R$ {item.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
               </tr>
             ))}
+            {formData.itens.length === 0 && (
+              <tr><td colSpan="2" className="p-4 text-center text-gray-400">Nenhum item financeiro identificado.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
+
+      {checkboxes.fornecimento_material && (
+        <div className="bg-white p-4 border rounded shadow-sm">
+          <h2 className="text-sm font-bold text-[#1a2e4a] uppercase border-b pb-2 mb-4">Lançamento de DANFE (Produtos)</h2>
+          
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 uppercase font-bold mb-1">Informações Complementares (NF-e)</label>
+            <textarea 
+              value={infoComplementares} 
+              onChange={e => setInfoComplementares(e.target.value)}
+              className="w-full border rounded p-2 text-sm outline-none focus:border-blue-500 h-20"
+            />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2 border-b">Descrição</th>
+                  <th className="p-2 border-b">UN</th>
+                  <th className="p-2 border-b text-right">QTD</th>
+                  <th className="p-2 border-b text-right">V. Unit</th>
+                  <th className="p-2 border-b text-right">V. Total</th>
+                  <th className="p-2 border-b text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {itensMaterial.map((item, index) => (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="p-2 border-b"><input className="w-full border-b outline-none bg-transparent" value={item.descricao} onChange={e => { const newItens = [...itensMaterial]; newItens[index].descricao = e.target.value; setItensMaterial(newItens); }} /></td>
+                    <td className="p-2 border-b"><input className="w-16 border-b outline-none bg-transparent" value={item.unidade} onChange={e => { const newItens = [...itensMaterial]; newItens[index].unidade = e.target.value; setItensMaterial(newItens); }} /></td>
+                    <td className="p-2 border-b text-right"><input type="number" className="w-20 border-b outline-none bg-transparent text-right" value={item.quantidade} onChange={e => { const newItens = [...itensMaterial]; newItens[index].quantidade = Number(e.target.value); setItensMaterial(newItens); }} /></td>
+                    <td className="p-2 border-b text-right"><input type="number" className="w-24 border-b outline-none bg-transparent text-right" value={item.valor_unitario} onChange={e => { const newItens = [...itensMaterial]; newItens[index].valor_unitario = Number(e.target.value); setItensMaterial(newItens); }} /></td>
+                    <td className="p-2 border-b text-right"><input type="number" className="w-24 border-b outline-none bg-transparent text-right" value={item.valor_total} onChange={e => { const newItens = [...itensMaterial]; newItens[index].valor_total = Number(e.target.value); setItensMaterial(newItens); }} /></td>
+                    <td className="p-2 border-b text-center">
+                      <button onClick={() => setItensMaterial(itensMaterial.filter(i => i.id !== item.id))} className="text-red-500 hover:text-red-700 font-bold text-xs">Remover</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3">
+            <button onClick={() => setItensMaterial([...itensMaterial, { id: Date.now(), descricao: '', unidade: 'UN', quantidade: 1, valor_unitario: 0, valor_total: 0 }])} className="text-xs font-bold text-blue-600 hover:text-blue-800">
+              + Adicionar Produto
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between items-center bg-blue-50 p-4 rounded border border-blue-100">
         <div>
