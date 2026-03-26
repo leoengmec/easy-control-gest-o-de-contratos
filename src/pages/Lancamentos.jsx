@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
 
+// Configuração do Worker para o funcionamento do PDF.js
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const Lancamentos = () => {
@@ -25,23 +26,46 @@ const Lancamentos = () => {
 
   const [valorPrevistoOS, setValorPrevistoOS] = useState(0);
 
-  // Carga de contratos (Simulado/Base44)
+  // --- CARGA DE DADOS REAIS ---
+
   useEffect(() => {
-    setContratos([{ id: '1', numero: '024/2025', empresa: 'Empresa A' }]);
+    // Ação: Busca real de contratos no Base44
+    const carregarContratos = async () => {
+      try {
+        const resposta = await window.base44.entities.Contrato.list();
+        setContratos(resposta || []);
+      } catch (error) {
+        console.error("Erro ao carregar contratos:", error);
+      }
+    };
+    carregarContratos();
   }, []);
 
-  // Busca itens do contrato no BD (Simulado/Base44)
   useEffect(() => {
-    if (contratoSelecionado) {
-      // Simulação de dados vindo do banco conforme o schema ItemContrato que você enviou
-      const mockItensBanco = [
-        { id: '101', nome: 'ENGENHEIRO DE CAMPO NATAL', grupo_servico: 'fixo' },
-        { id: '102', nome: 'AUXILIAR TÉCNICO MOSSORÓ', grupo_servico: 'fixo' },
-        { id: '103', nome: 'FORNECIMENTO DE MATERIAL', grupo_servico: 'material' }
-      ];
-      setItensContratoRef(mockItensBanco);
-    }
+    // Ação: Busca real de itens vinculados ao contrato selecionado
+    const carregarItensDoContrato = async () => {
+      if (contratoSelecionado) {
+        try {
+          const resposta = await window.base44.entities.ItemContrato.list({
+            where: { contrato_id: contratoSelecionado }
+          });
+          setItensContratoRef(resposta || []);
+        } catch (error) {
+          console.error("Erro ao carregar itens do contrato:", error);
+        }
+      }
+    };
+    carregarItensDoContrato();
   }, [contratoSelecionado]);
+
+  // --- LÓGICA DE TRATAMENTO ---
+
+  const formatarDataParaISO = (dataStr) => {
+    // Converte DD/MM/YYYY para YYYY-MM-DD
+    if (!dataStr || !dataStr.includes('/')) return null;
+    const [dia, mes, ano] = dataStr.split('/');
+    return `${ano}-${mes}-${dia}`;
+  };
 
   const extrairValor = (texto) => {
     if (!texto) return 0;
@@ -52,12 +76,8 @@ const Lancamentos = () => {
   const handleExtrairNF = async () => {
     const fileInput = document.getElementById('nf-upload');
     const file = fileInput?.files[0];
-    if (!file) {
-      alert("Por favor, selecione um arquivo de NF primeiro.");
-      return;
-    }
-    if (!contratoSelecionado) {
-      alert("Selecione o contrato antes de importar a NF para validação dos itens.");
+    if (!file || !contratoSelecionado) {
+      alert("Selecione o contrato e o arquivo da NF.");
       return;
     }
 
@@ -72,33 +92,25 @@ const Lancamentos = () => {
     }
 
     const txtUpper = fullText.toUpperCase();
-    
-    // --- LÓGICA DINÂMICA (SPRINT 1 - AÇÃO 2) ---
-    
     let itensIdentificados = [];
-    let checksEncontrados = { ...checkboxes };
+    let checks = { mor_natal: false, mor_mossoro: false, fornecimento_material: false, servicos_deslocamento: false };
 
-    // Percorre os itens que vieram do Banco de Dados para este contrato
+    // Match dinâmico com itens reais do banco
     itensContratoRef.forEach(itemBD => {
       if (txtUpper.includes(itemBD.nome.toUpperCase())) {
-        // Se achou o nome do item no PDF, tenta capturar o valor na mesma linha ou contexto
-        // Aqui estamos usando uma lógica simplificada de captura de valor para o item
         const valorItem = extrairValor(txtUpper.split(itemBD.nome.toUpperCase())[1]);
-        
         itensIdentificados.push({
           descricao: itemBD.nome,
           valorTotal: valorItem,
           item_contrato_id: itemBD.id
         });
 
-        // Atualiza os checkboxes de interface baseados nos itens do banco
-        if (itemBD.nome.includes("NATAL")) checksEncontrados.mor_natal = true;
-        if (itemBD.nome.includes("MOSSORÓ")) checksEncontrados.mor_mossoro = true;
-        if (itemBD.grupo_servico === "material") checksEncontrados.fornecimento_material = true;
+        if (itemBD.nome.includes("NATAL")) checks.mor_natal = true;
+        if (itemBD.nome.includes("MOSSORÓ")) checks.mor_mossoro = true;
+        if (itemBD.grupo_servico === "material") checks.fornecimento_material = true;
       }
     });
 
-    // Extração de metadados (NF, Data, OS) mantida
     const isNFe = txtUpper.includes("DANFE") || txtUpper.includes("NF-E");
     let numNf = "";
     let valorTotalNota = 0;
@@ -118,14 +130,14 @@ const Lancamentos = () => {
     const dataMatch = fullText.match(/(\d{2}\/\d{2}\/\d{4})/);
     const osMatch = fullText.match(/(\d{3}[\.\/]\d{4}-[A-Z]{2}|\d{3}\.\d{4})/i);
 
-    setCheckboxes(checksEncontrados);
+    setCheckboxes(checks);
     setFormData(prev => ({
       ...prev,
       numero_nf: numNf || prev.numero_nf,
       data_emissao: dataMatch ? dataMatch[0] : prev.data_emissao,
       valor_total_nf: valorTotalNota || prev.valor_total_nf,
       numero_os: osMatch ? osMatch[1] : prev.numero_os,
-      itens: itensIdentificados // Agora preenche a tabela com itens reais do contrato
+      itens: itensIdentificados
     }));
   };
 
@@ -146,17 +158,41 @@ const Lancamentos = () => {
     setFormData(prev => ({ ...prev, numero_os: osMatch ? osMatch[1] : prev.numero_os }));
   };
 
-  const validarESalvar = () => {
-    if (!contratoSelecionado) {
-      alert("Selecione um contrato antes de confirmar o lançamento.");
-      return;
-    }
+  const validarESalvar = async () => {
+    if (!contratoSelecionado) return alert("Selecione um contrato.");
+    
     const diferenca = formData.valor_total_nf - valorPrevistoOS;
     if (formData.valor_total_nf > valorPrevistoOS && valorPrevistoOS > 0) {
-      const msg = `Atenção: O valor desta NF excede a OS em R$ ${diferenca.toLocaleString('pt-BR')}. Deseja prosseguir?`;
-      if (!window.confirm(msg)) return;
+      if (!window.confirm(`Valor excede a OS em R$ ${diferenca.toLocaleString('pt-BR')}. Prosseguir?`)) return;
     }
-    console.log("Salvando Payload Maduro:", { ...formData, contrato_id: contratoSelecionado });
+
+    try {
+      // 1. Criar Lançamento Financeiro
+      const novoLancamento = await window.base44.entities.LancamentoFinanceiro.create({
+        contrato_id: contratoSelecionado,
+        numero_nf: formData.numero_nf,
+        data_nf: formatarDataParaISO(formData.data_emissao),
+        valor: formData.valor_total_nf,
+        status: 'pendente'
+      });
+
+      // 2. Criar Itens vinculados
+      for (const item of formData.itens) {
+        await window.base44.entities.ItemMaterialNF.create({
+          lancamento_financeiro_id: novoLancamento.id,
+          contrato_id: contratoSelecionado,
+          descricao: item.descricao,
+          valor_total_item: item.valorTotal,
+          quantidade: 1, // Padrão para agrupamento
+          valor_unitario: item.valorTotal
+        });
+      }
+
+      alert("Lançamento realizado com sucesso!");
+    } catch (error) {
+      console.error("Erro ao salvar:", error);
+      alert("Falha ao salvar lançamento no banco de dados.");
+    }
   };
 
   return (
@@ -172,7 +208,7 @@ const Lancamentos = () => {
         >
           <option value="">Selecione um contrato...</option>
           {contratos.map(c => (
-            <option key={c.id} value={c.id}>{c.numero} - {c.empresa}</option>
+            <option key={c.id} value={c.id}>{c.numero_contrato || c.numero} - {c.empresa || c.contratada}</option>
           ))}
         </select>
       </div>
@@ -194,53 +230,27 @@ const Lancamentos = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 border rounded">
         <div>
           <label className="block text-xs text-gray-500 uppercase">Número NF</label>
-          <input 
-            type="text"
-            value={formData.numero_nf}
-            onChange={(e) => setFormData({...formData, numero_nf: e.target.value})}
-            className="w-full border-b focus:border-blue-500 outline-none py-1"
-          />
+          <input type="text" value={formData.numero_nf} onChange={(e) => setFormData({...formData, numero_nf: e.target.value})} className="w-full border-b outline-none py-1" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 uppercase">Data Emissão</label>
-          <input 
-            type="text"
-            value={formData.data_emissao}
-            onChange={(e) => setFormData({...formData, data_emissao: e.target.value})}
-            className="w-full border-b focus:border-blue-500 outline-none py-1"
-          />
+          <input type="text" value={formData.data_emissao} onChange={(e) => setFormData({...formData, data_emissao: e.target.value})} className="w-full border-b outline-none py-1" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 uppercase">OS Vinculada</label>
-          <input 
-            type="text"
-            value={formData.numero_os}
-            onChange={(e) => setFormData({...formData, numero_os: e.target.value})}
-            className="w-full border-b focus:border-blue-500 outline-none py-1"
-          />
+          <input type="text" value={formData.numero_os} onChange={(e) => setFormData({...formData, numero_os: e.target.value})} className="w-full border-b outline-none py-1" />
         </div>
       </div>
 
-      {/* OS Checkboxes permanecem como indicadores visuais, mas agora são alimentados pela lógica do banco */}
       <div className="bg-white p-4 border rounded">
         <label className="block text-xs text-gray-500 uppercase mb-3">Itens Identificados Automaticamente (Via Contrato)</label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
-            <input type="checkbox" checked={checkboxes.mor_natal} readOnly className="rounded text-blue-600" />
-            <span>MOR Natal</span>
-          </label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
-            <input type="checkbox" checked={checkboxes.mor_mossoro} readOnly className="rounded text-blue-600" />
-            <span>MOR Mossoró</span>
-          </label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
-            <input type="checkbox" checked={checkboxes.fornecimento_material} readOnly className="rounded text-blue-600" />
-            <span>Material</span>
-          </label>
-          <label className="flex items-center space-x-2 text-sm cursor-pointer opacity-80">
-            <input type="checkbox" checked={checkboxes.servicos_deslocamento} readOnly className="rounded text-blue-600" />
-            <span>Deslocamento</span>
-          </label>
+          {['mor_natal', 'mor_mossoro', 'fornecimento_material', 'servicos_deslocamento'].map(key => (
+            <label key={key} className="flex items-center space-x-2 text-sm opacity-80">
+              <input type="checkbox" checked={checkboxes[key]} readOnly className="rounded text-blue-600" />
+              <span className="capitalize">{key.replace('_', ' ')}</span>
+            </label>
+          ))}
         </div>
       </div>
 
@@ -259,9 +269,6 @@ const Lancamentos = () => {
                 <td className="p-2 border-b text-right">R$ {item.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
               </tr>
             ))}
-            {formData.itens.length === 0 && (
-              <tr><td colSpan="2" className="p-4 text-center text-gray-400">Nenhum item do contrato identificado no PDF.</td></tr>
-            )}
           </tbody>
         </table>
       </div>
@@ -271,10 +278,7 @@ const Lancamentos = () => {
           <p className="text-xs text-blue-700 uppercase font-bold">Resumo Financeiro</p>
           <p className="text-lg font-bold">Total NF: R$ {formData.valor_total_nf.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
         </div>
-        <button 
-          onClick={validarESalvar}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow"
-        >
+        <button onClick={validarESalvar} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow">
           Confirmar Lançamento
         </button>
       </div>
