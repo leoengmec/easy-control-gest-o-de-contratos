@@ -1,222 +1,296 @@
-import React, { useState, useEffect } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
+import { useState, useEffect } from "react";
+import { base44 } from "@/api/base44Client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Plus, Pencil, Trash2, DollarSign, Upload, Info } from "lucide-react";
+import LancamentoForm from "@/components/lancamentos/LancamentoForm.jsx";
+import ImportarLancamentosLote from "@/components/lancamentos/ImportarLancamentosLote.jsx";
 
-// Configuração do Worker PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+const mesesNomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const statusColors = {
+  "SOF": "bg-blue-100 text-blue-800",
+  "Pago": "bg-green-100 text-green-800",
+  "Cancelado": "bg-gray-100 text-gray-500",
+  "Aprovisionado": "bg-amber-100 text-amber-800",
+  "Em execução": "bg-purple-100 text-purple-800",
+  "Em instrução": "bg-sky-100 text-sky-800"
+};
+const STATUS_OPTIONS = ["SOF", "Pago", "Cancelado", "Aprovisionado", "Em execução", "Em instrução"];
 
-const Lancamentos = () => {
-  // --- ESTADOS DE CONTROLE ---
+export default function Lancamentos() {
+  const [lancamentos, setLancamentos] = useState([]);
   const [contratos, setContratos] = useState([]);
-  const [contratoSelecionado, setContratoSelecionado] = useState('');
-  const [itensContratoRef, setItensContratoRef] = useState([]);
+  const [itens, setItens] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [user, setUser] = useState(null);
+  const [usuarios, setUsuarios] = useState({});
+  const [historicos, setHistoricos] = useState([]);
+  const anoAtual = new Date().getFullYear();
+  const [filtroAno, setFiltroAno] = useState(String(anoAtual));
+  const [anosDisponiveis, setAnosDisponiveis] = useState([]);
+  const [filtroContrato, setFiltroContrato] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [showImportar, setShowImportar] = useState(false);
 
-  const [formData, setFormData] = useState({
-    mes: new Date().getMonth() + 1,
-    ano: 2026,
-    status: 'Em Instrução',
-    processo_sei: '',
-    ordem_bancaria: '',
-    data_lancamento: new Date().toISOString().split('T')[0],
-    observacoes: '',
-    valor_total_nf: 0,
-    nfs: [], // Suporte a múltiplas NFs
-    oss: []  // Suporte a múltiplas OSs
-  });
-
-  const [checkboxes, setCheckboxes] = useState({});
-
-  // --- 1. CONEXÃO RESILIENTE COM SDK BASE44 ---
   useEffect(() => {
-    let tentativas = 0;
-    const buscarContratos = async () => {
-      const sdk = window.base44 || window.base;
-      if (sdk?.entities) {
-        try {
-          const lista = await sdk.entities.Contrato.list();
-          setContratos(lista || []);
-          setLoading(false);
-        } catch (e) { console.error("Erro ao listar contratos:", e); }
-      } else if (tentativas < 15) {
-        tentativas++;
-        setTimeout(buscarContratos, 1000);
-      } else {
-        setLoading(false);
-      }
-    };
-    buscarContratos();
+    base44.auth.me().then(setUser).catch(() => {});
+    loadBase();
   }, []);
 
-  // --- 2. CARGA DINÂMICA DE ITENS ---
-  useEffect(() => {
-    if (contratoSelecionado) {
-      const sdk = window.base44 || window.base;
-      sdk.entities.ItemContrato.list({ where: { contrato_id: contratoSelecionado } })
-        .then(res => {
-          setItensContratoRef(res || []);
-          const initialChecks = {};
-          res?.forEach(item => initialChecks[item.nome] = false);
-          setCheckboxes(initialChecks);
-        });
-    }
-  }, [contratoSelecionado]);
+  useEffect(() => { loadLancamentos(); }, [filtroAno, filtroContrato]);
 
-  // --- 3. LÓGICA DE CÁLCULO FINANCEIRO ---
-  const calcularValorFinal = (valor, retencao, glosa) => {
-    const v = parseFloat(valor) || 0;
-    const r = parseFloat(retencao) || 0;
-    const g = parseFloat(glosa) || 0;
-    return v - g - (v * (r / 100));
-  };
-
-  // --- 4. PERSISTÊNCIA SELETIVA (REGRA DE NEGÓCIO) ---
-  const formatarDataISO = (d) => d ? new Date(d.split('/').reverse().join('-')).toISOString() : null;
-
-  const handleEnviar = async () => {
-    const sdk = window.base44 || window.base;
-    if (!contratoSelecionado) return alert("Selecione um contrato.");
+  const loadBase = async () => {
+    const [c, i, todosLancamentos] = await Promise.all([
+      base44.entities.Contrato.list(),
+      base44.entities.ItemContrato.list(),
+      base44.entities.LancamentoFinanceiro.list()
+    ]);
+    setContratos(c);
+    setItens(i);
     
-    setIsSaving(true);
-    try {
-      // Cria o Lançamento Financeiro Principal (Sempre ocorre)
-      const lancamento = await sdk.entities.LancamentoFinanceiro.create({
-        contrato_id: contratoSelecionado,
-        mes: parseInt(formData.mes),
-        ano: parseInt(formData.ano),
-        status: formData.status,
-        valor: formData.valor_total_nf,
-        processo_pagamento_sei: formData.processo_sei,
-        ordem_bancaria: formData.ordem_bancaria,
-        observacoes: formData.observacoes,
-        data_lancamento: new Date().toISOString()
-      });
-
-      // REGRA: Só salva em ItemMaterialNF se 'FORNECIMENTO DE MATERIAL' estiver marcado
-      if (checkboxes['FORNECIMENTO DE MATERIAL']) {
-        for (const nf of formData.nfs) {
-          for (const item of nf.itensExtraidos) {
-            await sdk.entities.ItemMaterialNF.create({
-              lancamento_financeiro_id: lancamento.id,
-              contrato_id: contratoSelecionado,
-              numero_nf: nf.numero,
-              data_nf: formatarDataISO(nf.data),
-              descricao: item.descricao,
-              unidade: item.unidade,
-              quantidade: item.quantidade,
-              valor_unitario: item.valorUnit,
-              valor_total_item: item.valorTotal,
-              observacoes: nf.infoComplementar // Dados das Informações Complementares
-            });
-          }
-        }
-      }
-
-      alert("Lançamento enviado com sucesso!");
-    } catch (error) {
-      console.error("Erro ao salvar:", error);
-      alert("Falha no envio. Verifique a conexão e os campos.");
-    } finally {
-      setIsSaving(false);
-    }
+    // Extrair anos únicos dos lançamentos
+    const anosUnicos = [...new Set(todosLancamentos.map(l => l.ano).filter(Boolean))].sort((a, b) => b - a);
+    setAnosDisponiveis(anosUnicos.map(String));
+    
+    loadLancamentos();
   };
 
-  if (loading) return (
-    <div className="flex flex-col items-center justify-center h-screen space-y-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      <p className="text-gray-500 font-medium italic">Conectando ao banco de dados JFRN...</p>
+  const loadLancamentos = async () => {
+    setLoading(true);
+    const filter = { ano: parseInt(filtroAno) };
+    if (filtroContrato !== "todos") filter.contrato_id = filtroContrato;
+    const data = await base44.entities.LancamentoFinanceiro.filter(filter, "-created_date");
+    setLancamentos(data);
+    
+    // Buscar usuários únicos
+    const emailsUnicos = [...new Set(data.map(l => l.created_by).filter(Boolean))];
+    if (emailsUnicos.length > 0) {
+      const users = await base44.entities.User.list();
+      const userMap = {};
+      users.forEach(u => {
+        if (emailsUnicos.includes(u.email)) {
+          userMap[u.email] = u.full_name;
+        }
+      });
+      setUsuarios(userMap);
+    }
+
+    // Buscar históricos de cancelamento
+    const hists = await base44.entities.HistoricoLancamento.filter({ tipo_acao: "cancelamento" });
+    setHistoricos(hists);
+    
+    setLoading(false);
+  };
+
+  const handleDelete = async (lancamento) => {
+    if (!confirm("Excluir este lançamento?")) return;
+    // Se for material, exclui os itens de material associados
+    const isMaterial = lancamento.item_label === "Fornecimento de Materiais";
+    if (isMaterial) {
+      const itensMat = await base44.entities.ItemMaterialNF.filter({ lancamento_financeiro_id: lancamento.id });
+      for (const item of itensMat) {
+        await base44.entities.ItemMaterialNF.delete(item.id);
+      }
+    }
+    await base44.entities.LancamentoFinanceiro.delete(lancamento.id);
+    loadLancamentos();
+  };
+
+  const canEdit = user?.role === "admin" || user?.role === "gestor" || user?.role === "fiscal";
+
+  const filtered = lancamentos.filter(l => filtroStatus === "todos" || l.status === filtroStatus);
+
+  const totalFiltrado = filtered.reduce((s, l) => s + (l.valor || 0), 0);
+
+  if (showImportar) return (
+    <div className="p-6">
+      <ImportarLancamentosLote
+        contratos={contratos}
+        onComplete={() => { setShowImportar(false); loadLancamentos(); }}
+        onCancel={() => setShowImportar(false)}
+      />
+    </div>
+  );
+
+  if (showForm || editing) return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <LancamentoForm
+        lancamento={editing}
+        contratos={contratos}
+        itens={itens}
+        onSave={() => { setShowForm(false); setEditing(null); loadLancamentos(); }}
+        onCancel={() => { setShowForm(false); setEditing(null); }}
+      />
     </div>
   );
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8 bg-white min-h-screen border shadow-xl my-10 rounded-lg">
-      <h1 className="text-2xl font-bold text-gray-800 border-b pb-4">Novo Lançamento</h1>
-
-      {/* CABEÇALHO GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        <div className="md:col-span-2">
-          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Contrato *</label>
-          <select 
-            className="w-full border-b border-gray-200 py-2 outline-none focus:border-blue-500 bg-transparent"
-            value={contratoSelecionado}
-            onChange={(e) => setContratoSelecionado(e.target.value)}
-          >
-            <option value="">Selecione o contrato...</option>
-            {contratos.map(c => (
-              <option key={c.id} value={c.id}>{c.numero_contrato || c.numero} - {c.empresa || c.contratada}</option>
-            ))}
-          </select>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mês de Referência</label>
-          <select className="w-full border-b border-gray-200 py-2 outline-none" value={formData.mes} onChange={e => setFormData({...formData, mes: e.target.value})}>
-            {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map((m, i) => (
-              <option key={i} value={i+1}>{m}</option>
-            ))}
-          </select>
+          <h1 className="text-2xl font-bold text-[#1a2e4a]">Lançamentos Financeiros</h1>
+          <p className="text-gray-500 text-sm">{filtered.length} lançamento(s) · Total: {fmt(totalFiltrado)}</p>
         </div>
-        <div>
-          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</label>
-          <select className="w-full border-b border-gray-200 py-2 outline-none" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
-            <option>Em Instrução</option>
-            <option>Pago</option>
-            <option>SOF</option>
-            <option>Suspenso</option>
-          </select>
-        </div>
+        {canEdit && (
+          <div className="flex gap-2">
+            <Button onClick={() => setShowImportar(true)} variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
+              <Upload className="w-4 h-4 mr-2" /> Importar em Lote
+            </Button>
+            <Button onClick={() => setShowForm(true)} className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
+              <Plus className="w-4 h-4 mr-2" /> Novo Lançamento
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* ITENS DO CONTRATO */}
-      <div className="space-y-4">
-        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Itens do Contrato (Selecione um ou mais)</label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 p-4 bg-gray-50 rounded">
-          {itensContratoRef.map(item => (
-            <label key={item.id} className="flex items-center space-x-3 text-sm cursor-pointer group">
-              <input 
-                type="checkbox" 
-                className="rounded border-gray-300 text-blue-600 focus:ring-0"
-                checked={!!checkboxes[item.nome]}
-                onChange={(e) => setCheckboxes({...checkboxes, [item.nome]: e.target.checked})}
-              />
-              <span className="group-hover:text-blue-600 transition-colors">{item.nome}</span>
-            </label>
-          ))}
-        </div>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3">
+        <Select value={filtroAno} onValueChange={setFiltroAno}>
+          <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+          <SelectContent>{anosDisponiveis.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+        </Select>
+        <Select value={filtroContrato} onValueChange={setFiltroContrato}>
+          <SelectTrigger className="w-52"><SelectValue placeholder="Todos os contratos" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os contratos</SelectItem>
+            {contratos.map(c => <SelectItem key={c.id} value={c.id}>{c.numero} – {c.contratada}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Todos os status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os status</SelectItem>
+            {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* RODAPÉ FINANCEIRO */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t">
-        <div className="space-y-4">
-          <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Processo de Pagamento SEI</label>
-            <input type="text" placeholder="Nº do processo SEI" className="w-full border-b border-gray-200 py-2 outline-none" value={formData.processo_sei} onChange={e => setFormData({...formData, processo_sei: e.target.value})} />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Observações</label>
-            <textarea className="w-full border-b border-gray-200 py-2 outline-none h-20 resize-none" placeholder="Observações..." value={formData.observacoes} onChange={e => setFormData({...formData, observacoes: e.target.value})} />
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ordem Bancária</label>
-            <input type="text" placeholder="Nº da ordem bancária" className="w-full border-b border-gray-200 py-2 outline-none" value={formData.ordem_bancaria} onChange={e => setFormData({...formData, ordem_bancaria: e.target.value})} />
-          </div>
-        </div>
+      {/* Resumo por mês */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
+        {Array.from({ length: 12 }, (_, i) => {
+          const m = i + 1;
+          const total = filtered.filter(l => l.mes === m).reduce((s, l) => s + l.valor, 0);
+          return (
+            <div key={m} className={`text-center p-2 rounded-lg border ${total > 0 ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-100"}`}>
+              <div className="text-xs text-gray-500">{mesesNomes[i]}</div>
+              <div className={`text-xs font-bold mt-0.5 ${total > 0 ? "text-[#1a2e4a]" : "text-gray-300"}`}>
+                {total > 0 ? `${(total / 1000).toFixed(0)}k` : "—"}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* BOTÕES FINAIS */}
-      <div className="flex justify-end items-center space-x-6 pt-10">
-        <button className="text-sm font-bold text-gray-400 hover:text-red-500 uppercase transition-colors">Cancelar</button>
-        <button 
-          onClick={handleEnviar}
-          disabled={isSaving}
-          className={`${isSaving ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-12 py-3 rounded text-sm font-bold shadow-lg uppercase tracking-widest transition-all`}
-        >
-          {isSaving ? 'Enviando...' : 'Enviar'}
-        </button>
-      </div>
+      {loading ? (
+        <div className="text-center py-8 text-gray-400">Carregando...</div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <DollarSign className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <div>Nenhum lançamento encontrado</div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="text-left p-3 font-medium text-gray-500">Mês/Ano</th>
+                <th className="text-left p-3 font-medium text-gray-500">Contrato</th>
+                <th className="text-left p-3 font-medium text-gray-500">Item</th>
+                <th className="text-left p-3 font-medium text-gray-500">Status</th>
+                <th className="text-right p-3 font-medium text-gray-500">Valor</th>
+                <th className="text-left p-3 font-medium text-gray-500">NF / OS / SEI</th>
+                <th className="text-left p-3 font-medium text-gray-500">Cadastrado por</th>
+                {canEdit && <th className="p-3"></th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(l => {
+                const contrato = contratos.find(c => c.id === l.contrato_id);
+                const item = itens.find(i => i.id === l.item_contrato_id);
+                return (
+                  <tr key={l.id} className="border-b hover:bg-gray-50">
+                    <td className="p-3 font-medium">{mesesNomes[(l.mes || 1) - 1]}/{l.ano}</td>
+                    <td className="p-3 text-xs text-gray-600">{contrato?.numero || "—"}</td>
+                    <td className="p-3 text-xs text-gray-600">{l.item_label || item?.nome || "—"}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={`text-xs ${statusColors[l.status] || "bg-gray-100 text-gray-600"}`}>
+                          {l.status || "—"}
+                        </Badge>
+                        {l.status === "Cancelado" && (() => {
+                          const hist = historicos.find(h => h.lancamento_financeiro_id === l.id && h.tipo_acao === "cancelamento");
+                          return hist?.motivo ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="w-3.5 h-3.5 text-amber-500 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <div className="font-semibold text-xs">Motivo do Cancelamento:</div>
+                                    <div className="text-xs">{hist.motivo}</div>
+                                    {hist.realizado_por && (
+                                      <div className="text-xs text-gray-400 mt-2">
+                                        Por: {hist.realizado_por}
+                                      </div>
+                                    )}
+                                    {hist.data_acao && (
+                                      <div className="text-xs text-gray-400">
+                                        Em: {new Date(hist.data_acao).toLocaleDateString("pt-BR")}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : null;
+                        })()}
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-semibold">{fmt(l.valor)}</td>
+                    <td className="p-3 text-xs text-gray-500 space-y-0.5">
+                      {l.numero_nf && <div>NF: {l.numero_nf}</div>}
+                      {l.ordens_servico?.length > 0 ? (
+                        l.ordens_servico.map((os, idx) => (
+                          <div key={idx}>OS: {os.numero}</div>
+                        ))
+                      ) : l.os_numero && <div>OS: {l.os_numero}</div>}
+                      {l.processo_pagamento_sei && <div>SEI: {l.processo_pagamento_sei}</div>}
+                      {!l.numero_nf && !l.ordens_servico?.length && !l.os_numero && !l.processo_pagamento_sei && "—"}
+                    </td>
+                    <td className="p-3 text-xs text-gray-600">
+                      <div className="font-medium">{usuarios[l.created_by] || l.created_by || "—"}</div>
+                      {l.created_date && (
+                        <div className="text-gray-400 mt-0.5">
+                          {new Date(l.created_date).toLocaleDateString("pt-BR")}
+                        </div>
+                      )}
+                    </td>
+                    {canEdit && (
+                      <td className="p-3">
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditing(l)}>
+                            <Pencil className="w-3 h-3" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(l)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
-};
-
-export default Lancamentos;
+}

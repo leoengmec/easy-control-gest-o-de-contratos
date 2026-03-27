@@ -1,74 +1,89 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClientInstance } from '@/lib/query-client';
+import { Toaster } from "@/components/ui/toaster"
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClientInstance } from '@/lib/query-client'
+import { pagesConfig } from './pages.config'
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { Toaster } from "@/components/ui/toaster";
-
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
-import Layout from "./Layout";
-import Dashboard from "@/pages/Dashboard";
-import ExtratoPagamentos from "@/pages/ExtratoPagamentos";
-import ContratoDetalhe from "@/pages/ContratoDetalhe";
-import Empenhos from "@/pages/Empenhos";
-import LandingPage from "@/pages/LandingPage";
-import AdminUsuarios from "@/components/admin/AdminUsuarios";
-import Lancamentos from "@/pages/Lancamentos"; 
-import Relatorios from "@/pages/Relatorios";
-import Revisao from "@/pages/Revisao";
-import ControleMateriais from "@/pages/ControleMateriais";
+import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
+
+const { Pages, Layout, mainPage } = pagesConfig;
+const mainPageKey = mainPage ?? Object.keys(Pages)[0];
+const MainPage = mainPageKey ? Pages[mainPageKey] : <></>;
+
+const LayoutWrapper = ({ children, currentPageName }) => Layout ?
+  <Layout currentPageName={currentPageName}>{children}</Layout>
+  : <>{children}</>;
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, authError, navigateToLogin, user } = useAuth();
-  
-  // ✅ ATUALIZADO: E-mail que aparece no seu print de login
-  const SUPER_USER_EMAIL = 'bielribeirogamer@gmail.com'; 
+  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  if (isLoadingAuth) {
+  // Show loading spinner while checking app public settings or auth
+  if (isLoadingPublicSettings || isLoadingAuth) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+      <div className="fixed inset-0 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
       </div>
     );
   }
 
-  const isSuperUser = user?.email === SUPER_USER_EMAIL;
-
-  if (authError && !isSuperUser) {
-    if (authError.type === 'auth_required') { navigateToLogin(); return null; }
-    if (authError.type === 'user_not_registered') return <UserNotRegisteredError />;
+  // Handle authentication errors
+  if (authError) {
+    if (authError.type === 'user_not_registered') {
+      return <UserNotRegisteredError />;
+    } else if (authError.type === 'auth_required') {
+      // Redirect to login automatically
+      navigateToLogin();
+      return null;
+    }
   }
 
+  // Render the main app
   return (
     <Routes>
-      <Route path="/landing" element={<LandingPage />} />
-      <Route path="/pendente" element={<UserNotRegisteredError />} />
-
-      <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/extrato" element={<ExtratoPagamentos />} />
-        <Route path="/empenhos" element={<Empenhos />} />
-        <Route path="/lancamentos" element={<Lancamentos />} />
-        <Route path="/relatorios" element={<Relatorios />} />
-        <Route path="/revisao" element={<Revisao />} />
-        <Route path="/controle-materiais" element={<ControleMateriais />} />
-        <Route path="/contratos/:id" element={<ContratoDetalhe />} />
-        <Route path="/admin" element={<AdminUsuarios />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/" element={
+        <LayoutWrapper currentPageName={mainPageKey}>
+          <MainPage />
+        </LayoutWrapper>
+      } />
+      {Object.entries(Pages).map(([path, Page]) => (
+        <Route
+          key={path}
+          path={`/${path}`}
+          element={
+            <LayoutWrapper currentPageName={path}>
+              <Page />
+            </LayoutWrapper>
+          }
+        />
+      ))}
+      <Route
+        path="/MinhasConfiguracoesAlertas"
+        element={
+          <LayoutWrapper currentPageName="MinhasConfiguracoesAlertas">
+            <MinhasConfiguracoesAlertas />
+          </LayoutWrapper>
+        }
+      />
+      <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
 };
 
-export default function App() {
+
+function App() {
+
   return (
     <AuthProvider>
       <QueryClientProvider client={queryClientInstance}>
-        <BrowserRouter>
+        <Router>
           <AuthenticatedApp />
-        </BrowserRouter>
+        </Router>
         <Toaster />
       </QueryClientProvider>
     </AuthProvider>
-  );
+  )
 }
+
+export default App

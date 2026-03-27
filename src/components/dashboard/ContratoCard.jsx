@@ -1,89 +1,170 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building2, Calendar, ArrowUpRight, MoreVertical, Plus, FileText, Activity } from "lucide-react";
-import { Link } from "react-router-dom";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ChevronDown, ChevronUp, ArrowRight, Calendar, Building2 } from "lucide-react";
+import GraficoContrato from "./GraficoContrato";
+import SaldoItens from "./SaldoItens";
 
-export default function ContratoCard({ contrato, lancamentos = [], orcamentoContratual }) {
-  // Lógica de Fallback conforme Schema (Novo vs Legado)
-  // Garante que o projeto não "detone" se um dos campos estiver ausente
-  const exibirNumero = contrato.numero_contrato || contrato.numero || "Sem Número";
-  const exibirEmpresa = contrato.empresa || contrato.contratada || "Empresa não identificada";
-  
-  // Tratamento da data de vigência para os dois padrões de campo possíveis
-  const dataVigencia = contrato.data_fim || contrato.data_fim_vigencia;
+const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
+const fmtDate = (d) => d ? new Date(d + "T00:00:00").toLocaleDateString("pt-BR") : "-";
 
-  const ultimos3Meses = new Date();
-  ultimos3Meses.setMonth(ultimos3Meses.getMonth() - 3);
-  const gastosRecentes = lancamentos.filter(l => l.contrato_id === contrato.id && l.status === "Pago" && new Date(l.data_nf || l.data_lancamento) >= ultimos3Meses);
-  const mediaMensal = gastosRecentes.reduce((s, l) => s + (l.valor || 0), 0) / 3;
-  const orcadoTotal = orcamentoContratual?.valor_orcado || 0;
-  const pagoTotal = lancamentos.filter(l => l.contrato_id === contrato.id && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-  const saldo = orcadoTotal - pagoTotal;
-  const mesesRestantesSaldo = mediaMensal > 0 ? Math.floor(saldo / mediaMensal) : 0;
+export default function ContratoCard({ contrato, lancamentos, empenhos, orcamentoContratual, orcamentoJFRN }) { // ALTERAÇÃO: Adiciona 'orcamentoJFRN'
+  const [expanded, setExpanded] = useState(false);
+
+  const anoAtual = new Date().getFullYear();
+
+  const lancamentosContrato = lancamentos.filter(l => l.contrato_id === contrato.id);
+  const lancamentosAno = lancamentosContrato.filter(l => l.ano === anoAtual);
+
+  const totalPagoAno = lancamentosAno.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalProvisionadoAno = lancamentosAno.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalEmInstrucaoAno = lancamentosAno.filter(l => l.status === "Em instrução" || l.status === "Em execução" || l.status === "SOF").reduce((s, l) => s + (l.valor || 0), 0);
+
+  const totalPagoVigencia = lancamentosContrato.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalProvisionadoVigencia = lancamentosContrato.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+
+  const empenhoContrato = empenhos.filter(e => e.contrato_id === contrato.id && e.ano === anoAtual);
+  const totalEmpenhado = empenhoContrato.reduce((s, e) => s + (e.valor_total || 0), 0);
+
+  const valorOrcado = orcamentoContratual?.valor_orcado || 0;
+  const valorFinanceiroNufip = contrato.valor_financeiro_disponivel_nufip || 0;
+
+  // Saldo do ano: compara financeiro NUFIP (prioritário) ou orçado JFRN com o total pago+aprovisionado
+  const baseReferenciaAno = valorFinanceiroNufip > 0 ? valorFinanceiroNufip : valorOrcado;
+  const saldoAno = baseReferenciaAno - totalPagoAno - totalProvisionadoAno;
+  const saldoVigencia = (contrato.valor_global || 0) - totalPagoVigencia - totalProvisionadoVigencia;
+
+  // Vigência
+  const hoje = new Date();
+  const dataFim = contrato.data_fim ? new Date(contrato.data_fim + "T00:00:00") : null;
+  const diasRestantes = dataFim ? Math.ceil((dataFim - hoje) / (1000 * 60 * 60 * 24)) : null;
+  const vencendoEm30 = diasRestantes !== null && diasRestantes <= 30 && diasRestantes > 0;
+  const vencido = diasRestantes !== null && diasRestantes <= 0;
 
   return (
-    <Card className="hover:shadow-md transition-shadow border-gray-100 group">
-      <CardContent className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-[#1a2e4a] group-hover:text-white transition-colors">
-            <Building2 size={20} />
+    <Card className={`border-l-4 ${vencido ? "border-l-red-500" : vencendoEm30 ? "border-l-amber-500" : "border-l-blue-500"}`}>
+      <CardHeader className="pb-2 pt-4 px-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-bold text-[#1a2e4a] text-sm">{contrato.numero}</span>
+              <Badge variant="outline" className={`text-xs ${contrato.status === "ativo" ? "text-green-600 border-green-200" : "text-gray-500"}`}>
+                {contrato.status}
+              </Badge>
+              {vencido && <Badge className="bg-red-100 text-red-700 text-xs border-0">Vigência expirada</Badge>}
+              {vencendoEm30 && <Badge className="bg-amber-100 text-amber-700 text-xs border-0">Vence em {diasRestantes}d</Badge>}
+            </div>
+            <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+              <Building2 className="w-3 h-3 shrink-0" />
+              <span className="font-medium">{contrato.contratada}</span>
+            </div>
+            <div className="text-xs text-gray-500 mt-0.5 line-clamp-1">{contrato.escopo_resumido || contrato.objeto}</div>
+            <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+              <Calendar className="w-3 h-3 shrink-0" />
+              <span>{fmtDate(contrato.data_inicio)} → {fmtDate(contrato.data_fim)}</span>
+            </div>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-[#1a2e4a]">{exibirNumero}</span>
-              {contrato.status && (
-                <Badge variant="outline" className="text-[9px] uppercase font-bold border-blue-200 text-blue-700">
-                  {contrato.status}
-                </Badge>
-              )}
-            </div>
-            <div className="text-xs text-gray-500 truncate max-w-[300px]" title={exibirEmpresa}>
-              {exibirEmpresa}
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link to={createPageUrl(`ContratoDetalhe?id=${contrato.id}`)}>
+              <Button variant="ghost" size="sm" className="text-xs h-7 px-2 text-blue-600">
+                Detalhes <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
+            </Link>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setExpanded(!expanded)}>
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
           </div>
         </div>
-        
-        <div className="flex items-center gap-4 md:gap-8">
-          {mesesRestantesSaldo > 0 && mediaMensal > 0 && (
-            <div className="hidden md:block text-right">
-              <div className="text-[10px] text-orange-400 uppercase font-bold tracking-tight">Burn Rate</div>
-              <div className="text-[10px] font-semibold text-orange-600">
-                Saldo acaba em {mesesRestantesSaldo} meses
+      </CardHeader>
+
+      <CardContent className="px-4 pb-4">
+        {/* Grid de valores principais */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <div className="bg-blue-50 rounded-lg p-3">
+            <div className="text-xs text-blue-600 font-medium mb-1">Valor Contratado Vigente</div>
+            <div className="text-sm font-bold text-blue-800">{fmt(contrato.valor_global)}</div>
+          </div>
+          <div className="bg-amber-50 rounded-lg p-3">
+            <div className="text-xs text-amber-600 font-medium mb-1">Valor Empenhado ({anoAtual})</div>
+            <div className="text-sm font-bold text-amber-800">{fmt(totalEmpenhado)}</div>
+          </div>
+          <div className={`rounded-lg p-3 ${valorFinanceiroNufip > 0 ? "bg-purple-50" : "bg-gray-50"}`}>
+            <div className={`text-xs font-medium mb-1 ${valorFinanceiroNufip > 0 ? "text-purple-600" : "text-gray-500"}`}>Financeiro NUFIP ({anoAtual})</div>
+            <div className={`text-sm font-bold ${valorFinanceiroNufip > 0 ? "text-purple-800" : "text-gray-400"}`}>{valorFinanceiroNufip > 0 ? fmt(valorFinanceiroNufip) : "Não informado"}</div>
+          </div>
+            <div className={`rounded-lg p-3 ${orcamentoJFRN > 0 ? "bg-green-50" : "bg-gray-50"}`}>
+            <div className={`text-xs font-medium mb-1 ${orcamentoJFRN > 0 ? "text-green-600" : "text-gray-500"}`}>Orçado JFRN ({anoAtual})</div>
+            <div className={`text-sm font-bold ${orcamentoJFRN > 0 ? "text-green-800" : "text-gray-400"}`}>{orcamentoJFRN > 0 ? fmt(orcamentoJFRN) : "Não informado"}</div>
+          </div>
+        </div>
+
+        {/* Saldos */}
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="border rounded-lg p-3">
+            <div className="text-xs text-gray-500 font-medium mb-2">Saldo do Ano ({anoAtual})</div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">{valorFinanceiroNufip > 0 ? "Financeiro NUFIP:" : "Orçado JFRN:"}</span>
+                <span className="font-semibold text-blue-700">{baseReferenciaAno > 0 ? fmt(baseReferenciaAno) : <span className="text-gray-400">Não informado</span>}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Pago:</span>
+                <span className="font-semibold text-green-600">{fmt(totalPagoAno)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Aprovisionado:</span>
+                <span className="font-semibold text-amber-600">{fmt(totalProvisionadoAno)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Em instrução:</span>
+                <span className="font-semibold text-blue-600">{fmt(totalEmInstrucaoAno)}</span>
+              </div>
+              <div className="border-t pt-1 flex justify-between">
+                <span className="text-gray-600 font-medium">Saldo:</span>
+                <span className={`font-bold ${saldoAno < 0 ? "text-red-600" : "text-green-600"}`}>{baseReferenciaAno > 0 ? fmt(saldoAno) : <span className="text-gray-400">—</span>}</span>
               </div>
             </div>
-          )}
-          <div className="hidden md:block text-right">
-            <div className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Vigência Final</div>
-            <div className="flex items-center justify-end gap-1 text-xs font-semibold text-gray-700">
-              <Calendar size={12} className="text-blue-500" /> 
-              {dataVigencia ? new Date(dataVigencia).toLocaleDateString('pt-BR') : "N/A"}
+          </div>
+          <div className="border rounded-lg p-3">
+            <div className="text-xs text-gray-500 font-medium mb-2">Saldo da Vigência</div>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Pago total:</span>
+                <span className="font-semibold text-green-600">{fmt(totalPagoVigencia)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Aprovisionado total:</span>
+                <span className="font-semibold text-amber-600">{fmt(totalProvisionadoVigencia)}</span>
+              </div>
+              <div className="border-t pt-1 flex justify-between">
+                <span className="text-gray-600 font-medium">Saldo:</span>
+                <span className={`font-bold ${saldoVigencia < 0 ? "text-red-600" : "text-green-600"}`}>{fmt(saldoVigencia)}</span>
+              </div>
             </div>
           </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-50">
-                <MoreVertical size={16} className="text-gray-500" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem asChild>
-                <Link to={`/empenhos?contrato=${contrato.id}`} className="flex items-center gap-2 cursor-pointer"><Plus size={14}/> Novo Empenho</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={`/contratos/${contrato.id}/aditivos`} className="flex items-center gap-2 cursor-pointer"><FileText size={14}/> Aditivos</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={`/lancamentos?contrato=${contrato.id}`} className="flex items-center gap-2 cursor-pointer"><Activity size={14}/> Novo Lançamento</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={`/contratos/${contrato.id}`} className="flex items-center gap-2 cursor-pointer"><ArrowUpRight size={14}/> Detalhes</Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
+
+        {/* Saldo por item */}
+        {expanded && (
+          <div className="mb-3 border rounded-lg p-3">
+            <div className="text-xs text-gray-500 font-medium mb-2">Saldo por Item × Orçado ({anoAtual})</div>
+            <SaldoItens contrato={contrato} lancamentos={lancamentosContrato} ano={anoAtual} />
+          </div>
+        )}
+
+        {/* Seção expandida com gráficos */}
+        {expanded && (
+          <GraficoContrato
+            contrato={contrato}
+            lancamentos={lancamentosContrato}
+            empenhos={empenhoContrato}
+            valorOrcado={valorOrcado}
+            valorFinanceiroNufip={valorFinanceiroNufip}
+          />
+        )}
       </CardContent>
     </Card>
   );

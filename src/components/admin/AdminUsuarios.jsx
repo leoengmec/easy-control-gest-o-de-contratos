@@ -1,227 +1,442 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ShieldCheck, Users, Mail, CheckCircle2, AlertCircle } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  UserPlus, Mail, Shield, Users, Trash2, Bell, CheckCheck, AlertCircle, X, Pencil
+} from "lucide-react";
 
+export const ROLES = [
+  { value: "user",              label: "Usuário Básico",        color: "bg-gray-100 text-gray-600 border-gray-200",       desc: "Apenas visualização geral" },
+  { value: "fiscal",            label: "Fiscal de Contrato",    color: "bg-green-100 text-green-700 border-green-200",    desc: "Lançamentos e controle de execução" },
+  { value: "gestor",            label: "Gestor de Contratos",   color: "bg-blue-100 text-blue-700 border-blue-200",       desc: "Gestão completa de contratos" },
+  { value: "analista_financeiro",label: "Analista Financeiro",  color: "bg-yellow-100 text-yellow-700 border-yellow-200", desc: "Orçamento, empenhos e relatórios" },
+  { value: "direcao",           label: "Direção",               color: "bg-purple-100 text-purple-700 border-purple-200", desc: "Acesso amplo, sem administração" },
+  { value: "contratada",        label: "Contratada",            color: "bg-orange-100 text-orange-700 border-orange-200", desc: "Acesso restrito da empresa contratada" },
+  { value: "admin",             label: "Administrador",         color: "bg-red-100 text-red-700 border-red-200",          desc: "Acesso total ao sistema" },
+];
+
+export const getRoleStyle = (role) => ROLES.find(r => r.value === role)?.color || "bg-gray-100 text-gray-600 border-gray-200";
+export const getRoleLabel = (role) => ROLES.find(r => r.value === role)?.label || (role || "Usuário Básico");
+
+// ── Painel de Notificações ──────────────────────────────────────────────────
+function PainelNotificacoes({ onClose }) {
+  const [notifs, setNotifs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const carregar = () => {
+    setLoading(true);
+    base44.entities.NotificacaoAdmin.list("-created_date", 50)
+      .then(setNotifs)
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { carregar(); }, []);
+
+  const marcarLida = async (id) => {
+    await base44.entities.NotificacaoAdmin.update(id, { lida: true });
+    carregar();
+  };
+
+  const marcarTodasLidas = async () => {
+    const naoLidas = notifs.filter(n => !n.lida);
+    await Promise.all(naoLidas.map(n => base44.entities.NotificacaoAdmin.update(n.id, { lida: true })));
+    carregar();
+  };
+
+  const excluir = async (id) => {
+    await base44.entities.NotificacaoAdmin.delete(id);
+    carregar();
+  };
+
+  const naoLidas = notifs.filter(n => !n.lida).length;
+
+  return (
+    <div className="fixed inset-0 z-[9990] flex items-start justify-end pt-16 pr-4">
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-96 max-h-[80vh] flex flex-col border border-gray-200 z-10">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-[#1a2e4a]" />
+            <span className="font-semibold text-[#1a2e4a] text-sm">Notificações</span>
+            {naoLidas > 0 && <Badge className="bg-red-500 text-white text-xs px-1.5 py-0">{naoLidas}</Badge>}
+          </div>
+          <div className="flex gap-2">
+            {naoLidas > 0 && (
+              <button onClick={marcarTodasLidas} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                <CheckCheck className="w-3 h-3" /> Marcar todas
+              </button>
+            )}
+            <button onClick={onClose}><X className="w-4 h-4 text-gray-400 hover:text-gray-700" /></button>
+          </div>
+        </div>
+        <div className="overflow-y-auto flex-1">
+          {loading ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Carregando...</div>
+          ) : notifs.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-sm">Nenhuma notificação</div>
+          ) : (
+            notifs.map(n => (
+              <div key={n.id} className={`flex gap-3 px-4 py-3 border-b last:border-0 ${n.lida ? "bg-white" : "bg-blue-50"}`}>
+                <div className="mt-0.5 flex-shrink-0">
+                  <AlertCircle className={`w-4 h-4 ${n.lida ? "text-gray-300" : "text-blue-500"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${n.lida ? "text-gray-500" : "text-gray-800"}`}>{n.titulo}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{n.mensagem}</p>
+                  <p className="text-[10px] text-gray-300 mt-1">{n.created_date ? new Date(n.created_date).toLocaleString("pt-BR") : ""}</p>
+                </div>
+                <div className="flex flex-col gap-1 flex-shrink-0">
+                  {!n.lida && (
+                    <button onClick={() => marcarLida(n.id)} title="Marcar como lida" className="p-1 hover:bg-blue-100 rounded">
+                      <CheckCheck className="w-3 h-3 text-blue-400" />
+                    </button>
+                  )}
+                  <button onClick={() => excluir(n.id)} title="Excluir" className="p-1 hover:bg-red-50 rounded">
+                    <Trash2 className="w-3 h-3 text-gray-300 hover:text-red-400" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Componente principal ────────────────────────────────────────────────────
 export default function AdminUsuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [novoEmail, setNovoEmail] = useState("");
-  const [novoPerfil, setNovoPerfil] = useState("Gestor");
-  const [novoNome, setNovoNome] = useState("");
-  const { toast } = useToast();
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("user");
+  const [inviting, setInviting] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editRole, setEditRole] = useState("");
+  const [editSetor, setEditSetor] = useState("");
+  const [editVinculo, setEditVinculo] = useState("");
+  const [editVinculoOutros, setEditVinculoOutros] = useState("");
+  const [editMatricula, setEditMatricula] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [msgSucesso, setMsgSucesso] = useState("");
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [naoLidas, setNaoLidas] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const carregar = () => {
+    setLoading(true);
+    base44.entities.User.list()
+      .then(setUsuarios)
+      .finally(() => setLoading(false));
+  };
+
+  const carregarContadorNotifs = () => {
+    base44.entities.NotificacaoAdmin.filter({ lida: false })
+      .then(arr => setNaoLidas(arr.length))
+      .catch(() => {});
+  };
 
   useEffect(() => {
-    carregarUsuarios();
+    carregar();
+    carregarContadorNotifs();
+    // Polling a cada 30s
+    const interval = setInterval(carregarContadorNotifs, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const carregarUsuarios = async () => {
-    setLoading(true);
-    try {
-      const data = await base44.entities.Usuario.list();
-      setUsuarios(data || []);
-    } catch (err) {
-      console.error("Erro ao carregar usuários:", err);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar a lista de usuários.",
-        variant: "destructive"
+  const handleInvite = async () => {
+    if (!inviteEmail) return;
+    setInviting(true);
+    
+    // O SDK só aceita "user" ou "admin" - então convidamos como "user" e depois atualizamos o role
+    const roleParaConvite = inviteRole === "admin" ? "admin" : "user";
+    await base44.users.inviteUser(inviteEmail, roleParaConvite);
+    
+    // Se o role desejado não é "user" nem "admin", criar notificação para atualizar manualmente
+    if (inviteRole !== "user" && inviteRole !== "admin") {
+      await base44.entities.NotificacaoAdmin.create({
+        tipo: "outro",
+        titulo: "Convite enviado - ajuste o perfil",
+        mensagem: `Convite enviado para ${inviteEmail}. Após o usuário aceitar, altere manualmente o perfil para "${getRoleLabel(inviteRole)}".`,
+        lida: false,
+        dados_extras: JSON.stringify({ email: inviteEmail, roleDesejado: inviteRole })
       });
-    } finally {
-      setLoading(false);
     }
+    
+    setInviting(false);
+    setInviteEmail("");
+    setInviteRole("user");
+    setShowInvite(false);
+    setMsgSucesso("Convite enviado! Se necessário, ajuste o perfil após o aceite.");
+    setTimeout(() => setMsgSucesso(""), 4000);
+    carregar();
+    carregarContadorNotifs();
   };
 
-  const handleAtualizarPerfil = async (usuarioId, novoPerfil) => {
-    try {
-      await base44.entities.Usuario.update(usuarioId, { perfil: novoPerfil });
-      toast({
-        title: "Perfil atualizado",
-        description: `O perfil foi atualizado para ${novoPerfil} com sucesso.`,
-      });
-      carregarUsuarios();
-    } catch (error) {
-      console.error("Erro ao atualizar perfil:", error);
-      toast({
-        title: "Erro",
-        description: "Falha ao atualizar o perfil do usuário.",
-        variant: "destructive"
-      });
+  const handleSaveRole = async (userId) => {
+    // Validação: matrícula obrigatória para Estagiário e Servidor
+    if ((editVinculo === "Estagiário" || editVinculo === "Servidor") && !editMatricula) {
+      setMsgSucesso("Matrícula é obrigatória para Estagiário e Servidor.");
+      setTimeout(() => setMsgSucesso(""), 3000);
+      return;
     }
+    
+    setSaving(true);
+    const dados = { 
+      role: editRole,
+      setor: editSetor,
+      vinculo: editVinculo,
+      matricula: editMatricula
+    };
+    if (editVinculo === "Outros") {
+      dados.vinculo_outros = editVinculoOutros;
+    }
+    await base44.entities.User.update(userId, dados);
+    setSaving(false);
+    setEditingId(null);
+    setMsgSucesso("Dados do usuário atualizados!");
+    setTimeout(() => setMsgSucesso(""), 3000);
+    carregar();
   };
 
-  const handleConvidarUsuario = async (e) => {
-    e.preventDefault();
-    if (!novoEmail || !novoNome) return;
-
-    try {
-      // 1. Cria a entidade Usuario no banco para manter o RLS e perfis
-      await base44.entities.Usuario.create({
-        nome: novoNome,
-        email: novoEmail,
-        perfil: novoPerfil,
-        ativo: true,
-        contratos_vinculados: []
-      });
-
-      // 2. Dispara o convite pela plataforma
-      await base44.users.inviteUser(novoEmail, novoPerfil === "Administrador" ? "admin" : "user");
-
-      toast({
-        title: "Convite enviado!",
-        description: `Um convite foi enviado para ${novoEmail}.`,
-      });
-
-      setNovoEmail("");
-      setNovoNome("");
-      setNovoPerfil("Gestor");
-      carregarUsuarios();
-    } catch (error) {
-      console.error("Erro ao convidar usuário:", error);
-      toast({
-        title: "Erro",
-        description: "Falha ao enviar convite ou criar registro.",
-        variant: "destructive"
-      });
-    }
+  const handleDelete = async (userId) => {
+    await base44.entities.User.delete(userId);
+    setConfirmDelete(null);
+    setMsgSucesso("Usuário removido.");
+    setTimeout(() => setMsgSucesso(""), 3000);
+    carregar();
   };
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center gap-3 mb-6">
-        <ShieldCheck className="w-8 h-8 text-blue-600" />
-        <div>
-          <h1 className="text-2xl font-black text-[#1a2e4a]">Administração de Acessos</h1>
-          <p className="text-sm text-slate-500">Gerencie os perfis de usuários e convites do sistema.</p>
+    <div className="space-y-4">
+      {/* Notificações overlay */}
+      {showNotifs && (
+        <PainelNotificacoes
+          onClose={() => { setShowNotifs(false); carregarContadorNotifs(); }}
+        />
+      )}
+
+      {msgSucesso && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg">
+          {msgSucesso}
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h2 className="text-base font-semibold text-[#1a2e4a] flex items-center gap-2">
+          <Users className="w-4 h-4" /> Gestão de Usuários
+        </h2>
+        <div className="flex items-center gap-2">
+          {/* Sino de notificações */}
+          <button
+            onClick={() => setShowNotifs(true)}
+            className="relative w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition"
+            title="Notificações de novos usuários"
+          >
+            <Bell className="w-4 h-4 text-gray-600" />
+            {naoLidas > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                {naoLidas > 9 ? "9+" : naoLidas}
+              </span>
+            )}
+          </button>
+          <Button
+            size="sm"
+            className="bg-[#1a2e4a] hover:bg-[#2a4a7a] gap-1.5 text-xs"
+            onClick={() => setShowInvite(!showInvite)}
+          >
+            <UserPlus className="w-3.5 h-3.5" /> Convidar Usuário
+          </Button>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Painel de Convite */}
-        <Card className="md:col-span-1 shadow-md border-none">
-          <CardHeader className="bg-slate-50 border-b pb-4">
-            <CardTitle className="text-base flex items-center gap-2 text-[#1a2e4a]">
-              <Mail className="w-4 h-4 text-blue-500" /> Convidar Usuário
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <form onSubmit={handleConvidarUsuario} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500">Nome Completo</label>
-                <Input 
-                  placeholder="Ex: João da Silva" 
-                  value={novoNome}
-                  onChange={(e) => setNovoNome(e.target.value)}
-                  required
-                />
+      {/* Info perfis */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {ROLES.map(r => (
+          <div key={r.value} className="flex items-start gap-2 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+            <Badge variant="outline" className={`text-[10px] flex-shrink-0 ${r.color}`}>{r.label}</Badge>
+            <span className="text-[11px] text-gray-400 leading-tight">{r.desc}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Form convite */}
+      {showInvite && (
+        <Card className="border-blue-200 bg-blue-50/40">
+          <CardContent className="pt-4 space-y-3">
+            <p className="text-sm font-medium text-[#1a2e4a]">Convidar novo usuário</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <div className="sm:col-span-2 space-y-1">
+                <Label className="text-xs">E-mail</Label>
+                <div className="relative">
+                  <Mail className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                  <Input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="usuario@exemplo.com"
+                    className="pl-8"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500">E-mail Profissional</label>
-                <Input 
-                  type="email" 
-                  placeholder="email@jfrn.jus.br" 
-                  value={novoEmail}
-                  onChange={(e) => setNovoEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500">Perfil Inicial</label>
-                <Select value={novoPerfil} onValueChange={setNovoPerfil}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+              <div className="space-y-1">
+                <Label className="text-xs">Perfil inicial</Label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Administrador">Administrador</SelectItem>
-                    <SelectItem value="Gestor">Gestor</SelectItem>
-                    <SelectItem value="Terceirizada">Terceirizada</SelectItem>
-                    <SelectItem value="Operacional">Operacional</SelectItem>
+                    {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-                Enviar Convite
+            </div>
+            <p className="text-xs text-gray-400">Novos usuários que se registrem sozinhos receberão o perfil <strong>Usuário Básico</strong> até que um administrador eleve o acesso.</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setShowInvite(false)}>Cancelar</Button>
+              <Button size="sm" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]" onClick={handleInvite} disabled={inviting || !inviteEmail}>
+                {inviting ? "Enviando..." : "Enviar Convite"}
               </Button>
-            </form>
+            </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Tabela de Usuários */}
-        <Card className="md:col-span-2 shadow-md border-none">
-          <CardHeader className="bg-slate-50 border-b pb-4">
-            <CardTitle className="text-base flex items-center gap-2 text-[#1a2e4a]">
-              <Users className="w-4 h-4 text-blue-500" /> Usuários Cadastrados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Perfil de Acesso</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-slate-500">
-                      Carregando usuários...
-                    </TableCell>
-                  </TableRow>
-                ) : usuarios.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-slate-500">
-                      Nenhum usuário cadastrado.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  usuarios.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.nome}</TableCell>
-                      <TableCell className="text-slate-500 text-sm">{user.email}</TableCell>
-                      <TableCell>
-                        <Select 
-                          defaultValue={user.perfil} 
-                          onValueChange={(val) => handleAtualizarPerfil(user.id, val)}
+      {/* Tabela */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="py-12 text-center text-gray-400 text-sm">Carregando usuários...</div>
+          ) : (
+            <div className="divide-y">
+              {usuarios.map(u => (
+                <div key={u.id} className="flex items-center justify-between px-4 py-3 gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#1a2e4a] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      {(u.full_name || u.email || "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-800 truncate">{u.full_name || "—"}</div>
+                      <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                      {u.setor && <div className="text-xs text-gray-500">Setor: {u.setor}</div>}
+                      {u.vinculo && <div className="text-xs text-gray-500">Vínculo: {u.vinculo}{u.vinculo === "Outros" && u.vinculo_outros ? ` (${u.vinculo_outros})` : ""}</div>}
+                      {u.matricula && <div className="text-xs text-gray-500">Matrícula: {u.matricula}</div>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {editingId === u.id ? (
+                      <div className="flex flex-col gap-2 w-full max-w-2xl">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Perfil</Label>
+                            <Select value={editRole} onValueChange={setEditRole}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Setor</Label>
+                            <Input
+                              className="h-8 text-xs"
+                              value={editSetor}
+                              onChange={e => setEditSetor(e.target.value)}
+                              placeholder="Ex: RH, TI..."
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Vínculo</Label>
+                            <Select value={editVinculo} onValueChange={setEditVinculo}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Estagiário">Estagiário</SelectItem>
+                                <SelectItem value="Servidor">Servidor</SelectItem>
+                                <SelectItem value="Terceirizado">Terceirizado</SelectItem>
+                                <SelectItem value="Outros">Outros</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {editVinculo === "Outros" && (
+                            <div className="space-y-1">
+                              <Label className="text-xs">Especificar</Label>
+                              <Input
+                                className="h-8 text-xs"
+                                value={editVinculoOutros}
+                                onChange={e => setEditVinculoOutros(e.target.value)}
+                                placeholder="Descreva o vínculo"
+                              />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <Label className="text-xs">Matrícula {(editVinculo === "Estagiário" || editVinculo === "Servidor") && <span className="text-red-500">*</span>}</Label>
+                            <Input
+                              className="h-8 text-xs"
+                              value={editMatricula}
+                              onChange={e => setEditMatricula(e.target.value)}
+                              placeholder="Número da matrícula"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setEditingId(null)}>
+                            Cancelar
+                          </Button>
+                          <Button size="sm" className="h-8 text-xs bg-[#1a2e4a] hover:bg-[#2a4a7a]" onClick={() => handleSaveRole(u.id)} disabled={saving}>
+                            {saving ? "..." : "Salvar"}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <Badge variant="outline" className={`text-xs ${getRoleStyle(u.role)}`}>
+                          {getRoleLabel(u.role)}
+                        </Badge>
+                        <button
+                          title="Editar dados"
+                          className="p-1.5 hover:bg-gray-100 rounded"
+                          onClick={() => { 
+                            setEditingId(u.id); 
+                            setEditRole(u.role || "user");
+                            setEditSetor(u.setor || "");
+                            setEditVinculo(u.vinculo || "");
+                            setEditVinculoOutros(u.vinculo_outros || "");
+                            setEditMatricula(u.matricula || "");
+                          }}
                         >
-                          <SelectTrigger className="h-8 text-xs w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Administrador">Administrador</SelectItem>
-                            <SelectItem value="Gestor">Gestor</SelectItem>
-                            <SelectItem value="Terceirizada">Terceirizada</SelectItem>
-                            <SelectItem value="Operacional">Operacional</SelectItem>
-                            <SelectItem value="Pendente">Pendente</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {user.ativo ? (
-                          <div className="flex items-center justify-center gap-1 text-green-600 text-xs font-bold bg-green-50 py-1 px-2 rounded-full mx-auto w-max">
-                            <CheckCircle2 className="w-3 h-3" /> Ativo
+                          <Pencil className="w-3.5 h-3.5 text-gray-400 hover:text-blue-600" />
+                        </button>
+                        {confirmDelete === u.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-red-500">Confirmar?</span>
+                            <button className="text-xs text-red-600 font-semibold hover:underline" onClick={() => handleDelete(u.id)}>Sim</button>
+                            <button className="text-xs text-gray-400 hover:underline" onClick={() => setConfirmDelete(null)}>Não</button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center gap-1 text-red-600 text-xs font-bold bg-red-50 py-1 px-2 rounded-full mx-auto w-max">
-                            <AlertCircle className="w-3 h-3" /> Inativo
-                          </div>
+                          <button
+                            title="Remover usuário"
+                            className="p-1.5 hover:bg-red-50 rounded"
+                            onClick={() => setConfirmDelete(u.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-gray-300 hover:text-red-500" />
+                          </button>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
