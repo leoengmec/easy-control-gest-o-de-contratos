@@ -1,0 +1,64 @@
+{
+  "name": "PostoTrabalho",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato ao qual pertence"
+    },
+    "item_contrato_id": {
+      "type": "string",
+      "description": "ID do item de contrato (M\u00e3o de Obra) correspondente"
+    },
+    "nome_posto": {
+      "type": "string",
+      "description": "Nome do posto ou cargo (ex: Engenheiro de Campo)"
+    },
+    "cbo": {
+      "type": "string",
+      "description": "Classifica\u00e7\u00e3o Brasileira de Ocupa\u00e7\u00f5es"
+    },
+    "quantidade": {
+      "type": "number",
+      "description": "Quantidade de profissionais contratados para o posto"
+    },
+    "salario_base": {
+      "type": "number",
+      "description": "Sal\u00e1rio base normativo"
+    },
+    "adicional_periculosidade_insalubridade": {
+      "type": "number",
+      "description": "Valor do adicional (periculosidade/insalubridade)"
+    },
+    "valor_vale_transporte": {
+      "type": "number",
+      "description": "Valor mensal estimado para Vale Transporte"
+    },
+    "valor_vale_refeicao": {
+      "type": "number",
+      "description": "Valor mensal estimado para Vale Refei\u00e7\u00e3o/Alimenta\u00e7\u00e3o"
+    },
+    "encargos_sociais_percentual": {
+      "type": "number",
+      "description": "Percentual aplicado para encargos sociais e trabalhistas (%)"
+    },
+    "custo_unitario_mensal": {
+      "type": "number",
+      "description": "Custo total unit\u00e1rio do posto por m\u00eas"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "inativo"
+      ],
+      "default": "ativo"
+    }
+  },
+  "required": [
+    "contrato_id",
+    "nome_posto",
+    "quantidade",
+    "salario_base"
+  ]
+}
