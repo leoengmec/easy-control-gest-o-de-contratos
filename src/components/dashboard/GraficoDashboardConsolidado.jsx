@@ -3,13 +3,22 @@ import { base44 } from "@/api/base44Client";
 import {
   Tooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Line, ReferenceLine, ComposedChart, Area
+  Line, ReferenceLine, ComposedChart, Area,
+  PieChart, Pie, Cell
 } from "recharts";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Download } from "lucide-react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
@@ -168,6 +177,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
 
   const [abaGrafico, setAbaGrafico] = useState("mensal");
   const [contratoClicado, setContratoClicado] = useState(null); // {mes, label, itens}
+  const [selectedItem, setSelectedItem] = useState(null); // {mes, status, pago, orcado, numero_nf, observacoes}
 
 
   // Lançamentos do ano filtrado
@@ -304,6 +314,34 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
     };
   });
 
+  const handleBarClick = (data, status) => {
+    const val = data[status];
+    if (val > 0) {
+      const mesIndex = MESES_LABELS.indexOf(data.name) + 1;
+      setContratoClicado({ mes: data.name, status, mesIndex });
+      
+      const statusMap = {
+        "Pago": ["Pago"],
+        "Aprovisionado": ["Aprovisionado"],
+        "Em instrução": ["Em instrução", "Em execução", "SOF"]
+      };
+      const lancs = lancsFiltro.filter(l => l.mes === mesIndex && statusMap[status].includes(l.status));
+      const desc = lancs.map(l => {
+        let text = [];
+        if (l.numero_nf) text.push(`NF: ${l.numero_nf}`);
+        if (l.observacoes) text.push(l.observacoes);
+        return text.join(" - ");
+      }).filter(Boolean).join(" | ");
+
+      setSelectedItem({
+        status: status,
+        descricao: desc || 'Sem descrição detalhada',
+        valor_pago_final: val,
+        valor_orcado: data["Orçado/Mês"]
+      });
+    }
+  };
+
   // 5. Evolução do Orçamento Anual
   const evolucaoOrcamento = anosDisponiveis.map(ano => {
     const totalOrcado = orcamentosAnuais.filter(o => o.ano === ano).reduce((s, o) => s + (o.valor_orcado || 0), 0);
@@ -414,9 +452,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                     <ReferenceLine y={orcadoTotal / 12} stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5}
                       label={{ value: "Teto/mês", position: "insideTopRight", fontSize: 9, fill: "#ef4444" }} />
                   )}
-                  <Bar dataKey="Pago" fill="#22c55e" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => data.Pago > 0 && setContratoClicado({mes: data.name, status: "Pago", mesIndex: MESES_LABELS.indexOf(data.name) + 1})} />
-                  <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => data.Aprovisionado > 0 && setContratoClicado({mes: data.name, status: "Aprovisionado", mesIndex: MESES_LABELS.indexOf(data.name) + 1})} />
-                  <Bar dataKey="Em instrução" fill="#93c5fd" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => data["Em instrução"] > 0 && setContratoClicado({mes: data.name, status: "Em instrução", mesIndex: MESES_LABELS.indexOf(data.name) + 1})} />
+                  <Bar dataKey="Pago" fill="#22c55e" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => handleBarClick(data, "Pago")} />
+                  <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => handleBarClick(data, "Aprovisionado")} />
+                  <Bar dataKey="Em instrução" fill="#93c5fd" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => handleBarClick(data, "Em instrução")} />
                 </ComposedChart>
               </ResponsiveContainer>
 
@@ -440,26 +478,94 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                         statusMap[contratoClicado.status].includes(l.status)
                       );
                       
-                      const grouped = lancsDetail.reduce((acc, l) => {
-                        const label = l.item_label || "Geral / Sem item especificado";
-                        acc[label] = (acc[label] || 0) + (l.valor || 0);
-                        return acc;
-                      }, {});
-
-                      return Object.keys(grouped).length > 0 ? (
-                        Object.entries(grouped).map(([label, valor]) => (
-                          <div key={label} className="flex justify-between text-xs border-b pb-1 border-slate-200 last:border-0">
-                            <span className="text-slate-600">{label}</span>
-                            <span className="font-medium">{fmt(valor)}</span>
+                      if (contratoSelecionado === "todos") {
+                        const lancsComContrato = lancsDetail.map(l => {
+                          const c = contratos.find(c => c.id === l.contrato_id);
+                          return { ...l, numeroContrato: c?.numero || "Geral" };
+                        });
+                        
+                        lancsComContrato.sort((a, b) => a.numeroContrato.localeCompare(b.numeroContrato));
+                        
+                        return lancsComContrato.length > 0 ? (
+                          <div className="overflow-x-auto rounded-md border border-slate-200">
+                            <Table>
+                              <TableHeader className="bg-slate-100">
+                                <TableRow>
+                                  <TableHead className="text-xs h-8 py-1">Contrato</TableHead>
+                                  <TableHead className="text-xs h-8 py-1">Item / Descrição</TableHead>
+                                  <TableHead className="text-xs h-8 py-1 text-right">Valor</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {lancsComContrato.map((l, i) => (
+                                  <TableRow key={l.id || i} className="h-8">
+                                    <TableCell className="text-xs py-1 font-medium">{l.numeroContrato}</TableCell>
+                                    <TableCell className="text-xs py-1 text-slate-600">{l.item_label || "Sem item especificado"}</TableCell>
+                                    <TableCell className="text-xs py-1 text-right font-medium">{fmt(l.valor || 0)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-xs text-gray-500">Nenhum dado encontrado para o agrupamento.</div>
-                      );
+                        ) : (
+                          <div className="text-xs text-gray-500">Nenhum dado encontrado no mês.</div>
+                        );
+                      } else {
+                        const grouped = lancsDetail.reduce((acc, l) => {
+                          const label = l.item_label || "Geral / Sem item especificado";
+                          acc[label] = (acc[label] || 0) + (l.valor || 0);
+                          return acc;
+                        }, {});
+
+                        return Object.keys(grouped).length > 0 ? (
+                          Object.entries(grouped).map(([label, valor]) => (
+                            <div key={label} className="flex justify-between text-xs border-b pb-1 border-slate-200 last:border-0">
+                              <span className="text-slate-600">{label}</span>
+                              <span className="font-medium">{fmt(valor)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-xs text-gray-500">Nenhum dado encontrado para o agrupamento.</div>
+                        );
+                      }
                     })()}
                   </div>
                 </div>
               )}
+
+              {/* Subitem 3: Gauge/Pie e Descrição */}
+              <div className="mt-6 flex flex-col items-center border-t pt-4">
+                <h4 className="font-semibold text-sm mb-2 text-slate-700">Pago vs Orçado (Mês Selecionado)</h4>
+                {selectedItem ? (
+                  <div className="w-full">
+                    <ResponsiveContainer width="100%" height={150}>
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Valor (" + selectedItem.status + ")", value: selectedItem.valor_pago_final || 0 },
+                            { name: "Restante Orçado/Mês", value: Math.max(0, (selectedItem.valor_orcado || 0) - (selectedItem.valor_pago_final || 0)) }
+                          ]}
+                          cx="50%" cy="100%" startAngle={180} endAngle={0}
+                          innerRadius={60} outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          <Cell fill="#10b981" />
+                          <Cell fill="#e2e8f0" />
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 w-full p-3 bg-muted rounded-md border text-sm text-foreground/80">
+                      <span className="font-semibold">Descrição do Item:</span> {selectedItem.descricao || 'Nenhuma descrição detalhada disponível.'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 w-full p-3 bg-muted rounded-md border text-sm text-foreground/80 text-center">
+                    Selecione um status num mês do gráfico acima para ver os detalhes da NF/OS
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
