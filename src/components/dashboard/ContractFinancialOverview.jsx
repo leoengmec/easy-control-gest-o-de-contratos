@@ -102,29 +102,28 @@ export default function ContractFinancialOverview({ contrato }) {
       </CardHeader>
       <CardContent className="px-4 pb-4">
         {/* Gauge Charts */}
-        <div className="flex flex-wrap justify-around gap-4 py-2">
-          <GaugeChart
-            value={pctPagoOrcado}
-            label="Pago vs Orçado"
-            sublabel={`/ ${fmt(orcadoFiltrado)}`}
-            rawValue={totalPago}
-          />
-          <GaugeChart
-            value={pctAprovOrcado}
-            label="Aprovisionado vs Orçado"
-            sublabel={`/ ${fmt(orcadoFiltrado)}`}
-            rawValue={totalAprov}
-            color="#f59e0b"
-          />
-        </div>
-
-        {/* Filtros aplicados */}
-        <div className="mb-4 mt-3 text-center">
-          <div className="text-base font-semibold text-[#1a2e4a]">
-            {itemFiltro === "todos" ? "Todos os itens" : itemFiltro}
+        <div className="flex flex-wrap justify-around gap-4 py-2 mb-4">
+          <div className="flex flex-col items-center">
+            <GaugeChart
+              value={pctPagoOrcado}
+              label="Pago x Orçado"
+              sublabel={`/ ${fmt(orcadoFiltrado)}`}
+              rawValue={totalPago}
+            />
+            <div className="mt-2 text-center">
+              <div className="text-sm font-semibold text-[#1a2e4a]">
+                {itemFiltro === "todos" ? "Todos os itens" : itemFiltro} {ano}
+              </div>
+            </div>
           </div>
-          <div className="text-base font-semibold text-[#1a2e4a]">
-            {ano}
+          <div className="flex flex-col items-center">
+            <GaugeChart
+              value={pctAprovOrcado}
+              label="Aprovisionado x Orçado"
+              sublabel={`/ ${fmt(orcadoFiltrado)}`}
+              rawValue={totalAprov}
+              color="#f59e0b"
+            />
           </div>
         </div>
 
