@@ -1,0 +1,57 @@
+{
+  "name": "ConvencaoColetiva",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string",
+      "description": "N\u00famero/C\u00f3digo (Ex: ACT 2024/001)"
+    },
+    "sindicato": {
+      "type": "string",
+      "description": "Nome do sindicato"
+    },
+    "categoria": {
+      "type": "string",
+      "description": "Categoria profissional"
+    },
+    "data_base": {
+      "type": "string",
+      "format": "date",
+      "description": "Data base da conven\u00e7\u00e3o"
+    },
+    "data_vigencia_inicio": {
+      "type": "string",
+      "format": "date",
+      "description": "In\u00edcio da vig\u00eancia"
+    },
+    "data_vigencia_fim": {
+      "type": "string",
+      "format": "date",
+      "description": "Fim da vig\u00eancia"
+    },
+    "percentual_reajuste": {
+      "type": "number",
+      "description": "Percentual de reajuste acordado"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o da conven\u00e7\u00e3o"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "vigente",
+        "vencida",
+        "pendente_homologacao"
+      ],
+      "default": "vigente",
+      "description": "Status da conven\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "numero",
+    "sindicato",
+    "categoria",
+    "data_base"
+  ]
+}
