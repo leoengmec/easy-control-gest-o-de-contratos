@@ -1,0 +1,63 @@
+{
+  "name": "ContaVinculada",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato associado"
+    },
+    "banco": {
+      "type": "string",
+      "description": "Nome ou n\u00famero do banco"
+    },
+    "agencia": {
+      "type": "string",
+      "description": "Ag\u00eancia banc\u00e1ria"
+    },
+    "conta_corrente": {
+      "type": "string",
+      "description": "N\u00famero da conta corrente vinculada"
+    },
+    "saldo_ferias": {
+      "type": "number",
+      "description": "Saldo retido para f\u00e9rias e ter\u00e7o constitucional"
+    },
+    "saldo_13_salario": {
+      "type": "number",
+      "description": "Saldo retido para 13\u00ba sal\u00e1rio"
+    },
+    "saldo_multa_fgts": {
+      "type": "number",
+      "description": "Saldo retido para multa do FGTS"
+    },
+    "saldo_encargos": {
+      "type": "number",
+      "description": "Outros encargos retidos"
+    },
+    "saldo_total": {
+      "type": "number",
+      "description": "Saldo total consolidado na conta"
+    },
+    "percentual_retencao_mensal": {
+      "type": "number",
+      "description": "Percentual padr\u00e3o de reten\u00e7\u00e3o mensal aplicado sobre a fatura (%)"
+    },
+    "data_ultima_atualizacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da \u00faltima atualiza\u00e7\u00e3o dos saldos"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativa",
+        "encerrada"
+      ],
+      "default": "ativa"
+    }
+  },
+  "required": [
+    "contrato_id",
+    "saldo_total"
+  ]
+}
