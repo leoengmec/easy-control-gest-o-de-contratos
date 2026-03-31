@@ -23,6 +23,12 @@ import { Download } from "lucide-react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import mean from "lodash/mean";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtK = (v) => {
@@ -176,8 +182,27 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   }, []);
 
   const [abaGrafico, setAbaGrafico] = useState("mensal");
-  const [contratoClicado, setContratoClicado] = useState(null); // {mes, label, itens}
-  const [selectedItem, setSelectedItem] = useState(null); // {mes, status, pago, orcado, numero_nf, observacoes}
+  const [contratoClicado, setContratoClicado] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const cardRef = useRef(null);
+
+  const handleExportPNG = async () => {
+    if (!cardRef.current) return;
+    const canvas = await html2canvas(cardRef.current, { scale: 2, backgroundColor: "#ffffff" });
+    const link = document.createElement("a");
+    link.download = `dashboard-${abaGrafico}-${anoSelecionado}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
+  const handleExportPDF = async () => {
+    if (!cardRef.current) return;
+    const canvas = await html2canvas(cardRef.current, { scale: 2, backgroundColor: "#ffffff" });
+    const imgData = canvas.toDataURL("image/png");
+    const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvas.width / 2, canvas.height / 2] });
+    pdf.addImage(imgData, "PNG", 0, 0, canvas.width / 2, canvas.height / 2);
+    pdf.save(`dashboard-${abaGrafico}-${anoSelecionado}.pdf`);
+  };
 
 
   // Lançamentos do ano filtrado
@@ -365,7 +390,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   return (
     <div className="grid grid-cols-1 gap-4">
       {/* Card Principal com Abas - agora ocupa toda a largura */}
-      <Card className="w-full">
+      <Card className="w-full" ref={cardRef}>
         <CardHeader className="pb-2 pt-4 px-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex gap-1 flex-wrap">
@@ -405,6 +430,22 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                   </SelectContent>
                 </Select>
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs flex items-center gap-1">
+                    <Download className="w-3 h-3" />
+                    Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportPNG} className="text-xs">
+                    Exportar como PNG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPDF} className="text-xs">
+                    Exportar como PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardHeader>
