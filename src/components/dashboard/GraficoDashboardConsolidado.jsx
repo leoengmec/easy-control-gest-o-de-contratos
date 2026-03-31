@@ -167,6 +167,8 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   }, []);
 
   const [abaGrafico, setAbaGrafico] = useState("mensal");
+  const [contratoClicado, setContratoClicado] = useState(null); // {mes, label, itens}
+
 
   // Lançamentos do ano filtrado
   const lancsFiltro = lancamentos.filter(l => l.ano === anoSelecionado);
@@ -400,6 +402,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                 <h2 className="text-xl font-bold text-foreground text-center">Acompanhamento Financeiro · {anoSelecionado}</h2>
                 {orcadoTotal > 0 && <span className="absolute right-0 text-xs text-red-500 font-medium">— Máx/mês: {fmt(orcadoTotal / 12)}</span>}
               </div>
+              <h3 className="text-lg font-semibold mb-2 text-foreground">Visão Financeira por Contrato/Item</h3>
               <ResponsiveContainer width="100%" height={210}>
                 <ComposedChart data={dadosMensais} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
@@ -411,11 +414,52 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                     <ReferenceLine y={orcadoTotal / 12} stroke="#ef4444" strokeDasharray="5 3" strokeWidth={1.5}
                       label={{ value: "Teto/mês", position: "insideTopRight", fontSize: 9, fill: "#ef4444" }} />
                   )}
-                  <Bar dataKey="Pago" fill="#22c55e" radius={[3,3,0,0]} maxBarSize={28} />
-                  <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} />
-                  <Bar dataKey="Em instrução" fill="#93c5fd" radius={[3,3,0,0]} maxBarSize={28} />
+                  <Bar dataKey="Pago" fill="#22c55e" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => data.Pago > 0 && setContratoClicado({mes: data.name, status: "Pago", mesIndex: MESES_LABELS.indexOf(data.name) + 1})} />
+                  <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => data.Aprovisionado > 0 && setContratoClicado({mes: data.name, status: "Aprovisionado", mesIndex: MESES_LABELS.indexOf(data.name) + 1})} />
+                  <Bar dataKey="Em instrução" fill="#93c5fd" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => data["Em instrução"] > 0 && setContratoClicado({mes: data.name, status: "Em instrução", mesIndex: MESES_LABELS.indexOf(data.name) + 1})} />
                 </ComposedChart>
               </ResponsiveContainer>
+
+              {contratoClicado && (
+                <div className="mt-4 p-4 bg-slate-50 border rounded-lg">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium text-sm">
+                      Detalhamento de {contratoClicado.mes} - {contratoClicado.status}
+                    </h4>
+                    <Button variant="ghost" size="sm" onClick={() => setContratoClicado(null)} className="h-6 px-2 text-xs">Fechar</Button>
+                  </div>
+                  <div className="space-y-2">
+                    {(() => {
+                      const statusMap = {
+                        "Pago": ["Pago"],
+                        "Aprovisionado": ["Aprovisionado"],
+                        "Em instrução": ["Em instrução", "Em execução", "SOF"]
+                      };
+                      const lancsDetail = lancsFiltro.filter(l => 
+                        l.mes === contratoClicado.mesIndex && 
+                        statusMap[contratoClicado.status].includes(l.status)
+                      );
+                      
+                      const grouped = lancsDetail.reduce((acc, l) => {
+                        const label = l.item_label || "Geral / Sem item especificado";
+                        acc[label] = (acc[label] || 0) + (l.valor || 0);
+                        return acc;
+                      }, {});
+
+                      return Object.keys(grouped).length > 0 ? (
+                        Object.entries(grouped).map(([label, valor]) => (
+                          <div key={label} className="flex justify-between text-xs border-b pb-1 border-slate-200 last:border-0">
+                            <span className="text-slate-600">{label}</span>
+                            <span className="font-medium">{fmt(valor)}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-gray-500">Nenhum dado encontrado para o agrupamento.</div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
