@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  ChevronLeft,
   LogOut,
   Scale,
   ShoppingCart,
@@ -34,6 +35,7 @@ const navItems = [
 export default function Layout({ children, currentPageName }) {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -83,22 +85,30 @@ export default function Layout({ children, currentPageName }) {
       `}</style>
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1a2e4a] text-white flex flex-col transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-50 ${isCollapsed ? "w-20" : "w-64"} bg-[#1a2e4a] text-white flex flex-col transform transition-all duration-300 lg:sticky lg:top-0 lg:h-screen ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         {/* Logo */}
-        <div className="p-5 border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center">
+        <div className="p-5 border-b border-white/10 relative">
+          <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
+            <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
               <Scale className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="font-bold text-sm leading-tight">Easy Control</div>
-              <div className="text-xs text-blue-300">Gestão de Contratos</div>
-            </div>
+            {!isCollapsed && (
+              <div className="overflow-hidden whitespace-nowrap">
+                <div className="font-bold text-sm leading-tight">Easy Control</div>
+                <div className="text-xs text-blue-300">Gestão de Contratos</div>
+              </div>
+            )}
           </div>
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:flex absolute -right-3 top-6 z-50 bg-white border border-gray-200 text-gray-800 rounded-full p-1 shadow-sm hover:bg-gray-50"
+          >
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {visibleNav.map(item => {
             const isActive = location.pathname.includes(item.page) || (currentPageName === item.page);
             return (
@@ -106,11 +116,12 @@ export default function Layout({ children, currentPageName }) {
                 key={item.page}
                 to={createPageUrl(item.page)}
                 onClick={() => setSidebarOpen(false)}
-                className={`nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${isActive ? "nav-active" : "text-blue-100"}`}
+                title={isCollapsed ? item.label : undefined}
+                className={`nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${isActive ? "nav-active" : "text-blue-100"} ${isCollapsed ? "justify-center px-0" : ""}`}
               >
-                <item.icon className="w-4 h-4 flex-shrink-0" />
-                {item.label}
-                {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {!isCollapsed && <span>{item.label}</span>}
+                {!isCollapsed && isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
               </Link>
             );
           })}
@@ -119,25 +130,46 @@ export default function Layout({ children, currentPageName }) {
         {/* User */}
         {user && (
           <div className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">
-                {user.full_name?.charAt(0) || "U"}
+            {!isCollapsed ? (
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold shrink-0">
+                  {user.full_name?.charAt(0) || "U"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium truncate">{user.full_name}</div>
+                  <div className="text-xs text-blue-300 capitalize">{user.role || "usuário"}</div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-medium truncate">{user.full_name}</div>
-                <div className="text-xs text-blue-300 capitalize">{user.role || "usuário"}</div>
+            ) : (
+              <div className="flex justify-center mb-3">
+                <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold shrink-0" title={user.full_name}>
+                  {user.full_name?.charAt(0) || "U"}
+                </div>
               </div>
-            </div>
+            )}
             <Button
               variant="ghost"
               size="sm"
-              className="w-full text-blue-200 hover:text-white hover:bg-white/10 text-xs justify-start"
+              className={`w-full text-blue-200 hover:text-white hover:bg-white/10 text-xs ${isCollapsed ? "justify-center px-0" : "justify-start"}`}
               onClick={() => base44.auth.logout()}
+              title={isCollapsed ? "Sair" : undefined}
             >
-              <LogOut className="w-3 h-3 mr-2" /> Sair
+              <LogOut className={`w-4 h-4 ${!isCollapsed ? "mr-2" : ""}`} /> {!isCollapsed && "Sair"}
             </Button>
           </div>
         )}
+
+        {/* Footer */}
+        <div className={`hidden lg:flex bg-[#111e30] text-blue-300/60 text-[10px] py-3 flex-col gap-0.5 border-t border-white/5 text-center ${isCollapsed ? "px-1" : "px-4"}`}>
+          {!isCollapsed ? (
+            <>
+              <span>© {new Date().getFullYear()} Easy Control — Gestão de Contratos</span>
+              <span>Desenvolvido por <span className="text-blue-200/80 font-medium">Leonardo Alves</span> · v1.0.0</span>
+            </>
+          ) : (
+            <span className="leading-tight">© {new Date().getFullYear()}<br/>v1.0.0</span>
+          )}
+        </div>
       </aside>
 
       {/* Overlay mobile */}
@@ -146,25 +178,19 @@ export default function Layout({ children, currentPageName }) {
       )}
 
       {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full">
         {/* Top bar mobile */}
-        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b shadow-sm">
+        <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b shadow-sm sticky top-0 z-30">
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="font-semibold text-[#1a2e4a]">Easy Control | Gestão de Contratos</div>
+          <div className="font-semibold text-[#1a2e4a]">Easy Control</div>
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1">
           {children}
         </main>
       </div>
-
-      {/* Footer rodapé oculto em mobile, visível no desktop */}
-      <footer className="hidden lg:flex fixed bottom-0 left-0 w-64 bg-[#111e30] text-blue-300/60 text-[10px] px-4 py-2 flex-col gap-0.5 border-t border-white/5">
-        <span>© {new Date().getFullYear()} Easy Control — Gestão de Contratos</span>
-        <span>Desenvolvido por <span className="text-blue-200/80 font-medium">Leonardo Alves</span> · v1.0.0</span>
-      </footer>
     </div>
   );
 }
