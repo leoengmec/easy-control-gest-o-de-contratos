@@ -37,6 +37,8 @@ const fmtK = (v) => {
   return v.toFixed(0);
 };
 
+const getValorFinal = (l) => l.valor_pago_final !== undefined && l.valor_pago_final !== null ? l.valor_pago_final : (l.valor || 0);
+
 const MESES_LABELS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
 const STATUS_CORES = {
@@ -184,6 +186,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   const [abaGrafico, setAbaGrafico] = useState("mensal");
   const [contratoClicado, setContratoClicado] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [showTrendLine, setShowTrendLine] = useState(false);
   const cardRef = useRef(null);
 
   const handleExportPNG = async () => {
@@ -249,12 +252,12 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
 
   const getPagoCategoria = (cat, lancs) => {
     const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
-    return lancs.filter(l => l.status === "Pago" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + (l.valor || 0), 0);
+    return lancs.filter(l => l.status === "Pago" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + getValorFinal(l), 0);
   };
 
   const getAprovCategoria = (cat, lancs) => {
     const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
-    return lancs.filter(l => l.status === "Aprovisionado" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + (l.valor || 0), 0);
+    return lancs.filter(l => l.status === "Aprovisionado" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + getValorFinal(l), 0);
   };
 
   const categoriasAtivas = agrupamento === "grupo" ? Object.keys(GRUPOS) : CATEGORIAS;
@@ -315,21 +318,28 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   }).filter(d => d.Pago > 0 || d.Orçado > 0 || d.Empenhado > 0);
 
   // 3. Gráfico Mensal
-  const dadosMensais = MESES_LABELS.map((name, i) => {
+  const dadosMensaisRaw = MESES_LABELS.map((name, i) => {
     const m = i + 1;
     const lancsM = lancsFiltro.filter(l => l.mes === m);
-    const pago = lancsM.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-    const aprovisionado = lancsM.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-    const instrucao = lancsM.filter(l => ["Em instrução","Em execução","SOF"].includes(l.status)).reduce((s, l) => s + (l.valor || 0), 0);
+    const pago = lancsM.filter(l => l.status === "Pago").reduce((s, l) => s + getValorFinal(l), 0);
+    const aprovisionado = lancsM.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
+    const instrucao = lancsM.filter(l => ["Em instrução","Em execução","SOF"].includes(l.status)).reduce((s, l) => s + getValorFinal(l), 0);
     const orcadoMes = orcadoTotal > 0 ? orcadoTotal / 12 : 0;
     return { name, Pago: pago, Aprovisionado: aprovisionado, "Em instrução": instrucao, "Orçado/Mês": orcadoMes };
+  });
+
+  const dadosMensais = dadosMensaisRaw.map((d, i, arr) => {
+    const start = Math.max(0, i - 2);
+    const subset = arr.slice(start, i + 1).map(x => x.Pago + x.Aprovisionado);
+    const mediaMovel = mean(subset);
+    return { ...d, "Tendência (Média 3m)": mediaMovel };
   });
 
   // 4. Acumulado do ano
   const dadosAcumulados = MESES_LABELS.map((name, i) => {
     const m = i + 1;
-    const pagoAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-    const aprovAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+    const pagoAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Pago").reduce((s, l) => s + getValorFinal(l), 0);
+    const aprovAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
     const orcadoAcum = orcadoTotal > 0 ? orcadoTotal * (m / 12) : 0;
     return {
       name,
@@ -371,7 +381,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   const evolucaoOrcamento = anosDisponiveis.map(ano => {
     const totalOrcado = orcamentosAnuais.filter(o => o.ano === ano).reduce((s, o) => s + (o.valor_orcado || 0), 0);
     const empenhado = empenhos.filter(e => e.ano === ano).reduce((s, e) => s + (e.valor_total || 0), 0);
-    const pago = lancamentos.filter(l => l.ano === ano && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
+    const pago = lancamentos.filter(l => l.ano === ano && l.status === "Pago").reduce((s, l) => s + getValorFinal(l), 0);
     return {
       name: String(ano),
       "Orçado": totalOrcado,
@@ -429,6 +439,12 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                     <SelectItem value="individual">Individual</SelectItem>
                   </SelectContent>
                 </Select>
+              )}
+              {abaGrafico === "mensal" && (
+                <div className="flex items-center gap-1.5">
+                  <Switch id="trend" checked={showTrendLine} onCheckedChange={setShowTrendLine} className="h-4 w-7" />
+                  <Label htmlFor="trend" className="text-xs cursor-pointer">Tendência</Label>
+                </div>
               )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -496,6 +512,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                   <Bar dataKey="Pago" fill="#22c55e" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => handleBarClick(data, "Pago")} />
                   <Bar dataKey="Aprovisionado" fill="#f59e0b" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => handleBarClick(data, "Aprovisionado")} />
                   <Bar dataKey="Em instrução" fill="#93c5fd" radius={[3,3,0,0]} maxBarSize={28} cursor="pointer" onClick={(data) => handleBarClick(data, "Em instrução")} />
+                  {showTrendLine && (
+                    <Line type="monotone" dataKey="Tendência (Média 3m)" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                  )}
                 </ComposedChart>
               </ResponsiveContainer>
 
@@ -542,7 +561,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                                   <TableRow key={l.id || i} className="h-8">
                                     <TableCell className="text-xs py-1 font-medium">{l.numeroContrato}</TableCell>
                                     <TableCell className="text-xs py-1 text-slate-600">{l.item_label || "Sem item especificado"}</TableCell>
-                                    <TableCell className="text-xs py-1 text-right font-medium">{fmt(l.valor || 0)}</TableCell>
+                                    <TableCell className="text-xs py-1 text-right font-medium">{fmt(getValorFinal(l))}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -554,7 +573,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                       } else {
                         const grouped = lancsDetail.reduce((acc, l) => {
                           const label = l.item_label || "Geral / Sem item especificado";
-                          acc[label] = (acc[label] || 0) + (l.valor || 0);
+                          acc[label] = (acc[label] || 0) + getValorFinal(l);
                           return acc;
                         }, {});
 
