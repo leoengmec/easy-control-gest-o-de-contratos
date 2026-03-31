@@ -12,6 +12,8 @@ import {
   X,
   ChevronRight,
   ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   LogOut,
   Scale,
   ShoppingCart,
@@ -87,7 +89,8 @@ export default function Layout({ children, currentPageName }) {
       {/* Sidebar */}
       <aside className={`fixed inset-y-0 left-0 z-50 ${isCollapsed ? "w-20" : "w-64"} bg-[#1a2e4a] text-white flex flex-col transform transition-all duration-300 lg:sticky lg:top-0 lg:h-screen ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         {/* Logo */}
-        <div className="p-5 border-b border-white/10 relative">
+        {/* Logo and Collapse Button */}
+        <div className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between gap-2"}`}>
           <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
             <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
               <Scale className="w-5 h-5 text-white" />
@@ -101,9 +104,10 @@ export default function Layout({ children, currentPageName }) {
           </div>
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="hidden lg:flex absolute -right-3 top-6 z-50 bg-white border border-gray-200 text-gray-800 rounded-full p-1 shadow-sm hover:bg-gray-50"
+            className="hidden lg:flex text-blue-300 hover:text-white transition-colors"
+            title={isCollapsed ? "Expandir menu" : "Recolher menu"}
           >
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {isCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
           </button>
         </div>
 
