@@ -1,0 +1,199 @@
+{
+  "name": "Contrato",
+  "type": "object",
+  "properties": {
+    "numero": {
+      "type": "string",
+      "description": "N\u00famero do contrato"
+    },
+    "objeto": {
+      "type": "string",
+      "description": "Objeto/descri\u00e7\u00e3o do contrato"
+    },
+    "escopo_resumido": {
+      "type": "string",
+      "description": "Resumo do escopo do contrato para exibi\u00e7\u00e3o no Dashboard"
+    },
+    "contratada": {
+      "type": "string",
+      "description": "Nome da empresa contratada"
+    },
+    "cnpj": {
+      "type": "string",
+      "description": "CNPJ da contratada"
+    },
+    "valor_global": {
+      "type": "number",
+      "description": "Valor global do contrato"
+    },
+    "data_inicio": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de in\u00edcio da primeira vig\u00eancia"
+    },
+    "data_fim": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de t\u00e9rmino da vig\u00eancia atual (atualizada por aditivos)"
+    },
+    "prazo_vigencia_inicial_meses": {
+      "type": "number",
+      "description": "Prazo da vig\u00eancia inicial em meses (calculado a partir das datas)"
+    },
+    "tempo_maximo_contrato_meses": {
+      "type": "number",
+      "description": "Tempo m\u00e1ximo de contrato permitido em meses (ex: 60 para contratos de servi\u00e7o)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "encerrado",
+        "suspenso"
+      ],
+      "default": "ativo"
+    },
+    "processo_sei": {
+      "type": "string",
+      "description": "N\u00famero do processo SEI do contrato"
+    },
+    "valor_financeiro_disponivel_nufip": {
+      "type": "number",
+      "description": "Valor financeiro dispon\u00edvel informado pelo NUFIP (N\u00facleo Financeiro)"
+    },
+    "gestor_nome": {
+      "type": "string",
+      "description": "Nome completo do Gestor do Contrato"
+    },
+    "gestor_matricula": {
+      "type": "string",
+      "description": "Matr\u00edcula do Gestor do Contrato"
+    },
+    "fiscal_titular_nome": {
+      "type": "string",
+      "description": "Nome completo do Fiscal Titular"
+    },
+    "fiscal_titular_matricula": {
+      "type": "string",
+      "description": "Matr\u00edcula do Fiscal Titular"
+    },
+    "fiscal_substituto_nome": {
+      "type": "string",
+      "description": "Nome completo do Fiscal Substituto"
+    },
+    "fiscal_substituto_matricula": {
+      "type": "string",
+      "description": "Matr\u00edcula do Fiscal Substituto"
+    },
+    "fiscais_setoriais": {
+      "type": "array",
+      "description": "Lista de fiscais setoriais",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "matricula": {
+            "type": "string"
+          },
+          "setor": {
+            "type": "string",
+            "description": "Ex: Mossor\u00f3, Caic\u00f3, Assu"
+          }
+        }
+      }
+    },
+    "portaria_numero": {
+      "type": "string",
+      "description": "N\u00famero da Portaria de Fiscaliza\u00e7\u00e3o (ex: 332/2025)"
+    },
+    "portaria_data_publicacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de publica\u00e7\u00e3o da portaria"
+    },
+    "portaria_documento_sei": {
+      "type": "string",
+      "description": "N\u00famero do documento SEI da portaria"
+    },
+    "portaria_processo_sei": {
+      "type": "string",
+      "description": "N\u00famero do processo SEI da fiscaliza\u00e7\u00e3o"
+    },
+    "fiscal_email": {
+      "type": "string",
+      "description": "Email do fiscal titular (para notifica\u00e7\u00f5es)"
+    },
+    "gestor_email": {
+      "type": "string",
+      "description": "Email do gestor (para notifica\u00e7\u00f5es)"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es gerais"
+    },
+    "bdi_normal": {
+      "type": "number",
+      "description": "BDI Normal (%)"
+    },
+    "bdi_diferenciado": {
+      "type": "number",
+      "description": "BDI Diferenciado (%)"
+    },
+    "desconto_licitacao": {
+      "type": "number",
+      "description": "Desconto de licita\u00e7\u00e3o (%)"
+    },
+    "imr": {
+      "type": "number",
+      "description": "\u00cdndice de Mobiliza\u00e7\u00e3o e Remobiliza\u00e7\u00e3o (%)"
+    },
+    "convenio_coletiva_id": {
+      "type": "string",
+      "description": "ID da Conven\u00e7\u00e3o Coletiva associada"
+    },
+    "vigencia_reajuste": {
+      "type": "string",
+      "format": "date",
+      "description": "Data do pr\u00f3ximo reajuste"
+    },
+    "vigencia_repacuacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data da pr\u00f3xima repactua\u00e7\u00e3o"
+    },
+    "limite_orcamento": {
+      "type": "number",
+      "description": "Limite m\u00e1ximo de gastos"
+    },
+    "limite_financeiro": {
+      "type": "number",
+      "description": "Limite de lan\u00e7amentos"
+    },
+    "limite_empenho": {
+      "type": "number",
+      "description": "Limite de empenhos"
+    },
+    "valor_total_aditado": {
+      "type": "number",
+      "description": "Soma de aditivos"
+    },
+    "valor_total_possivel_aditivos": {
+      "type": "number",
+      "description": "Limite m\u00e1ximo de aditivos"
+    },
+    "reten\u00e7\u00e3o_mensal_calculada": {
+      "type": "number",
+      "description": "Valor retido mensalmente (conta vinculada)"
+    }
+  },
+  "required": [
+    "numero",
+    "objeto",
+    "contratada",
+    "valor_global",
+    "data_inicio",
+    "data_fim"
+  ]
+}
