@@ -32,9 +32,6 @@ const navItems = [
 ];
 
 export default function Layout({ children, currentPageName }) {
-  if (currentPageName === "LandingPage") {
-    return <>{children}</>;
-  }
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
@@ -68,6 +65,10 @@ export default function Layout({ children, currentPageName }) {
 
   const userRole = user?.role || "direcao";
   const visibleNav = navItems.filter(item => item.roles.includes(userRole));
+
+  if (currentPageName === "LandingPage") {
+    return <>{children}</>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

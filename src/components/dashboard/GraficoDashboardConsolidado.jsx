@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { base44 } from "@/api/base44Client";
 import {
   Tooltip, ResponsiveContainer, Legend,
@@ -8,6 +8,12 @@ import {
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Download } from "lucide-react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
+import mean from "lodash/mean";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const fmtK = (v) => {
@@ -390,9 +396,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
           {/* Mensal */}
           {abaGrafico === "mensal" && (
             <div>
-              <div className="text-xs text-gray-500 mb-3 flex items-center justify-between">
-                <span>Pagamentos mensais · {anoSelecionado}</span>
-                {orcadoTotal > 0 && <span className="text-red-500 font-medium">— Máx/mês: {fmt(orcadoTotal / 12)}</span>}
+              <div className="relative mb-4 flex items-center justify-center">
+                <h2 className="text-xl font-bold text-foreground text-center">Acompanhamento Financeiro · {anoSelecionado}</h2>
+                {orcadoTotal > 0 && <span className="absolute right-0 text-xs text-red-500 font-medium">— Máx/mês: {fmt(orcadoTotal / 12)}</span>}
               </div>
               <ResponsiveContainer width="100%" height={210}>
                 <ComposedChart data={dadosMensais} margin={{ top: 5, right: 5, left: -15, bottom: 0 }}>

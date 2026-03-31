@@ -205,7 +205,7 @@ export default function Dashboard() {
         })()
       ) : (
         <div className="space-y-4">
-          <div className="text-sm font-semibold text-[#1a2e4a]">Visão Financeira por Contrato</div>
+          <h3 className="text-lg font-semibold mt-4 text-foreground">Visão Financeira por Contrato/Item</h3>
           {contratos.filter(c => c.status === "ativo").map(c => (
             <ContractFinancialOverview key={c.id} contrato={c} />
           ))}
