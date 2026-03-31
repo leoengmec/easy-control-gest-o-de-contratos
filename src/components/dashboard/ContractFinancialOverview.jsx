@@ -111,8 +111,9 @@ export default function ContractFinancialOverview({ contrato }) {
               rawValue={totalPago}
             />
             <div className="mt-2 text-center">
-              <div className="text-sm font-semibold text-[#1a2e4a]">
-                {itemFiltro === "todos" ? "Todos os itens" : itemFiltro} {ano}
+              <div className="inline-flex flex-col items-center gap-0.5 bg-[#1a2e4a] text-white px-4 py-2 rounded-xl border border-blue-300/30 shadow-sm">
+                <span className="text-xs font-semibold tracking-wide">{itemFiltro === "todos" ? "Todos os itens" : itemFiltro}</span>
+                <span className="text-xs text-blue-300 font-medium">{ano}</span>
               </div>
             </div>
           </div>
