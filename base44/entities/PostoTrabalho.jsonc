@@ -4,61 +4,61 @@
   "properties": {
     "contrato_id": {
       "type": "string",
-      "description": "ID do contrato ao qual pertence"
+      "description": "ID do contrato ao qual o posto pertence"
     },
     "item_contrato_id": {
       "type": "string",
-      "description": "ID do item de contrato (M\u00e3o de Obra) correspondente"
+      "description": "ID do ItemContrato correspondente (MOR)"
     },
-    "nome_posto": {
+    "nome_colaborador": {
       "type": "string",
-      "description": "Nome do posto ou cargo (ex: Engenheiro de Campo)"
+      "description": "Nome completo do colaborador"
     },
-    "cbo": {
+    "cpf": {
       "type": "string",
-      "description": "Classifica\u00e7\u00e3o Brasileira de Ocupa\u00e7\u00f5es"
+      "description": "CPF do colaborador"
     },
-    "quantidade": {
-      "type": "number",
-      "description": "Quantidade de profissionais contratados para o posto"
+    "cargo": {
+      "type": "string",
+      "description": "Cargo/fun\u00e7\u00e3o (ex: Engenheiro de Campo, T\u00e9cnico de Edifica\u00e7\u00f5es)"
+    },
+    "local": {
+      "type": "string",
+      "description": "Local de aloca\u00e7\u00e3o (ex: Natal, Mossor\u00f3, Assu, Caic\u00f3)"
+    },
+    "data_inicio": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de in\u00edcio no posto"
+    },
+    "data_fim": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de sa\u00edda do posto (null se ainda ativo)"
     },
     "salario_base": {
       "type": "number",
-      "description": "Sal\u00e1rio base normativo"
-    },
-    "adicional_periculosidade_insalubridade": {
-      "type": "number",
-      "description": "Valor do adicional (periculosidade/insalubridade)"
-    },
-    "valor_vale_transporte": {
-      "type": "number",
-      "description": "Valor mensal estimado para Vale Transporte"
-    },
-    "valor_vale_refeicao": {
-      "type": "number",
-      "description": "Valor mensal estimado para Vale Refei\u00e7\u00e3o/Alimenta\u00e7\u00e3o"
-    },
-    "encargos_sociais_percentual": {
-      "type": "number",
-      "description": "Percentual aplicado para encargos sociais e trabalhistas (%)"
-    },
-    "custo_unitario_mensal": {
-      "type": "number",
-      "description": "Custo total unit\u00e1rio do posto por m\u00eas"
+      "description": "Sal\u00e1rio base do colaborador"
     },
     "status": {
       "type": "string",
       "enum": [
         "ativo",
-        "inativo"
+        "substituido",
+        "encerrado"
       ],
-      "default": "ativo"
+      "default": "ativo",
+      "description": "Status do posto de trabalho"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre o posto"
     }
   },
   "required": [
     "contrato_id",
-    "nome_posto",
-    "quantidade",
-    "salario_base"
+    "cargo",
+    "local",
+    "data_inicio"
   ]
 }
