@@ -1,0 +1,100 @@
+{
+  "name": "ItemContrato",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato"
+    },
+    "tipo_contrato_manutencao": {
+      "type": "string",
+      "enum": [
+        "sem_mao_de_obra_residente",
+        "com_mao_de_obra_residente"
+      ],
+      "description": "Tipo de presta\u00e7\u00e3o de servi\u00e7o de manuten\u00e7\u00e3o"
+    },
+    "grupo_servico": {
+      "type": "string",
+      "enum": [
+        "fixo",
+        "por_demanda"
+      ],
+      "description": "Agrupamento do servi\u00e7o: fixo (recorrente mensal) ou por demanda (eventual)"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome/identifica\u00e7\u00e3o do servi\u00e7o (ex: ENGENHEIRO DE CAMPO NATAL)"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do servi\u00e7o"
+    },
+    "unidade": {
+      "type": "string",
+      "description": "Unidade de medida (m\u00eas, unid, hora, etc.)"
+    },
+    "valor_unitario": {
+      "type": "number",
+      "description": "Valor unit\u00e1rio contratado"
+    },
+    "quantidade_contratada": {
+      "type": "number",
+      "description": "Quantidade total contratada"
+    },
+    "valor_total_contratado": {
+      "type": "number",
+      "description": "Valor total contratado para este item (V. TOTAL)"
+    },
+    "periodicidade": {
+      "type": "string",
+      "enum": [
+        "mensal",
+        "eventual",
+        "anual",
+        "unico"
+      ],
+      "default": "mensal",
+      "description": "Frequ\u00eancia do servi\u00e7o \u2014 base para c\u00e1lculo de valor mensal, anual e por vig\u00eancia"
+    },
+    "prazo_vigencia_meses": {
+      "type": "number",
+      "description": "Prazo da vig\u00eancia contratual em meses (para c\u00e1lculo do V. Contrato da vig\u00eancia)"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    },
+    "data_inicio_prorrata": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de in\u00edcio para c\u00e1lculo pr\u00f3-rata"
+    },
+    "data_fim_prorrata": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de fim para c\u00e1lculo pr\u00f3-rata"
+    },
+    "valor_prorrata_primeiro_ano": {
+      "type": "number",
+      "description": "Valor ajustado pr\u00f3-rata"
+    },
+    "valor_pago": {
+      "type": "number",
+      "description": "Valor j\u00e1 pago (somado de LancamentoFinanceiro)"
+    },
+    "saldo": {
+      "type": "number",
+      "description": "valor_total_contratado - valor_pago"
+    },
+    "percentual_execucao": {
+      "type": "number",
+      "description": "(valor_pago / valor_total_contratado) \u00d7 100"
+    }
+  },
+  "required": [
+    "contrato_id",
+    "nome",
+    "valor_unitario"
+  ]
+}
