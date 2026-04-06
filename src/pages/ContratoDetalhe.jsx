@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AdicionarFiscalDialog } from "@/components/ContratoDetalhe/AdicionarFiscalDialog";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -26,6 +27,11 @@ export default function ContratoDetalhe() {
   const urlParams = new URLSearchParams(window.location.search);
   const contratoId = urlParams.get("id");
   const [user, setUser] = useState(null);
+  const queryClient = useQueryClient();
+
+  const handleFiscalAdicionado = () => {
+    queryClient.invalidateQueries(['contrato', contratoId]);
+  };
 
   React.useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
@@ -167,7 +173,7 @@ export default function ContratoDetalhe() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg">Equipe de Fiscalização e Gestão</CardTitle>
-              {canEdit && <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-2"/> Adicionar Fiscal</Button>}
+              {canEdit && <AdicionarFiscalDialog contratoId={contratoId} onFiscalAdicionado={handleFiscalAdicionado} />}
             </CardHeader>
             <CardContent>
               <Table>
