@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdicionarFiscalDialog } from "@/components/ContratoDetalhe/AdicionarFiscalDialog";
 import { AdicionarItemDialog } from "@/components/ContratoDetalhe/AdicionarItemDialog";
+import { AbaValoresSaldos } from "@/components/ContratoDetalhe/AbaValoresSaldos";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -267,35 +268,7 @@ export default function ContratoDetalhe() {
 
         {/* ABA 3 - VALORES E SALDOS */}
         <TabsContent value="saldos" className="mt-4">
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Acompanhamento de Saldos por Item</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead className="text-right">V. Contratado</TableHead>
-                    <TableHead className="text-right">V. Pago</TableHead>
-                    <TableHead className="text-right">Saldo Restante</TableHead>
-                    <TableHead className="text-center">% Execução</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {itens.map(item => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.nome}</TableCell>
-                      <TableCell className="text-right">{fmt(item.valor_total_contratado)}</TableCell>
-                      <TableCell className="text-right text-blue-600">{fmt(item.valor_pago)}</TableCell>
-                      <TableCell className="text-right text-green-600">{fmt(item.saldo)}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline">{item.percentual_execucao?.toFixed(1) || 0}%</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <AbaValoresSaldos contrato={contrato} itens_iniciais={itens} />
         </TabsContent>
 
         {/* ABA 4 - BDIs E DESCONTOS */}
