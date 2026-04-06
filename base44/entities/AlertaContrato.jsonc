@@ -1,0 +1,41 @@
+{
+  "name": "AlertaContrato",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato"
+    },
+    "tipo": {
+      "type": "string",
+      "description": "Tipo do alerta (ex: Vencimento de Contrato, Fim de Prazo)"
+    },
+    "descricao": {
+      "type": "string",
+      "description": "Descri\u00e7\u00e3o detalhada do aviso"
+    },
+    "prioridade": {
+      "type": "string",
+      "enum": [
+        "baixa",
+        "media",
+        "alta"
+      ],
+      "default": "media"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ativo",
+        "resolvido",
+        "ignorado"
+      ],
+      "default": "ativo"
+    }
+  },
+  "required": [
+    "tipo",
+    "descricao",
+    "status"
+  ]
+}

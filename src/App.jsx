@@ -9,6 +9,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
 import NovoContrato from './pages/NovoContrato';
 import Reajustes from './pages/Reajustes';
+import Alertas from './pages/Alertas';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -81,6 +82,14 @@ const AuthenticatedApp = () => {
         element={
           <LayoutWrapper currentPageName="Reajustes">
             <Reajustes />
+          </LayoutWrapper>
+        }
+      />
+      <Route
+        path="/Alertas"
+        element={
+          <LayoutWrapper currentPageName="Alertas">
+            <Alertas />
           </LayoutWrapper>
         }
       />
