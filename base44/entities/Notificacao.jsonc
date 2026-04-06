@@ -1,0 +1,48 @@
+{
+  "name": "Notificacao",
+  "type": "object",
+  "properties": {
+    "usuario_id": {
+      "type": "string",
+      "description": "ID do usu\u00e1rio"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "reajuste_pendente",
+        "vencimento_proximo",
+        "alerta_critico"
+      ],
+      "description": "Tipo da notifica\u00e7\u00e3o"
+    },
+    "titulo": {
+      "type": "string",
+      "description": "T\u00edtulo da notifica\u00e7\u00e3o"
+    },
+    "mensagem": {
+      "type": "string",
+      "description": "Corpo da mensagem"
+    },
+    "dados_extras": {
+      "type": "string",
+      "description": "JSON com dados adicionais"
+    },
+    "lida": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se foi lida"
+    },
+    "data_criacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de cria\u00e7\u00e3o"
+    }
+  },
+  "required": [
+    "usuario_id",
+    "tipo",
+    "titulo",
+    "mensagem",
+    "data_criacao"
+  ]
+}
