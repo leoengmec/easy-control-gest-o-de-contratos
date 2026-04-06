@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { calcularProRata } from '@/utils/calculos';
 import { base44 } from '@/api/base44Client';
@@ -159,18 +159,96 @@ export const AbaValoresSaldos = ({ contrato, itens_iniciais }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {itens.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-6 text-slate-500">Nenhum item cadastrado.</TableCell></TableRow> : 
-                itens.map(item => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium pl-6">{item.nome}</TableCell>
-                    <TableCell className="text-right">{fmt(item.valor_total_contratado)}</TableCell>
-                    <TableCell className="text-right text-green-600">{fmt(item.valor_pago)}</TableCell>
-                    <TableCell className="text-right text-blue-600">{fmt(item.saldo)}</TableCell>
-                    <TableCell className="text-center pr-6">
-                      <Badge variant="outline" className="bg-slate-50">{item.percentual_execucao?.toFixed(1) || 0}%</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+              {itens.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-6 text-slate-500">Nenhum item cadastrado.</TableCell></TableRow> : (() => {
+                const NOME_MAP = {
+                  "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento corretivo",
+                  "SERVIÇOS DE DESLOCAMENTO PREVENTIVO": "Deslocamento Preventivo",
+                  "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do engenheiro",
+                  "SERVIÇOS EVENTUAIS": "Serviços Eventuais",
+                  "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS": "Locações",
+                  "FORNECIMENTO DE MATERIAL": "Fornecimento de Materiais",
+                  "Fornecimento de Material": "Fornecimento de Materiais",
+                  "FORNECIMENTO DE MATERIAIS": "Fornecimento de Materiais"
+                };
+
+                const mapName = (nome) => NOME_MAP[nome] || nome;
+
+                const GRUPOS = [
+                  {
+                    titulo: "Serviços Fixos",
+                    cor: "text-blue-700",
+                    bg: "bg-blue-50",
+                    itensOriginais: ["MOR Natal", "MOR Mossoró", "SERVIÇOS DE DESLOCAMENTO PREVENTIVO"],
+                  },
+                  {
+                    titulo: "Demandas Eventuais",
+                    cor: "text-amber-700",
+                    bg: "bg-amber-50",
+                    itensOriginais: [
+                      "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
+                      "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
+                      "SERVIÇOS EVENTUAIS",
+                      "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS",
+                      "FORNECIMENTO DE MATERIAIS",
+                      "Fornecimento de Material",
+                      "FORNECIMENTO DE MATERIAL",
+                    ],
+                  },
+                ];
+
+                const itensAgrupados = GRUPOS.map(g => {
+                  const rows = itens.filter(i => g.itensOriginais.includes(i.nome));
+                  return { ...g, rows };
+                }).filter(g => g.rows.length > 0);
+
+                const itensNoGrupo = new Set(GRUPOS.flatMap(g => g.itensOriginais));
+                const itensSemGrupo = itens.filter(i => !itensNoGrupo.has(i.nome));
+
+                return (
+                  <>
+                    {itensAgrupados.map((g, gi) => (
+                      <React.Fragment key={`group-${gi}`}>
+                        <tr className={`${g.bg} border-b border-gray-100`}>
+                          <td colSpan={5} className={`py-1.5 pl-6 font-bold ${g.cor} uppercase tracking-wider text-xs`}>
+                            {g.titulo}
+                          </td>
+                        </tr>
+                        {g.rows.map(item => (
+                          <TableRow key={item.id} className="border-b border-gray-50 hover:bg-gray-50">
+                            <TableCell className="font-medium pl-10 text-xs">{mapName(item.nome)}</TableCell>
+                            <TableCell className="text-right text-xs">{fmt(item.valor_total_contratado)}</TableCell>
+                            <TableCell className="text-right text-green-600 font-semibold text-xs">{fmt(item.valor_pago)}</TableCell>
+                            <TableCell className="text-right text-blue-600 font-semibold text-xs">{fmt(item.saldo)}</TableCell>
+                            <TableCell className="text-center pr-6">
+                              <Badge variant="outline" className="bg-slate-50 text-[10px]">{item.percentual_execucao?.toFixed(1) || 0}%</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                    {itensSemGrupo.length > 0 && (
+                      <>
+                        <tr className="bg-gray-100 border-b border-gray-200">
+                          <td colSpan={5} className="py-1.5 pl-6 font-bold text-gray-600 uppercase tracking-wider text-xs">
+                            Outros Itens
+                          </td>
+                        </tr>
+                        {itensSemGrupo.map(item => (
+                          <TableRow key={item.id} className="border-b border-gray-50 hover:bg-gray-50">
+                            <TableCell className="font-medium pl-10 text-xs">{mapName(item.nome)}</TableCell>
+                            <TableCell className="text-right text-xs">{fmt(item.valor_total_contratado)}</TableCell>
+                            <TableCell className="text-right text-green-600 font-semibold text-xs">{fmt(item.valor_pago)}</TableCell>
+                            <TableCell className="text-right text-blue-600 font-semibold text-xs">{fmt(item.saldo)}</TableCell>
+                            <TableCell className="text-center pr-6">
+                              <Badge variant="outline" className="bg-slate-50 text-[10px]">{item.percentual_execucao?.toFixed(1) || 0}%</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    )}
+                  </>
+                );
+              })()}
             </TableBody>
           </Table>
         </CardContent>
