@@ -18,8 +18,7 @@ export const validarToken = (req, res, next) => {
       });
     }
     
-    const secretKey = typeof process !== 'undefined' && process.env ? process.env.JWT_SECRET : 'seu-secret-key';
-    const decoded = jwt.verify(token, secretKey || 'seu-secret-key');
+    const decoded = jwt.verify(token, import.meta.env.VITE_JWT_SECRET || 'seu-secret-key');
     req.usuario = decoded;
     next();
     
