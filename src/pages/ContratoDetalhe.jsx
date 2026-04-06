@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AdicionarFiscalDialog } from "@/components/ContratoDetalhe/AdicionarFiscalDialog";
+import { AdicionarItemDialog } from "@/components/ContratoDetalhe/AdicionarItemDialog";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
@@ -30,6 +31,10 @@ export default function ContratoDetalhe() {
   const queryClient = useQueryClient();
 
   const handleFiscalAdicionado = () => {
+    queryClient.invalidateQueries(['contrato', contratoId]);
+  };
+
+  const handleItemAdicionado = () => {
     queryClient.invalidateQueries(['contrato', contratoId]);
   };
 
@@ -219,7 +224,7 @@ export default function ContratoDetalhe() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg">Itens Contratados</CardTitle>
-              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Adicionar Item</Button>}
+              {canEdit && <AdicionarItemDialog contratoId={contratoId} onItemAdicionado={handleItemAdicionado} />}
             </CardHeader>
             <CardContent>
               <Table>
