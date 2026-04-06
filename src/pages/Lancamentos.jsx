@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -36,6 +37,7 @@ export default function Lancamentos() {
   const [anosDisponiveis, setAnosDisponiveis] = useState([]);
   const [filtroContrato, setFiltroContrato] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
+  const [filtroBusca, setFiltroBusca] = useState("");
   const [showImportar, setShowImportar] = useState(false);
 
   useEffect(() => {
@@ -104,7 +106,16 @@ export default function Lancamentos() {
 
   const canEdit = user?.role === "admin" || user?.role === "gestor" || user?.role === "fiscal";
 
-  const filtered = lancamentos.filter(l => filtroStatus === "todos" || l.status === filtroStatus);
+  const filtered = lancamentos.filter(l => {
+    if (filtroStatus !== "todos" && l.status !== filtroStatus) return false;
+    if (filtroBusca) {
+      const termo = filtroBusca.toLowerCase();
+      const matchNF = l.numero_nf?.toLowerCase().includes(termo);
+      const matchStatus = l.status?.toLowerCase().includes(termo);
+      if (!matchNF && !matchStatus) return false;
+    }
+    return true;
+  });
 
   const totalFiltrado = filtered.reduce((s, l) => s + (l.valor || 0), 0);
 
@@ -169,6 +180,12 @@ export default function Lancamentos() {
             {STATUS_OPTIONS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Input 
+          placeholder="Buscar por NF ou status..." 
+          value={filtroBusca} 
+          onChange={(e) => setFiltroBusca(e.target.value)}
+          className="w-full sm:w-64 bg-white"
+        />
       </div>
 
       {/* Resumo por mês */}
