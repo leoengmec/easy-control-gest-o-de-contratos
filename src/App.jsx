@@ -7,6 +7,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
+import NovoContrato from './pages/NovoContrato';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -63,6 +64,14 @@ const AuthenticatedApp = () => {
         element={
           <LayoutWrapper currentPageName="MinhasConfiguracoesAlertas">
             <MinhasConfiguracoesAlertas />
+          </LayoutWrapper>
+        }
+      />
+      <Route
+        path="/NovoContrato"
+        element={
+          <LayoutWrapper currentPageName="NovoContrato">
+            <NovoContrato />
           </LayoutWrapper>
         }
       />
