@@ -22,7 +22,7 @@ export default function Contratos() {
     status: "todos",
     dataInicio: "",
     dataFim: "",
-    contratada: "",
+    busca: "",
     valorMin: "",
     valorMax: "",
     bdi: "todos"
@@ -58,7 +58,15 @@ export default function Contratos() {
     if (filtros.status !== "todos" && c.status !== filtros.status) return false;
     if (filtros.dataInicio && c.data_inicio < filtros.dataInicio) return false;
     if (filtros.dataFim && c.data_fim > filtros.dataFim) return false;
-    if (filtros.contratada && !c.contratada?.toLowerCase().includes(filtros.contratada.toLowerCase())) return false;
+    
+    if (filtros.busca) {
+      const termo = filtros.busca.toLowerCase();
+      const matchNumero = c.numero?.toLowerCase().includes(termo);
+      const matchObjeto = c.objeto?.toLowerCase().includes(termo);
+      const matchContratada = c.contratada?.toLowerCase().includes(termo);
+      if (!matchNumero && !matchObjeto && !matchContratada) return false;
+    }
+
     if (filtros.valorMin && c.valor_global < Number(filtros.valorMin)) return false;
     if (filtros.valorMax && c.valor_global > Number(filtros.valorMax)) return false;
     if (filtros.bdi !== "todos") {
@@ -143,7 +151,7 @@ export default function Contratos() {
           </Select>
           <Input type="date" value={filtros.dataInicio} onChange={e => setFiltros({ ...filtros, dataInicio: e.target.value })} placeholder="Data Início" />
           <Input type="date" value={filtros.dataFim} onChange={e => setFiltros({ ...filtros, dataFim: e.target.value })} placeholder="Data Fim" />
-          <Input placeholder="Contratada" value={filtros.contratada} onChange={e => setFiltros({ ...filtros, contratada: e.target.value })} />
+          <Input placeholder="Buscar por número, objeto ou contratada..." value={filtros.busca} onChange={e => setFiltros({ ...filtros, busca: e.target.value })} />
           <div className="flex gap-2">
             <Input type="number" placeholder="V. Min" value={filtros.valorMin} onChange={e => setFiltros({ ...filtros, valorMin: e.target.value })} />
             <Input type="number" placeholder="V. Max" value={filtros.valorMax} onChange={e => setFiltros({ ...filtros, valorMax: e.target.value })} />
