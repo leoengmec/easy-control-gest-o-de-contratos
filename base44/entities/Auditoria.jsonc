@@ -8,40 +8,51 @@
     },
     "acao": {
       "type": "string",
-      "description": "A\u00e7\u00e3o realizada (ex: criar, atualizar, excluir, acessar)"
+      "enum": [
+        "criar",
+        "editar",
+        "deletar",
+        "aprovar",
+        "rejeitar"
+      ],
+      "description": "Tipo de a\u00e7\u00e3o"
     },
     "entidade": {
       "type": "string",
-      "description": "Nome da entidade afetada (ex: Contrato, Usuario)"
+      "description": "Nome da entidade afetada"
     },
     "entity_id": {
       "type": "string",
-      "description": "ID do registro afetado"
+      "description": "ID da entidade"
     },
     "dados_antes": {
       "type": "string",
-      "description": "JSON em formato texto com os dados anteriores \u00e0 mudan\u00e7a"
+      "description": "JSON com dados anteriores"
     },
     "dados_depois": {
       "type": "string",
-      "description": "JSON em formato texto com os dados resultantes"
+      "description": "JSON com dados novos"
     },
     "ip_address": {
       "type": "string",
-      "description": "Endere\u00e7o IP da origem da a\u00e7\u00e3o"
+      "description": "IP do usu\u00e1rio"
     },
     "user_agent": {
       "type": "string",
-      "description": "Dispositivo ou navegador utilizado"
+      "description": "User agent do navegador"
     },
     "data_acao": {
       "type": "string",
-      "format": "date-time",
-      "description": "Data e hora exata da a\u00e7\u00e3o"
+      "format": "date",
+      "description": "Data/hora da a\u00e7\u00e3o"
     },
     "status": {
       "type": "string",
-      "description": "Status da auditoria"
+      "enum": [
+        "registrado",
+        "revisado"
+      ],
+      "default": "registrado"
     }
   },
   "required": [
