@@ -1,21 +1,24 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { toast } from "sonner";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
-// Validações com Zod
+import ExtrairDadosPortaria from "@/components/contratos/ExtrairDadosPortaria.jsx";
+
+// Validações com Zod atualizadas: IMR e Fiscais removidos
 const formSchema = z.object({
   numero: z.string().min(1, "O número do contrato é obrigatório"),
   objeto: z.string().min(1, "O objeto é obrigatório"),
@@ -30,7 +33,6 @@ const formSchema = z.object({
   bdi_normal: z.coerce.number().min(0).max(100).optional(),
   bdi_diferenciado: z.coerce.number().min(0).max(100).optional(),
   desconto_licitacao: z.coerce.number().min(0).max(100).optional(),
-  imr: z.coerce.number().min(0).max(100).optional(),
   convenio_coletiva_id: z.string().optional(),
   vigencia_reajuste: z.string().optional(),
   vigencia_repacuacao: z.string().optional(),
@@ -38,11 +40,7 @@ const formSchema = z.object({
   limite_financeiro: z.coerce.number().min(0).optional(),
   limite_empenho: z.coerce.number().min(0).optional(),
   valor_total_possivel_aditivos: z.coerce.number().min(0).optional(),
-  gestor_matricula: z.string().optional(),
-  fiscal_titular_matricula: z.string().optional(),
-  fiscal_substituto_matricula: z.string().optional(),
-  portaria_numero: z.string().optional(),
-  portaria_data_publicacao: z.string().optional()
+  gestor_matricula: z.string().optional()
 }).refine(data => new Date(data.data_fim) > new Date(data.data_inicio), {
   message: "Data de término deve ser posterior à data de início",
   path: ["data_fim"],
@@ -54,6 +52,13 @@ export default function NovoContrato() {
   const contratoId = searchParams.get("id");
   const editando = !!contratoId;
 
+  const [user, setUser] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [arquivoContrato, setArquivoContrato] = useState(null);
+  const [arquivoPortaria, setArquivoPortaria] = useState(null);
+  const [showModalPortaria, setShowModalPortaria] = useState(false);
+  const [novoContratoId, setNovoContratoId] = useState(null);
+
   // Carregar dados auxiliares
   const { data: contratadas = [] } = useQuery({ queryKey: ['contratadas'], queryFn: () => base44.entities.Contratada.list() });
   const { data: convencoes = [] } = useQuery({ queryKey: ['convencoes'], queryFn: () => base44.entities.ConvencaoColetiva.list() });
@@ -64,79 +69,117 @@ export default function NovoContrato() {
     defaultValues: {
       numero: "", objeto: "", escopo_resumido: "", contratada: "", data_inicio: "", data_fim: "",
       prazo_vigencia_inicial_meses: 12, status: "ativo", processo_sei: "", valor_global: 0,
-      bdi_normal: 0, bdi_diferenciado: 0, desconto_licitacao: 0, imr: 0, convenio_coletiva_id: "",
+      bdi_normal: 0, bdi_diferenciado: 0, desconto_licitacao: 0, convenio_coletiva_id: "",
       vigencia_reajuste: "", vigencia_repacuacao: "", limite_orcamento: 0, limite_financeiro: 0,
-      limite_empenho: 0, valor_total_possivel_aditivos: 0, gestor_matricula: "", fiscal_titular_matricula: "",
-      fiscal_substituto_matricula: "", portaria_numero: "", portaria_data_publicacao: ""
+      limite_empenho: 0, valor_total_possivel_aditivos: 0, gestor_matricula: ""
     }
   });
+
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
 
   // Carregar contrato se estiver editando
   useEffect(() => {
     if (editando) {
       base44.entities.Contrato.get(contratoId).then(data => {
-        // Formata as datas para os inputs type="date"
         const formattedData = { ...data };
-        ['data_inicio', 'data_fim', 'vigencia_reajuste', 'vigencia_repacuacao', 'portaria_data_publicacao'].forEach(field => {
+        ['data_inicio', 'data_fim', 'vigencia_reajuste', 'vigencia_repacuacao'].forEach(field => {
           if (formattedData[field]) {
             formattedData[field] = formattedData[field].split('T')[0];
           }
         });
         
-        // Match user names and extract their ID/matricula for select fields
         const getUserIdByName = (name) => {
            if (!name) return "";
            const u = usuarios.find(user => user.full_name === name);
            return u ? u.id : "";
         };
-        
         formattedData.gestor_matricula = getUserIdByName(data.gestor_nome) || data.gestor_matricula;
-        formattedData.fiscal_titular_matricula = getUserIdByName(data.fiscal_titular_nome) || data.fiscal_titular_matricula;
-        formattedData.fiscal_substituto_matricula = getUserIdByName(data.fiscal_substituto_nome) || data.fiscal_substituto_matricula;
-
         form.reset(formattedData);
       }).catch(err => {
         toast.error("Erro ao carregar contrato.");
-        console.error(err);
       });
     }
   }, [contratoId, editando, form, usuarios]);
 
-  const mutation = useMutation({
-    mutationFn: async (dados) => {
-      // Find user names based on selected IDs (we stored user ID in the matricula fields in the form temporarily)
-      const gestor = usuarios.find(u => u.id === dados.gestor_matricula);
-      const fiscalTit = usuarios.find(u => u.id === dados.fiscal_titular_matricula);
-      const fiscalSub = usuarios.find(u => u.id === dados.fiscal_substituto_matricula);
+  const handleUploadAndSave = async (dados) => {
+    if (!editando && (!arquivoContrato || !arquivoPortaria)) {
+      toast.error('Contrato e Portaria de Fiscalização são obrigatórios');
+      return;
+    }
 
+    setIsSaving(true);
+    try {
+      const gestor = usuarios.find(u => u.id === dados.gestor_matricula);
       const payload = {
         ...dados,
-        gestor_nome: gestor?.full_name || null,
-        fiscal_titular_nome: fiscalTit?.full_name || null,
-        fiscal_substituto_nome: fiscalSub?.full_name || null,
+        gestor_nome: gestor?.full_name || null
       };
 
+      let currentContratoId = contratoId;
       if (editando) {
-        return await base44.entities.Contrato.update(contratoId, payload);
+        await base44.entities.Contrato.update(currentContratoId, payload);
       } else {
-        return await base44.entities.Contrato.create(payload);
+        const novoC = await base44.entities.Contrato.create(payload);
+        currentContratoId = novoC.id;
+        setNovoContratoId(currentContratoId);
       }
-    },
-    onSuccess: () => {
-      toast.success(editando ? "Contrato atualizado com sucesso!" : "Contrato criado com sucesso!");
-      navigate(createPageUrl("Contratos"));
-    },
-    onError: (err) => {
-      toast.error("Erro ao salvar contrato. " + (err.message || ""));
-    }
-  });
 
-  const onSubmit = (dados) => {
-    mutation.mutate(dados);
+      // Função utilitária para fazer o upload e criar o registro em DocumentoContrato
+      const uploadDoc = async (fileObj, docType) => {
+        const res = await base44.integrations.Core.UploadFile({ file: fileObj });
+        await base44.entities.DocumentoContrato.create({
+          contrato_id: currentContratoId,
+          tipo: docType,
+          nome_arquivo: fileObj.name,
+          url_arquivo: res.file_url,
+          tamanho_arquivo: fileObj.size,
+          tipo_mime: fileObj.type,
+          uploaded_by: user?.email || user?.id
+        });
+      };
+
+      if (arquivoContrato) await uploadDoc(arquivoContrato, 'contrato');
+      if (arquivoPortaria) await uploadDoc(arquivoPortaria, 'portaria');
+
+      if (!editando && arquivoPortaria) {
+        setShowModalPortaria(true);
+      } else {
+        toast.success(editando ? "Contrato atualizado com sucesso!" : "Contrato criado com sucesso!");
+        navigate(createPageUrl("Contratos"));
+      }
+
+    } catch (err) {
+      toast.error("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleModalPortariaSuccess = () => {
+    setShowModalPortaria(false);
+    navigate(createPageUrl(`ContratoDetalhe?id=${novoContratoId}`));
+  };
+
+  const handleModalPortariaClose = () => {
+    setShowModalPortaria(false);
+    navigate(createPageUrl("Contratos"));
+  };
+
+  const handleFileChange = (e, setFileFn) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("O arquivo excede o limite máximo de 10MB");
+        return;
+      }
+      setFileFn(file);
+    }
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6 pb-20">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="w-5 h-5" /></Button>
@@ -145,7 +188,7 @@ export default function NovoContrato() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(handleUploadAndSave)} className="space-y-6">
           
           <Card>
             <CardHeader><CardTitle className="text-lg">Informações Gerais</CardTitle></CardHeader>
@@ -239,7 +282,7 @@ export default function NovoContrato() {
 
           <Card>
             <CardHeader><CardTitle className="text-lg">Taxas, Acordos e Índices (%)</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField control={form.control} name="bdi_normal" render={({ field }) => (
                 <FormItem><FormLabel>BDI Normal (%)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
@@ -249,11 +292,8 @@ export default function NovoContrato() {
               <FormField control={form.control} name="desconto_licitacao" render={({ field }) => (
                 <FormItem><FormLabel>Desconto Licitação (%)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
-              <FormField control={form.control} name="imr" render={({ field }) => (
-                <FormItem><FormLabel>IMR Máximo (%)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
               
-              <div className="md:col-span-2 mt-2">
+              <div className="md:col-span-3 mt-2">
                 <FormField control={form.control} name="convenio_coletiva_id" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Convenção Coletiva (ACT/CCT)</FormLabel>
@@ -274,7 +314,7 @@ export default function NovoContrato() {
                   <FormItem><FormLabel>Data Base Reajuste</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
               </div>
-              <div className="mt-2">
+              <div className="mt-2 md:col-span-2">
                 <FormField control={form.control} name="vigencia_repacuacao" render={({ field }) => (
                   <FormItem><FormLabel>Data Base Repactuação</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
@@ -283,13 +323,13 @@ export default function NovoContrato() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-lg">Equipe de Fiscalização</CardTitle></CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CardHeader><CardTitle className="text-lg">Gestão do Contrato</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4">
               <FormField control={form.control} name="gestor_matricula" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gestor</FormLabel>
+                <FormItem className="md:w-1/3">
+                  <FormLabel>Gestor do Contrato</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione o gestor" /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="none" className="text-gray-400">Sem gestor atribuído</SelectItem>
                       {usuarios.filter(u => u.role === 'admin' || u.role === 'gestor').map(u => (
@@ -300,54 +340,80 @@ export default function NovoContrato() {
                   <FormMessage />
                 </FormItem>
               )} />
-              
-              <FormField control={form.control} name="fiscal_titular_matricula" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fiscal Titular</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-gray-400">Sem fiscal atribuído</SelectItem>
-                      {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              
-              <FormField control={form.control} name="fiscal_substituto_matricula" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fiscal Substituto</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ""}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      <SelectItem value="none" className="text-gray-400">Sem fiscal substituto</SelectItem>
-                      {usuarios.map(u => <SelectItem key={u.id} value={u.id}>{u.full_name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              
-              <FormField control={form.control} name="portaria_numero" render={({ field }) => (
-                <FormItem><FormLabel>Número da Portaria</FormLabel><FormControl><Input placeholder="Ex: 332/2025" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              
-              <FormField control={form.control} name="portaria_data_publicacao" render={({ field }) => (
-                <FormItem><FormLabel>Data de Publicação (Portaria)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
             </CardContent>
           </Card>
 
-          <div className="flex justify-end gap-4">
+          {/* SESSÃO: DOCUMENTOS OBRIGATÓRIOS (TAREFA 1) */}
+          <div className="space-y-4 pt-6 border-t">
+            <h3 className="text-lg font-semibold text-[#1a2e4a]">Documentos Obrigatórios</h3>
+            <p className="text-sm text-gray-500 mb-4">Adicione a documentação inicial do contrato. Em caso de edição, envie apenas se desejar substituir/incluir novo arquivo.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Upload Contrato */}
+              <div className="space-y-2 border p-4 rounded-lg bg-white shadow-sm hover:border-blue-300 transition-colors">
+                <Label htmlFor="contrato" className="font-semibold text-base">Contrato {!editando && "*"}</Label>
+                <div className="text-xs text-gray-400 mb-2">Arquivos permitidos: .pdf, .docx, .xlsx (Máx 10MB)</div>
+                <div className="relative group cursor-pointer border-2 border-dashed border-gray-200 rounded-md p-6 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors">
+                  <UploadCloud className="w-8 h-8 text-blue-500 mb-2" />
+                  <span className="text-sm text-gray-600 font-medium">Clique ou arraste seu arquivo aqui</span>
+                  <Input 
+                    id="contrato" 
+                    type="file" 
+                    accept=".pdf,.docx,.xlsx" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => handleFileChange(e, setArquivoContrato)}
+                  />
+                </div>
+                {arquivoContrato && (
+                  <div className="mt-3 p-2 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-100 flex items-center">
+                    <span className="truncate">✓ {arquivoContrato.name}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Upload Portaria */}
+              <div className="space-y-2 border p-4 rounded-lg bg-white shadow-sm hover:border-blue-300 transition-colors">
+                <Label htmlFor="portaria" className="font-semibold text-base">Portaria de Fiscalização {!editando && "*"}</Label>
+                <div className="text-xs text-gray-400 mb-2">Arquivos permitidos: .pdf, .docx, .xlsx (Máx 10MB)</div>
+                <div className="relative group cursor-pointer border-2 border-dashed border-gray-200 rounded-md p-6 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors">
+                  <UploadCloud className="w-8 h-8 text-blue-500 mb-2" />
+                  <span className="text-sm text-gray-600 font-medium">Clique ou arraste seu arquivo aqui</span>
+                  <Input 
+                    id="portaria" 
+                    type="file" 
+                    accept=".pdf,.docx,.xlsx" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={(e) => handleFileChange(e, setArquivoPortaria)}
+                  />
+                </div>
+                {arquivoPortaria && (
+                  <div className="mt-3 p-2 bg-blue-50 text-blue-700 text-sm rounded-md border border-blue-100 flex items-center">
+                    <span className="truncate">✓ {arquivoPortaria.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-4 pt-6 border-t">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Cancelar</Button>
-            <Button type="submit" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]" disabled={mutation.isPending}>
-              {mutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              {editando ? "Atualizar Contrato" : "Salvar Novo Contrato"}
+            <Button type="submit" className="bg-[#1a2e4a] hover:bg-[#2a4a7a] min-w-[200px]" disabled={isSaving}>
+              {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {isSaving ? "Salvando..." : (editando ? "Atualizar Contrato" : "Salvar Contrato")}
             </Button>
           </div>
         </form>
       </Form>
+
+      {/* MODAL DE EXTRAÇÃO DE DADOS DA PORTARIA */}
+      {showModalPortaria && novoContratoId && (
+        <ExtrairDadosPortaria 
+          isOpen={showModalPortaria} 
+          onClose={handleModalPortariaClose} 
+          contratoId={novoContratoId} 
+          onSuccess={handleModalPortariaSuccess}
+        />
+      )}
     </div>
   );
 }

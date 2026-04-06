@@ -40,7 +40,7 @@ export default function ContratoDetalhe() {
       // Simulating the requested structure fetching all related entities manually to ensure it works with the Base44 SDK
       const [
         contratoData, itensData, aditivosData, lancamentosData, 
-        postosData, contasData, reajustesData
+        postosData, contasData, reajustesData, fiscaisData, documentosData
       ] = await Promise.all([
         base44.entities.Contrato.get(contratoId).catch(() => null),
         base44.entities.ItemContrato.filter({ contrato_id: contratoId }).catch(() => []),
@@ -48,7 +48,9 @@ export default function ContratoDetalhe() {
         base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoId }).catch(() => []),
         base44.entities.PostoTrabalho.filter({ contrato_id: contratoId }).catch(() => []),
         base44.entities.ContaVinculada.filter({ contrato_id: contratoId }).catch(() => []),
-        base44.entities.Reajuste ? base44.entities.Reajuste.filter({ contrato_id: contratoId }).catch(() => []) : Promise.resolve([])
+        base44.entities.Reajuste ? base44.entities.Reajuste.filter({ contrato_id: contratoId }).catch(() => []) : Promise.resolve([]),
+        base44.entities.FiscalPortaria ? base44.entities.FiscalPortaria.filter({ contrato_id: contratoId }).catch(() => []) : Promise.resolve([]),
+        base44.entities.DocumentoContrato ? base44.entities.DocumentoContrato.filter({ contrato_id: contratoId }).catch(() => []) : Promise.resolve([])
       ]);
 
       let convencaoData = null;
@@ -65,8 +67,9 @@ export default function ContratoDetalhe() {
         contas: contasData,
         reajustes: reajustesData,
         convencao: convencaoData,
+        fiscais: fiscaisData,
         alertas: [], // Mocks for entities that might be created later
-        documentos: [],
+        documentos: documentosData,
         historico: []
       };
     },
@@ -76,7 +79,7 @@ export default function ContratoDetalhe() {
   if (isLoading) return <div className="p-8 text-center text-gray-400">Carregando detalhes do contrato...</div>;
   if (!data?.contrato) return <div className="p-8 text-center text-gray-400">Contrato não encontrado</div>;
 
-  const { contrato, itens, aditivos, lancamentos, postos, contas, reajustes, convencao, alertas, documentos, historico } = data;
+  const { contrato, itens, aditivos, lancamentos, postos, contas, reajustes, convencao, fiscais, alertas, documentos, historico } = data;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -96,6 +99,7 @@ export default function ContratoDetalhe() {
       <Tabs defaultValue="geral" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent justify-start">
           <TabsTrigger value="geral" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Informações Gerais</TabsTrigger>
+          <TabsTrigger value="fiscais" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Equipe de Fiscalização</TabsTrigger>
           <TabsTrigger value="itens" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Itens do Contrato</TabsTrigger>
           <TabsTrigger value="saldos" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Valores e Saldos</TabsTrigger>
           <TabsTrigger value="bdis" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">BDIs e Descontos</TabsTrigger>
@@ -150,14 +154,58 @@ export default function ContratoDetalhe() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-lg">Equipe de Fiscalização</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-lg">Gestão e Portaria</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 gap-4">
-                <InfoField label="Gestor" value={contrato.gestor_nome} />
-                <InfoField label="Fiscal Titular" value={contrato.fiscal_titular_nome} />
-                <InfoField label="Fiscal Substituto" value={contrato.fiscal_substituto_nome} />
+                <InfoField label="Gestor do Contrato" value={contrato.gestor_nome} />
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ABA EQUIPE DE FISCALIZAÇÃO */}
+        <TabsContent value="fiscais" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Equipe de Fiscalização e Gestão</CardTitle>
+              {canEdit && <Button size="sm" variant="outline"><Plus className="w-4 h-4 mr-2"/> Adicionar Fiscal</Button>}
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Matrícula</TableHead>
+                    <TableHead>Contato</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Data Designação</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fiscais.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-4">Nenhum fiscal designado na portaria.</TableCell></TableRow> : 
+                    fiscais.sort((a, b) => a.tipo.localeCompare(b.tipo)).map(f => (
+                      <TableRow key={f.id}>
+                        <TableCell className="font-medium">{f.nome}</TableCell>
+                        <TableCell>{f.matricula}</TableCell>
+                        <TableCell>
+                          <div className="text-sm">{f.email}</div>
+                          {f.telefone && <div className="text-xs text-gray-500">{f.telefone}</div>}
+                        </TableCell>
+                        <TableCell>{f.cargo}</TableCell>
+                        <TableCell><Badge className="capitalize" variant="outline">{f.tipo}</Badge></TableCell>
+                        <TableCell>{f.data_designacao ? format(new Date(f.data_designacao), 'dd/MM/yyyy') : '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="w-4 h-4"/></Button>
+                          {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500"><Trash2 className="w-4 h-4"/></Button>}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* ABA 2 - ITENS DO CONTRATO */}
@@ -250,7 +298,6 @@ export default function ContratoDetalhe() {
               <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">BDI Normal</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.bdi_normal || 0}%</div></CardContent></Card>
               <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">BDI Diferenciado</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.bdi_diferenciado || 0}%</div></CardContent></Card>
               <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">Desconto Licitação</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.desconto_licitacao || 0}%</div></CardContent></Card>
-              <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">IMR</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.imr || 0}%</div></CardContent></Card>
             </CardContent>
           </Card>
         </TabsContent>
@@ -455,10 +502,45 @@ export default function ContratoDetalhe() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg">Arquivos e Documentos</CardTitle>
-              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Upload</Button>}
+              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Fazer Upload</Button>}
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">Nenhum documento anexado.</div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Arquivo</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Tamanho</TableHead>
+                    <TableHead>Data de Upload</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {documentos.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-8 text-gray-500">Nenhum documento anexado ao contrato.</TableCell></TableRow> : 
+                    documentos.map(doc => (
+                      <TableRow key={doc.id}>
+                        <TableCell>
+                          <div className="font-medium text-[#1a2e4a] flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-500" />
+                            {doc.nome_arquivo}
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge className="uppercase" variant="outline">{doc.tipo}</Badge></TableCell>
+                        <TableCell className="text-gray-500 text-sm">{(doc.tamanho_arquivo / 1024 / 1024).toFixed(2)} MB</TableCell>
+                        <TableCell>{format(new Date(doc.created_date), 'dd/MM/yyyy HH:mm')}</TableCell>
+                        <TableCell className="text-right">
+                          {doc.url_arquivo && (
+                            <a href={doc.url_arquivo} target="_blank" rel="noopener noreferrer">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Download className="w-4 h-4"/></Button>
+                            </a>
+                          )}
+                          {canDelete && <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500"><Trash2 className="w-4 h-4"/></Button>}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>

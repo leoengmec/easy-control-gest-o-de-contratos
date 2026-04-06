@@ -1,0 +1,47 @@
+{
+  "name": "DocumentoContrato",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato ao qual pertence"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "contrato",
+        "portaria",
+        "aditivo",
+        "medicao",
+        "outro"
+      ],
+      "description": "Categoria/tipo de documento"
+    },
+    "nome_arquivo": {
+      "type": "string",
+      "description": "Nome original do arquivo"
+    },
+    "url_arquivo": {
+      "type": "string",
+      "description": "URL de armazenamento do arquivo"
+    },
+    "tamanho_arquivo": {
+      "type": "number",
+      "description": "Tamanho do arquivo em bytes"
+    },
+    "tipo_mime": {
+      "type": "string",
+      "description": "MIME type (ex: application/pdf)"
+    },
+    "uploaded_by": {
+      "type": "string",
+      "description": "Email ou ID de quem fez o upload"
+    }
+  },
+  "required": [
+    "contrato_id",
+    "tipo",
+    "nome_arquivo",
+    "url_arquivo"
+  ]
+}

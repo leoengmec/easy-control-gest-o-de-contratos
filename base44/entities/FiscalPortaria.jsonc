@@ -1,0 +1,60 @@
+{
+  "name": "FiscalPortaria",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato"
+    },
+    "nome": {
+      "type": "string",
+      "description": "Nome completo do fiscal"
+    },
+    "matricula": {
+      "type": "string",
+      "description": "Matr\u00edcula do fiscal"
+    },
+    "email": {
+      "type": "string",
+      "description": "E-mail do fiscal"
+    },
+    "telefone": {
+      "type": "string",
+      "description": "Telefone do fiscal"
+    },
+    "cargo": {
+      "type": "string",
+      "description": "Cargo/Fun\u00e7\u00e3o"
+    },
+    "tipo": {
+      "type": "string",
+      "enum": [
+        "titular",
+        "substituto",
+        "setorial"
+      ],
+      "description": "Tipo de fiscal (titular, substituto ou setorial)"
+    },
+    "data_designacao": {
+      "type": "string",
+      "format": "date",
+      "description": "Data de designa\u00e7\u00e3o na portaria"
+    },
+    "numero_portaria": {
+      "type": "string",
+      "description": "N\u00famero da portaria vinculada"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es adicionais"
+    }
+  },
+  "required": [
+    "contrato_id",
+    "nome",
+    "matricula",
+    "email",
+    "cargo",
+    "tipo"
+  ]
+}
