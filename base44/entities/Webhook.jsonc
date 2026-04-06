@@ -1,0 +1,39 @@
+{
+  "name": "Webhook",
+  "type": "object",
+  "properties": {
+    "contrato_id": {
+      "type": "string",
+      "description": "ID do contrato associado"
+    },
+    "tipo_evento": {
+      "type": "string",
+      "description": "Tipo de evento (ex: reajuste_pendente, vencimento_proximo)"
+    },
+    "url": {
+      "type": "string",
+      "description": "URL para envio do webhook"
+    },
+    "ativo": {
+      "type": "boolean",
+      "default": true
+    },
+    "data_criacao": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tentativas_envio": {
+      "type": "number",
+      "default": 0
+    },
+    "ultimo_envio": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "contrato_id",
+    "tipo_evento",
+    "url"
+  ]
+}
