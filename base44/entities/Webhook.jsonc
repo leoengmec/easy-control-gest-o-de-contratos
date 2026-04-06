@@ -4,31 +4,40 @@
   "properties": {
     "contrato_id": {
       "type": "string",
-      "description": "ID do contrato associado"
+      "description": "ID do contrato"
     },
     "tipo_evento": {
       "type": "string",
-      "description": "Tipo de evento (ex: reajuste_pendente, vencimento_proximo)"
+      "enum": [
+        "reajuste_pendente",
+        "vencimento_proximo",
+        "act_cct_vencimento"
+      ],
+      "description": "Tipo de evento a ser notificado"
     },
     "url": {
       "type": "string",
-      "description": "URL para envio do webhook"
+      "description": "URL do webhook"
     },
     "ativo": {
       "type": "boolean",
-      "default": true
+      "default": true,
+      "description": "Se est\u00e1 ativo"
     },
     "data_criacao": {
       "type": "string",
-      "format": "date-time"
+      "format": "date",
+      "description": "Data de cria\u00e7\u00e3o"
     },
     "tentativas_envio": {
       "type": "number",
-      "default": 0
+      "default": 0,
+      "description": "N\u00famero de tentativas de envio"
     },
     "ultimo_envio": {
       "type": "string",
-      "format": "date-time"
+      "format": "date",
+      "description": "Data do \u00faltimo envio"
     }
   },
   "required": [
