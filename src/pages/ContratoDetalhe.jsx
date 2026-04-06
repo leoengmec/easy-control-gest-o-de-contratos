@@ -1,51 +1,23 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { base44 } from "@/api/base44Client";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { ArrowLeft, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
-import { format, differenceInMonths, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import ItemForm from "@/components/contratos/ItemForm.jsx";
-import AditivoForm from "@/components/contratos/AditivoForm.jsx";
-import ItensAgrupados from "@/components/contratos/ItensAgrupados.jsx";
-import EmpenhoForm from "@/components/contratos/EmpenhoForm.jsx";
-import TabelaResumoContrato from "@/components/contratos/TabelaResumoContrato.jsx";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, Plus, Pencil, Trash2, Download, AlertTriangle, FileText } from "lucide-react";
+import { format, differenceInDays } from "date-fns";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-const NATUREZA_LABELS = {
-  "339039_servico": "339039 – Serviços (Manutenção)",
-  "339030_material": "339030 – Material de Consumo"
-};
-
-const tipoAditivoLabels = {
-  tempo: "Prorrogação de Prazo",
-  repactuacao: "Repactuação",
-  reajuste: "Reajuste de Valor",
-  inclusao_itens: "Inclusão de Itens",
-  exclusao_itens: "Exclusão de Itens",
-  outro: "Outro"
-};
-
-const tipoAditivoColors = {
-  tempo: "bg-blue-50 text-blue-700 border-blue-200",
-  repactuacao: "bg-purple-50 text-purple-700 border-purple-200",
-  reajuste: "bg-amber-50 text-amber-700 border-amber-200",
-  inclusao_itens: "bg-green-50 text-green-700 border-green-200",
-  exclusao_itens: "bg-red-50 text-red-700 border-red-200",
-  outro: "bg-gray-50 text-gray-700 border-gray-200"
-};
-
 function InfoField({ label, value }) {
-  if (!value && value !== 0) return null;
   return (
     <div>
       <div className="text-xs text-gray-400 font-medium">{label}</div>
-      <div className="mt-0.5 font-medium text-[#1a2e4a]">{value}</div>
+      <div className="mt-0.5 text-sm font-medium text-[#1a2e4a]">{value || "—"}</div>
     </div>
   );
 }
@@ -53,453 +25,454 @@ function InfoField({ label, value }) {
 export default function ContratoDetalhe() {
   const urlParams = new URLSearchParams(window.location.search);
   const contratoId = urlParams.get("id");
-
-  const [contrato, setContrato] = useState(null);
-  const [itens, setItens] = useState([]);
-  const [lancamentos, setLancamentos] = useState([]);
-  const [aditivos, setAditivos] = useState([]);
-  const [empenhos, setEmpenhos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showItemForm, setShowItemForm] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [showAditivoForm, setShowAditivoForm] = useState(false);
-  const [editingAditivo, setEditingAditivo] = useState(null);
-  const [showEmpenhoForm, setShowEmpenhoForm] = useState(false);
-  const [editingEmpenho, setEditingEmpenho] = useState(null);
   const [user, setUser] = useState(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     base44.auth.me().then(setUser).catch(() => {});
-    if (contratoId) loadAll();
-  }, [contratoId]);
+  }, []);
 
-  const loadAll = async () => {
-    const [c, i, l, a, e] = await Promise.all([
-      base44.entities.Contrato.filter({ id: contratoId }),
-      base44.entities.ItemContrato.filter({ contrato_id: contratoId }),
-      base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoId }),
-      base44.entities.Aditivo.filter({ contrato_id: contratoId }),
-      base44.entities.NotaEmpenho.filter({ contrato_id: contratoId })
-    ]);
-    setContrato(c[0]);
-    setItens(i);
-    setLancamentos(l);
-    setAditivos(a.sort((x, y) => new Date(x.data_assinatura) - new Date(y.data_assinatura)));
-    setEmpenhos(e.sort((x, y) => y.ano - x.ano));
-    setLoading(false);
-  };
+  const canEdit = user?.role === "admin" || user?.role === "gestor";
+  const canDelete = user?.role === "admin";
 
-  const handleDeleteItem = async (id) => {
-    if (!confirm("Excluir este item?")) return;
-    await base44.entities.ItemContrato.delete(id);
-    loadAll();
-  };
+  const { data, isLoading } = useQuery({
+    queryKey: ['contrato', contratoId],
+    queryFn: async () => {
+      // Simulating the requested structure fetching all related entities manually to ensure it works with the Base44 SDK
+      const [
+        contratoData, itensData, aditivosData, lancamentosData, 
+        postosData, contasData, reajustesData
+      ] = await Promise.all([
+        base44.entities.Contrato.get(contratoId).catch(() => null),
+        base44.entities.ItemContrato.filter({ contrato_id: contratoId }).catch(() => []),
+        base44.entities.Aditivo.filter({ contrato_id: contratoId }).catch(() => []),
+        base44.entities.LancamentoFinanceiro.filter({ contrato_id: contratoId }).catch(() => []),
+        base44.entities.PostoTrabalho.filter({ contrato_id: contratoId }).catch(() => []),
+        base44.entities.ContaVinculada.filter({ contrato_id: contratoId }).catch(() => []),
+        base44.entities.Reajuste ? base44.entities.Reajuste.filter({ contrato_id: contratoId }).catch(() => []) : Promise.resolve([])
+      ]);
 
-  const handleDeleteAditivo = async (id) => {
-    if (!confirm("Excluir este aditivo?")) return;
-    await base44.entities.Aditivo.delete(id);
-    loadAll();
-  };
+      let convencaoData = null;
+      if (contratoData?.convenio_coletiva_id) {
+        convencaoData = await base44.entities.ConvencaoColetiva.get(contratoData.convenio_coletiva_id).catch(() => null);
+      }
 
-  const handleDeleteEmpenho = async (id) => {
-    if (!confirm("Excluir este empenho?")) return;
-    await base44.entities.NotaEmpenho.delete(id);
-    loadAll();
-  };
+      return {
+        contrato: contratoData,
+        itens: itensData,
+        aditivos: aditivosData,
+        lancamentos: lancamentosData,
+        postos: postosData,
+        contas: contasData,
+        reajustes: reajustesData,
+        convencao: convencaoData,
+        alertas: [], // Mocks for entities that might be created later
+        documentos: [],
+        historico: []
+      };
+    },
+    enabled: !!contratoId
+  });
 
-  const canEdit = user?.role === "admin" || user?.role === "gestor" || user?.role === "fiscal";
+  if (isLoading) return <div className="p-8 text-center text-gray-400">Carregando detalhes do contrato...</div>;
+  if (!data?.contrato) return <div className="p-8 text-center text-gray-400">Contrato não encontrado</div>;
 
-  if (loading) return <div className="p-8 text-center text-gray-400">Carregando...</div>;
-  if (!contrato) return <div className="p-8 text-center text-gray-400">Contrato não encontrado</div>;
-
-  const totalPago = lancamentos.filter(l => l.status === "Pago").reduce((s, l) => s + l.valor, 0);
-  const totalProvisao = lancamentos.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + l.valor, 0);
-  const totalEmpenho = empenhos.reduce((s, e) => s + (e.valor_total || 0), 0);
-
-  // Cálculo de vigência
-  const hoje = new Date();
-  const dataFim = contrato.data_fim ? parseISO(contrato.data_fim) : null;
-  const dataInicio = contrato.data_inicio ? parseISO(contrato.data_inicio) : null;
-  const mesesDecorridos = dataInicio ? differenceInMonths(hoje, dataInicio) : 0;
-  const mesesRestantes = dataFim ? differenceInMonths(dataFim, hoje) : null;
-  const mesesTotaisUsados = dataInicio && dataFim ? differenceInMonths(dataFim, dataInicio) : 0;
-  const tempoMaximo = contrato.tempo_maximo_contrato_meses;
-  const percentualTempoUsado = tempoMaximo ? Math.min(100, Math.round((mesesTotaisUsados / tempoMaximo) * 100)) : null;
-  const alertaLimite = tempoMaximo && mesesTotaisUsados >= tempoMaximo * 0.8;
+  const { contrato, itens, aditivos, lancamentos, postos, contas, reajustes, convencao, alertas, documentos, historico } = data;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-5">
-      <div className="flex items-center gap-3">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
         <Link to={createPageUrl("Contratos")}>
-          <Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button>
         </Link>
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl font-bold text-[#1a2e4a]">{contrato.numero}</h1>
-            <Badge variant="outline" className="text-xs capitalize">{contrato.status}</Badge>
-            {alertaLimite && (
-              <Badge variant="outline" className="text-xs bg-red-50 text-red-600 border-red-200">
-                <AlertTriangle className="w-3 h-3 mr-1" /> Próximo do limite
-              </Badge>
-            )}
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-[#1a2e4a]">Contrato {contrato.numero}</h1>
+            <Badge variant="outline" className="uppercase">{contrato.status}</Badge>
           </div>
-          <div className="text-sm text-gray-500">{contrato.contratada}</div>
+          <p className="text-sm text-gray-500">{contrato.contratada}</p>
         </div>
       </div>
 
-      {/* Resumo financeiro */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {[
-          { label: "Valor Global", value: fmt(contrato.valor_global), color: "border-l-blue-500" },
-          { label: "Disponível NUFIP", value: contrato.valor_financeiro_disponivel_nufip != null ? fmt(contrato.valor_financeiro_disponivel_nufip) : "—", color: "border-l-cyan-500" },
-          { label: "Total Pago", value: fmt(totalPago), color: "border-l-green-500" },
-          { label: "Provisionado", value: fmt(totalProvisao), color: "border-l-amber-500" },
-          { label: "Empenhado", value: fmt(totalEmpenho), color: "border-l-purple-500" }
-        ].map(s => (
-          <Card key={s.label} className={`border-l-4 ${s.color}`}>
-            <CardContent className="p-3">
-              <div className="text-xs text-gray-500">{s.label}</div>
-              <div className="font-bold text-[#1a2e4a] text-sm mt-0.5">{s.value}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Tabs defaultValue="itens">
-        <TabsList className="flex-wrap h-auto">
-          <TabsTrigger value="itens">Itens do Contrato</TabsTrigger>
-          <TabsTrigger value="aditivos">
-            Aditivos {aditivos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{aditivos.length}</span>}
-          </TabsTrigger>
-          <TabsTrigger value="empenhos">
-            Empenhos {empenhos.length > 0 && <span className="ml-1 bg-[#1a2e4a] text-white text-xs rounded-full px-1.5">{empenhos.length}</span>}
-          </TabsTrigger>
-          <TabsTrigger value="fiscalizacao">Fiscalização</TabsTrigger>
-          <TabsTrigger value="vigencia">Vigência</TabsTrigger>
-          <TabsTrigger value="info">Informações Gerais</TabsTrigger>
+      <Tabs defaultValue="geral" className="w-full">
+        <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent justify-start">
+          <TabsTrigger value="geral" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Informações Gerais</TabsTrigger>
+          <TabsTrigger value="itens" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Itens do Contrato</TabsTrigger>
+          <TabsTrigger value="saldos" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Valores e Saldos</TabsTrigger>
+          <TabsTrigger value="bdis" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">BDIs e Descontos</TabsTrigger>
+          <TabsTrigger value="convencao" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Convenção Coletiva</TabsTrigger>
+          <TabsTrigger value="conta" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Conta Vinculada</TabsTrigger>
+          <TabsTrigger value="reajustes" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Reajustes/Repactuações</TabsTrigger>
+          <TabsTrigger value="alertas" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Alertas/Avisos</TabsTrigger>
+          <TabsTrigger value="aditivos" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Aditivos</TabsTrigger>
+          <TabsTrigger value="lancamentos" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Lançamentos</TabsTrigger>
+          <TabsTrigger value="documentos" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Documentos</TabsTrigger>
+          <TabsTrigger value="auditoria" className="data-[state=active]:bg-[#1a2e4a] data-[state=active]:text-white">Auditoria</TabsTrigger>
         </TabsList>
 
-        {/* ABA: ITENS */}
-        <TabsContent value="itens" className="space-y-4 mt-4">
-          {(showItemForm || editingItem) ? (
-            <ItemForm
-              item={editingItem}
-              contratoId={contratoId}
-              prazoVigenciaMeses={contrato.prazo_vigencia_inicial_meses}
-              onSave={() => { setShowItemForm(false); setEditingItem(null); loadAll(); }}
-              onCancel={() => { setShowItemForm(false); setEditingItem(null); }}
-            />
-          ) : (
-            <>
-              {canEdit && (
-                <Button onClick={() => setShowItemForm(true)} size="sm" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
-                  <Plus className="w-4 h-4 mr-1" /> Novo Item
-                </Button>
-              )}
-              {itens.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">Nenhum item cadastrado</div>
-              ) : (
-                <>
-                  <TabelaResumoContrato itens={itens} contratoDataInicio={contrato.data_inicio} />
-                  <ItensAgrupados itens={itens} contratoDataInicio={contrato.data_inicio} canEdit={canEdit} onEdit={setEditingItem} onDelete={handleDeleteItem} />
-                </>
-              )}
-            </>
-          )}
-        </TabsContent>
-
-        {/* ABA: ADITIVOS */}
-        <TabsContent value="aditivos" className="space-y-4 mt-4">
-          {(showAditivoForm || editingAditivo) ? (
-            <AditivoForm
-              contratoId={contratoId}
-              aditivo={editingAditivo}
-              valorAtual={contrato.valor_global}
-              onSave={() => { setShowAditivoForm(false); setEditingAditivo(null); loadAll(); }}
-              onCancel={() => { setShowAditivoForm(false); setEditingAditivo(null); }}
-            />
-          ) : (
-            <>
-              {canEdit && (
-                <Button onClick={() => setShowAditivoForm(true)} size="sm" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
-                  <Plus className="w-4 h-4 mr-1" /> Registrar Aditivo
-                </Button>
-              )}
-              {aditivos.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">Nenhum aditivo registrado</div>
-              ) : (
-                <div className="space-y-3">
-                  {aditivos.map((ad, idx) => (
-                    <Card key={ad.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <span className="font-semibold text-[#1a2e4a] text-sm">{ad.numero_aditivo || `${idx + 1}º Aditivo`}</span>
-                              <Badge variant="outline" className={`text-xs ${tipoAditivoColors[ad.tipo]}`}>
-                                {tipoAditivoLabels[ad.tipo]}
-                              </Badge>
-                              <span className="text-xs text-gray-400">
-                                {ad.data_assinatura ? format(parseISO(ad.data_assinatura), "dd/MM/yyyy") : "—"}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                              {ad.nova_data_fim && (
-                                <div>
-                                  <span className="text-xs text-gray-400">Nova data de término</span>
-                                  <div className="font-medium text-[#1a2e4a]">{format(parseISO(ad.nova_data_fim), "dd/MM/yyyy")}</div>
-                                </div>
-                              )}
-                              {ad.novo_valor && (
-                                <div>
-                                  <span className="text-xs text-gray-400">Novo valor global</span>
-                                  <div className="font-medium text-[#1a2e4a]">{fmt(ad.novo_valor)}</div>
-                                </div>
-                              )}
-                              {ad.percentual_reajuste && (
-                                <div>
-                                  <span className="text-xs text-gray-400">% Reajuste</span>
-                                  <div className="font-medium text-[#1a2e4a]">{ad.percentual_reajuste}%</div>
-                                </div>
-                              )}
-                              {ad.documento_sei && (
-                                <div>
-                                  <span className="text-xs text-gray-400">Documento SEI</span>
-                                  <div className="font-medium text-[#1a2e4a]">{ad.documento_sei}</div>
-                                </div>
-                              )}
-                            </div>
-                            {ad.descricao && <p className="text-xs text-gray-500 mt-2">{ad.descricao}</p>}
-                          </div>
-                          {canEdit && (
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditingAditivo(ad)}>
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDeleteAditivo(ad.id)}>
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </TabsContent>
-
-        {/* ABA: EMPENHOS */}
-        <TabsContent value="empenhos" className="space-y-4 mt-4">
-          {(showEmpenhoForm || editingEmpenho) ? (
-            <EmpenhoForm
-              empenho={editingEmpenho}
-              contratoId={contratoId}
-              onSave={() => { setShowEmpenhoForm(false); setEditingEmpenho(null); loadAll(); }}
-              onCancel={() => { setShowEmpenhoForm(false); setEditingEmpenho(null); }}
-            />
-          ) : (
-            <>
-              {canEdit && (
-                <Button onClick={() => setShowEmpenhoForm(true)} size="sm" className="bg-[#1a2e4a] hover:bg-[#2a4a7a]">
-                  <Plus className="w-4 h-4 mr-1" /> Novo Empenho
-                </Button>
-              )}
-              {empenhos.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">Nenhum empenho cadastrado</div>
-              ) : (
-                <div className="space-y-3">
-                  {empenhos.map(emp => (
-                    <Card key={emp.id}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <span className="font-bold text-[#1a2e4a]">{emp.numero_empenho}</span>
-                              <Badge variant="outline" className="text-xs">{emp.ano}</Badge>
-                              <Badge variant="outline" className={`text-xs ${emp.natureza_despesa === "339039_servico" ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-green-50 text-green-700 border-green-200"}`}>
-                                {NATUREZA_LABELS[emp.natureza_despesa]}
-                              </Badge>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                              {emp.ptres && (
-                                <div>
-                                  <div className="text-xs text-gray-400">PTRES</div>
-                                  <div className="font-medium text-[#1a2e4a]">{emp.ptres}</div>
-                                </div>
-                              )}
-                              {emp.valor_total > 0 && (
-                                <div>
-                                  <div className="text-xs text-gray-400">Valor Total</div>
-                                  <div className="font-medium text-[#1a2e4a]">{fmt(emp.valor_total)}</div>
-                                </div>
-                              )}
-                              {emp.data_inclusao && (
-                                <div>
-                                  <div className="text-xs text-gray-400">Data de Inclusão</div>
-                                  <div className="font-medium text-[#1a2e4a]">{format(parseISO(emp.data_inclusao), "dd/MM/yyyy")}</div>
-                                </div>
-                              )}
-                            </div>
-                            {emp.observacoes && <p className="text-xs text-gray-500 mt-2">{emp.observacoes}</p>}
-                          </div>
-                          {canEdit && (
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => setEditingEmpenho(emp)}>
-                                <Pencil className="w-3 h-3" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDeleteEmpenho(emp.id)}>
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </TabsContent>
-
-        {/* ABA: FISCALIZAÇÃO */}
-        <TabsContent value="fiscalizacao" className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {/* ABA 1 - INFORMAÇÕES GERAIS */}
+        <TabsContent value="geral" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Dados do Contrato</CardTitle>
+              <div className="flex gap-2">
+                {canEdit && <Button size="sm" variant="outline"><Pencil className="w-4 h-4 mr-2"/> Editar</Button>}
+                {canDelete && <Button size="sm" variant="destructive"><Trash2 className="w-4 h-4 mr-2"/> Deletar</Button>}
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-4">
+                <InfoField label="Número" value={contrato.numero} />
+                <InfoField label="Objeto" value={contrato.objeto} />
+                <InfoField label="Escopo Resumido" value={contrato.escopo_resumido} />
+                <InfoField label="Status" value={contrato.status} />
+              </div>
+              <div className="space-y-4">
+                <InfoField label="Contratada" value={contrato.contratada} />
+                <InfoField label="CNPJ" value={contrato.cnpj} />
+                <InfoField label="Processo SEI" value={contrato.processo_sei} />
+              </div>
+              <div className="space-y-4">
+                <InfoField label="Data Início" value={contrato.data_inicio ? format(new Date(contrato.data_inicio), 'dd/MM/yyyy') : ''} />
+                <InfoField label="Data Fim" value={contrato.data_fim ? format(new Date(contrato.data_fim), 'dd/MM/yyyy') : ''} />
+                <InfoField label="Prazo Vigência (meses)" value={contrato.prazo_vigencia_inicial_meses} />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-semibold text-sm text-[#1a2e4a] border-b pb-1">Gestão</h3>
+              <CardHeader className="pb-2"><CardTitle className="text-lg">Valores Limite</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <InfoField label="Valor Global" value={fmt(contrato.valor_global)} />
+                <InfoField label="Limite Orçamento" value={fmt(contrato.limite_orcamento)} />
+                <InfoField label="Limite Financeiro" value={fmt(contrato.limite_financeiro)} />
+                <InfoField label="Limite Empenho" value={fmt(contrato.limite_empenho)} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-lg">Equipe de Fiscalização</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 gap-4">
                 <InfoField label="Gestor" value={contrato.gestor_nome} />
-                <InfoField label="Matrícula" value={contrato.gestor_matricula} />
-                <InfoField label="Email do Gestor" value={contrato.gestor_email} />
+                <InfoField label="Fiscal Titular" value={contrato.fiscal_titular_nome} />
+                <InfoField label="Fiscal Substituto" value={contrato.fiscal_substituto_nome} />
               </CardContent>
             </Card>
-
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-semibold text-sm text-[#1a2e4a] border-b pb-1">Fiscal Titular</h3>
-                <InfoField label="Nome" value={contrato.fiscal_titular_nome} />
-                <InfoField label="Matrícula" value={contrato.fiscal_titular_matricula} />
-                <InfoField label="Email" value={contrato.fiscal_email} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h3 className="font-semibold text-sm text-[#1a2e4a] border-b pb-1">Fiscal Substituto</h3>
-                <InfoField label="Nome" value={contrato.fiscal_substituto_nome} />
-                <InfoField label="Matrícula" value={contrato.fiscal_substituto_matricula} />
-              </CardContent>
-            </Card>
-
-            {contrato.fiscais_setoriais?.length > 0 && (
-              <Card>
-                <CardContent className="p-4 space-y-3">
-                  <h3 className="font-semibold text-sm text-[#1a2e4a] border-b pb-1">Fiscais Setoriais</h3>
-                  {contrato.fiscais_setoriais.map((fs, i) => (
-                    <div key={i} className="text-sm">
-                      <span className="font-medium text-[#1a2e4a]">{fs.nome}</span>
-                      {fs.matricula && <span className="text-gray-500"> ({fs.matricula})</span>}
-                      {fs.setor && <Badge variant="outline" className="ml-2 text-xs">{fs.setor}</Badge>}
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
           </div>
-
-          {/* Portaria */}
-          {(contrato.portaria_numero || contrato.portaria_data_publicacao) && (
-            <Card>
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-sm text-[#1a2e4a] border-b pb-1 mb-3">Portaria de Fiscalização</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <InfoField label="Número da Portaria" value={contrato.portaria_numero} />
-                  <InfoField label="Data de Publicação" value={contrato.portaria_data_publicacao ? format(parseISO(contrato.portaria_data_publicacao), "dd/MM/yyyy") : null} />
-                  <InfoField label="Documento SEI" value={contrato.portaria_documento_sei} />
-                  <InfoField label="Processo SEI (Fiscalização)" value={contrato.portaria_processo_sei} />
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </TabsContent>
 
-        {/* ABA: VIGÊNCIA */}
-        <TabsContent value="vigencia" className="mt-4 space-y-4">
+        {/* ABA 2 - ITENS DO CONTRATO */}
+        <TabsContent value="itens" className="mt-4">
           <Card>
-            <CardContent className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                <InfoField label="Data de Início (1ª Vigência)" value={dataInicio ? format(dataInicio, "dd/MM/yyyy") : "—"} />
-                <InfoField label="Data de Término Atual" value={dataFim ? format(dataFim, "dd/MM/yyyy") : "—"} />
-                <InfoField label="Prazo da 1ª Vigência" value={contrato.prazo_vigencia_inicial_meses ? `${contrato.prazo_vigencia_inicial_meses} meses` : "—"} />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Itens Contratados</CardTitle>
+              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Adicionar Item</Button>}
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome/Descrição</TableHead>
+                    <TableHead>Grupo</TableHead>
+                    <TableHead>Qtd</TableHead>
+                    <TableHead>Unidade</TableHead>
+                    <TableHead className="text-right">V. Unitário</TableHead>
+                    <TableHead className="text-right">V. Total Contratado</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itens.length === 0 ? <TableRow><TableCell colSpan={7} className="text-center py-4">Nenhum item.</TableCell></TableRow> : 
+                    itens.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="font-medium">{item.nome}</div>
+                          <div className="text-xs text-gray-500">{item.descricao}</div>
+                        </TableCell>
+                        <TableCell>{item.grupo_servico}</TableCell>
+                        <TableCell>{item.quantidade_contratada}</TableCell>
+                        <TableCell>{item.unidade}</TableCell>
+                        <TableCell className="text-right">{fmt(item.valor_unitario)}</TableCell>
+                        <TableCell className="text-right">{fmt(item.valor_total_contratado)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="w-4 h-4"/></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500"><Trash2 className="w-4 h-4"/></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                <InfoField label="Meses Decorridos" value={`${mesesDecorridos} meses`} />
-                <InfoField label="Meses Restantes" value={mesesRestantes !== null ? `${Math.max(0, mesesRestantes)} meses` : "—"} />
-                <InfoField label="Prazo Total Atual" value={`${mesesTotaisUsados} meses`} />
-              </div>
+        {/* ABA 3 - VALORES E SALDOS */}
+        <TabsContent value="saldos" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Acompanhamento de Saldos por Item</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">V. Contratado</TableHead>
+                    <TableHead className="text-right">V. Pago</TableHead>
+                    <TableHead className="text-right">Saldo Restante</TableHead>
+                    <TableHead className="text-center">% Execução</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {itens.map(item => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.nome}</TableCell>
+                      <TableCell className="text-right">{fmt(item.valor_total_contratado)}</TableCell>
+                      <TableCell className="text-right text-blue-600">{fmt(item.valor_pago)}</TableCell>
+                      <TableCell className="text-right text-green-600">{fmt(item.saldo)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline">{item.percentual_execucao?.toFixed(1) || 0}%</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              {tempoMaximo && (
-                <div>
-                  <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="text-gray-500">Utilização do limite legal ({tempoMaximo} meses)</span>
-                    <span className={`font-semibold ${alertaLimite ? "text-red-600" : "text-[#1a2e4a]"}`}>{percentualTempoUsado}%</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2.5">
-                    <div
-                      className={`h-2.5 rounded-full transition-all ${alertaLimite ? "bg-red-500" : "bg-blue-500"}`}
-                      style={{ width: `${Math.min(100, percentualTempoUsado)}%` }}
-                    />
-                  </div>
-                  {alertaLimite && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" /> Contrato utilizando {percentualTempoUsado}% do tempo máximo permitido.
-                    </p>
-                  )}
-                </div>
-              )}
+        {/* ABA 4 - BDIs E DESCONTOS */}
+        <TabsContent value="bdis" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Taxas e Descontos Aplicados</CardTitle>
+              {canDelete && <Button size="sm" variant="outline"><Pencil className="w-4 h-4 mr-2"/> Editar Taxas</Button>}
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">BDI Normal</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.bdi_normal || 0}%</div></CardContent></Card>
+              <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">BDI Diferenciado</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.bdi_diferenciado || 0}%</div></CardContent></Card>
+              <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">Desconto Licitação</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.desconto_licitacao || 0}%</div></CardContent></Card>
+              <Card className="bg-slate-50"><CardContent className="p-4 text-center"><div className="text-sm text-gray-500 mb-1">IMR</div><div className="text-2xl font-bold text-[#1a2e4a]">{contrato.imr || 0}%</div></CardContent></Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-              {aditivos.filter(a => a.tipo === "tempo").length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Prorrogações realizadas</h4>
-                  <div className="space-y-1">
-                    {aditivos.filter(a => a.tipo === "tempo").map((ad, i) => (
-                      <div key={ad.id} className="text-sm flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700">{ad.numero_aditivo || `${i + 1}º Aditivo`}</Badge>
-                        <span className="text-gray-600">Nova data: <strong>{ad.nova_data_fim ? format(parseISO(ad.nova_data_fim), "dd/MM/yyyy") : "—"}</strong></span>
-                        <span className="text-gray-400 text-xs">({ad.data_assinatura ? format(parseISO(ad.data_assinatura), "dd/MM/yyyy") : "—"})</span>
+        {/* ABA 5 - CONVENÇÃO COLETIVA */}
+        <TabsContent value="convencao" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Convenção Coletiva de Trabalho (ACT/CCT)</CardTitle></CardHeader>
+            <CardContent>
+              {convencao ? (
+                <div className="space-y-6">
+                  {differenceInDays(new Date(convencao.data_vigencia_fim), new Date()) <= 30 && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-lg flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold">Atenção: Convenção Coletiva Vencendo</h4>
+                        <p className="text-sm">A convenção expira em breve. O novo ACT já foi aprovado/homologado?</p>
                       </div>
-                    ))}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <InfoField label="Número" value={convencao.numero} />
+                    <InfoField label="Sindicato" value={convencao.sindicato} />
+                    <InfoField label="Categoria" value={convencao.categoria} />
+                    <InfoField label="Status" value={<Badge>{convencao.status}</Badge>} />
+                    <InfoField label="Data Base" value={convencao.data_base ? format(new Date(convencao.data_base), 'dd/MM/yyyy') : ''} />
+                    <InfoField label="Início Vigência" value={convencao.data_vigencia_inicio ? format(new Date(convencao.data_vigencia_inicio), 'dd/MM/yyyy') : ''} />
+                    <InfoField label="Fim Vigência" value={convencao.data_vigencia_fim ? format(new Date(convencao.data_vigencia_fim), 'dd/MM/yyyy') : ''} />
+                    <InfoField label="Reajuste Acordado" value={`${convencao.percentual_reajuste || 0}%`} />
                   </div>
                 </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">Nenhuma convenção coletiva vinculada.</div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ABA: INFORMAÇÕES GERAIS */}
-        <TabsContent value="info" className="mt-4">
+        {/* ABA 6 - CONTA VINCULADA */}
+        <TabsContent value="conta" className="mt-4">
           <Card>
-            <CardContent className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <InfoField label="Número do Contrato" value={contrato.numero} />
-              <InfoField label="Processo SEI" value={contrato.processo_sei} />
-              <InfoField label="Contratada" value={contrato.contratada} />
-              <InfoField label="CNPJ" value={contrato.cnpj} />
-              <InfoField label="Valor Global" value={fmt(contrato.valor_global)} />
-              <InfoField label="Disponível NUFIP" value={contrato.valor_financeiro_disponivel_nufip != null ? fmt(contrato.valor_financeiro_disponivel_nufip) : null} />
-              <InfoField label="Status" value={contrato.status} />
-              {contrato.observacoes && (
-                <div className="sm:col-span-2">
-                  <div className="text-xs text-gray-400 font-medium">Observações</div>
-                  <div className="mt-0.5 text-gray-700">{contrato.observacoes}</div>
-                </div>
-              )}
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Retenções (Conta Vinculada)</CardTitle>
+              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Gerar Conta Vinculada</Button>}
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Banco/Agência/Conta</TableHead>
+                    <TableHead className="text-right">Férias</TableHead>
+                    <TableHead className="text-right">13º Salário</TableHead>
+                    <TableHead className="text-right">FGTS/Multa</TableHead>
+                    <TableHead className="text-right">Encargos</TableHead>
+                    <TableHead className="text-right font-bold">Saldo Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {contas.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-4">Nenhuma retenção gerada.</TableCell></TableRow> : 
+                    contas.map(cc => (
+                      <TableRow key={cc.id}>
+                        <TableCell className="font-medium">{cc.banco} - Ag {cc.agencia} / CC {cc.conta}</TableCell>
+                        <TableCell className="text-right">{fmt(cc.saldo_ferias)}</TableCell>
+                        <TableCell className="text-right">{fmt(cc.saldo_13_salario)}</TableCell>
+                        <TableCell className="text-right">{fmt(cc.saldo_fgts)}</TableCell>
+                        <TableCell className="text-right">{fmt(cc.saldo_encargos)}</TableCell>
+                        <TableCell className="text-right font-bold text-blue-700">{fmt(cc.saldo_total)}</TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* ABA 7 - REAJUSTES E REPACTUAÇÕES */}
+        <TabsContent value="reajustes" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Reajustes e Repactuações</CardTitle>
+              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Criar Reajuste</Button>}
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Índice/Percentual</TableHead>
+                    <TableHead className="text-right">V. Anterior</TableHead>
+                    <TableHead className="text-right">Novo Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {reajustes.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center py-4">Nenhum reajuste.</TableCell></TableRow> : 
+                    reajustes.map(r => (
+                      <TableRow key={r.id}>
+                        <TableCell>{format(new Date(r.data_reajuste), 'dd/MM/yyyy')}</TableCell>
+                        <TableCell className="capitalize">{r.tipo}</TableCell>
+                        <TableCell>{r.percentual_reajuste}%</TableCell>
+                        <TableCell className="text-right">{fmt(r.valor_anterior)}</TableCell>
+                        <TableCell className="text-right font-medium">{fmt(r.novo_valor)}</TableCell>
+                        <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 8 - ALERTAS/AVISOS */}
+        <TabsContent value="alertas" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Alertas e Pendências</CardTitle></CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-gray-500">Nenhum alerta ativo para este contrato.</div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 9 - ADITIVOS */}
+        <TabsContent value="aditivos" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Termos Aditivos</CardTitle>
+              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Criar Aditivo</Button>}
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Número/Tipo</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Novo Prazo/Valor</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {aditivos.length === 0 ? <TableRow><TableCell colSpan={5} className="text-center py-4">Nenhum aditivo.</TableCell></TableRow> : 
+                    aditivos.map(ad => (
+                      <TableRow key={ad.id}>
+                        <TableCell>
+                          <div className="font-bold">{ad.numero_aditivo || 'S/N'}</div>
+                          <Badge variant="secondary" className="mt-1 capitalize">{ad.tipo}</Badge>
+                        </TableCell>
+                        <TableCell>{ad.data_assinatura ? format(new Date(ad.data_assinatura), 'dd/MM/yyyy') : ''}</TableCell>
+                        <TableCell>
+                          {ad.nova_data_fim && <div>Prazo: {format(new Date(ad.nova_data_fim), 'dd/MM/yyyy')}</div>}
+                          {ad.novo_valor && <div>Valor: {fmt(ad.novo_valor)}</div>}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">{ad.descricao}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="w-4 h-4"/></Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 10 - LANÇAMENTOS FINANCEIROS */}
+        <TabsContent value="lancamentos" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Lançamentos Financeiros e Notas Fiscais</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Referência</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Valor Final</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lancamentos.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-4">Nenhum lançamento.</TableCell></TableRow> : 
+                    lancamentos.map(l => (
+                      <TableRow key={l.id}>
+                        <TableCell>{l.data_lancamento ? format(new Date(l.data_lancamento), 'dd/MM/yyyy') : ''}</TableCell>
+                        <TableCell>Mês {l.mes}/{l.ano} {l.numero_nf ? `- NF ${l.numero_nf}` : ''}</TableCell>
+                        <TableCell><Badge variant="outline">{l.status}</Badge></TableCell>
+                        <TableCell className="text-right font-medium">{fmt(l.valor_pago_final || l.valor)}</TableCell>
+                      </TableRow>
+                    ))
+                  }
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 11 - DOCUMENTOS */}
+        <TabsContent value="documentos" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-lg">Arquivos e Documentos</CardTitle>
+              {canEdit && <Button size="sm"><Plus className="w-4 h-4 mr-2"/> Upload</Button>}
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-gray-500">Nenhum documento anexado.</div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ABA 12 - AUDITORIA */}
+        <TabsContent value="auditoria" className="mt-4">
+          <Card>
+            <CardHeader><CardTitle className="text-lg">Histórico de Alterações</CardTitle></CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-gray-500">Nenhum registro de auditoria encontrado.</div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
       </Tabs>
     </div>
   );

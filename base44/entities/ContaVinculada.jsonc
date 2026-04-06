@@ -4,48 +4,44 @@
   "properties": {
     "contrato_id": {
       "type": "string",
-      "description": "ID do contrato associado"
+      "description": "ID do contrato"
     },
     "banco": {
       "type": "string",
-      "description": "Nome ou n\u00famero do banco"
+      "description": "Nome do banco onde a conta vinculada est\u00e1"
     },
     "agencia": {
       "type": "string",
-      "description": "Ag\u00eancia banc\u00e1ria"
+      "description": "Ag\u00eancia da conta"
     },
-    "conta_corrente": {
+    "conta": {
       "type": "string",
-      "description": "N\u00famero da conta corrente vinculada"
+      "description": "N\u00famero da conta"
     },
     "saldo_ferias": {
       "type": "number",
-      "description": "Saldo retido para f\u00e9rias e ter\u00e7o constitucional"
+      "default": 0,
+      "description": "Saldo retido para f\u00e9rias"
     },
     "saldo_13_salario": {
       "type": "number",
+      "default": 0,
       "description": "Saldo retido para 13\u00ba sal\u00e1rio"
     },
-    "saldo_multa_fgts": {
+    "saldo_fgts": {
       "type": "number",
-      "description": "Saldo retido para multa do FGTS"
+      "default": 0,
+      "description": "Saldo retido para FGTS/Multa"
     },
     "saldo_encargos": {
       "type": "number",
-      "description": "Outros encargos retidos"
+      "default": 0,
+      "description": "Saldo retido para outros encargos sociais"
     },
     "saldo_total": {
       "type": "number",
-      "description": "Saldo total consolidado na conta"
-    },
-    "percentual_retencao_mensal": {
-      "type": "number",
-      "description": "Percentual padr\u00e3o de reten\u00e7\u00e3o mensal aplicado sobre a fatura (%)"
-    },
-    "data_ultima_atualizacao": {
-      "type": "string",
-      "format": "date",
-      "description": "Data da \u00faltima atualiza\u00e7\u00e3o dos saldos"
+      "default": 0,
+      "description": "Saldo total da conta vinculada"
     },
     "status": {
       "type": "string",
@@ -53,11 +49,18 @@
         "ativa",
         "encerrada"
       ],
-      "default": "ativa"
+      "default": "ativa",
+      "description": "Status da conta vinculada"
+    },
+    "observacoes": {
+      "type": "string",
+      "description": "Observa\u00e7\u00f5es sobre a conta"
     }
   },
   "required": [
     "contrato_id",
-    "saldo_total"
+    "banco",
+    "agencia",
+    "conta"
   ]
 }
