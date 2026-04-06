@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import MinhasConfiguracoesAlertas from './pages/MinhasConfiguracoesAlertas';
 import NovoContrato from './pages/NovoContrato';
+import Reajustes from './pages/Reajustes';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -72,6 +73,14 @@ const AuthenticatedApp = () => {
         element={
           <LayoutWrapper currentPageName="NovoContrato">
             <NovoContrato />
+          </LayoutWrapper>
+        }
+      />
+      <Route
+        path="/Reajustes"
+        element={
+          <LayoutWrapper currentPageName="Reajustes">
+            <Reajustes />
           </LayoutWrapper>
         }
       />
