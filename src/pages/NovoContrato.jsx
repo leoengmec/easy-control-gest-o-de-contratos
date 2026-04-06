@@ -343,7 +343,7 @@ export default function NovoContrato() {
             </CardContent>
           </Card>
 
-          {/* SESSÃO: DOCUMENTOS OBRIGATÓRIOS (TAREFA 1) */}
+          {/* SESSÃO: DOCUMENTOS OBRIGATÓRIOS */}
           <div className="space-y-4 pt-6 border-t">
             <h3 className="text-lg font-semibold text-[#1a2e4a]">Documentos Obrigatórios</h3>
             <p className="text-sm text-gray-500 mb-4">Adicione a documentação inicial do contrato. Em caso de edição, envie apenas se desejar substituir/incluir novo arquivo.</p>
