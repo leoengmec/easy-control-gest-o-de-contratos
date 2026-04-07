@@ -12,6 +12,7 @@ import ContractFinancialOverview from "@/components/dashboard/ContractFinancialO
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
 export default function Dashboard() {
+  // Forced HMR update
   const [contratos, setContratos] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [empenhos, setEmpenhos] = useState([]);
@@ -227,8 +228,8 @@ export default function Dashboard() {
       <div className="space-y-6 mt-8">
         <h2 className="text-xl font-bold text-[#1a2e4a] border-b pb-2">Quadros de Análise Financeira</h2>
         <div className="space-y-6">
-          <ContractFinancialOverview id="Quadro Superior" defaultAno={anoAtual} />
-          <ContractFinancialOverview id="Quadro Inferior" defaultAno={anoAtual} />
+          <ContractFinancialOverview title="Quadro Superior" defaultAno={anoAtual} />
+          <ContractFinancialOverview title="Quadro Inferior" defaultAno={anoAtual} />
         </div>
       </div>
 

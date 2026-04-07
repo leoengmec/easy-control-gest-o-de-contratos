@@ -12,7 +12,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 const ANOS = [2024, 2025, 2026, 2027, 2028];
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-export default function ContractFinancialOverview({ id = "Quadro", defaultAno = new Date().getFullYear() }) {
+export default function ContractFinancialOverview({ title = "Quadro", defaultAno = new Date().getFullYear() }) {
   const queryClient = useQueryClient();
   const [ano, setAno] = useState(defaultAno);
   const [contratoId, setContratoId] = useState("selecione");
@@ -84,7 +84,7 @@ export default function ContractFinancialOverview({ id = "Quadro", defaultAno = 
   return (
     <Card className="border border-slate-200 shadow-sm">
       <CardHeader className="bg-slate-50 border-b pb-4 pt-4 px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h3 className="font-bold text-[#1a2e4a] text-lg">{id}</h3>
+        <h3 className="font-bold text-[#1a2e4a] text-lg">{title}</h3>
         <div className="flex flex-wrap gap-2 items-center">
           <Select value={contratoId} onValueChange={setContratoId}>
             <SelectTrigger className="h-8 text-xs w-64 bg-white">
