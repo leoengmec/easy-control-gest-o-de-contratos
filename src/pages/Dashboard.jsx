@@ -3,6 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
 import ContratoCard from "@/components/dashboard/ContratoCard";
 import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [totalContratos, setTotalContratos] = useState(0);
   const [totalContratosAtivos, setTotalContratosAtivos] = useState(0);
+  const [listaContratosAtivos, setListaContratosAtivos] = useState([]);
   const itensPorPagina = 10;
 
   const anoAtual = new Date().getFullYear();
@@ -73,6 +75,7 @@ export default function Dashboard() {
     ]).then(([todosContratos, contratosAtivos, todosLancamentos, todosOrcamentos]) => {
       setTotalContratos(todosContratos.length);
       setTotalContratosAtivos(contratosAtivos.length);
+      setListaContratosAtivos(contratosAtivos);
       
       // Extrair anos únicos de lançamentos e orçamentos
       const anosLanc = todosLancamentos.map(l => l.ano).filter(Boolean);
@@ -157,7 +160,27 @@ export default function Dashboard() {
               <FileText className="w-4 h-4 text-blue-500" />
               <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
             </div>
-            <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
+            <TooltipProvider delayDuration={100}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="text-2xl font-bold text-[#1a2e4a] cursor-help w-max">{totalContratosAtivos}</div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start" className="max-h-64 overflow-y-auto p-3 shadow-lg border border-slate-100 z-[100]">
+                  {listaContratosAtivos.length > 0 ? (
+                    <ul className="text-xs space-y-2">
+                      {listaContratosAtivos.map(c => (
+                        <li key={c.id} className="border-b border-slate-100 last:border-0 pb-1.5 last:pb-0 flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-800">{c.numero}</span>
+                          <span className="text-slate-500">{c.contratada}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-xs">Nenhum contrato ativo</div>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardContent>
         </Card>
         <Card className="border-l-4 border-l-green-500">
