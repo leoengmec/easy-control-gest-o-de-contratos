@@ -182,6 +182,29 @@ export default function ContractFinancialOverview({ contrato }) {
   const [error, setError] = useState(null);
   const [isCached, setIsCached] = useState(false);
 
+  // Validar ano
+  const anoValido = ANOS.includes(ano) ? ano : new Date().getFullYear();
+  if (anoValido !== ano) {
+    logger.warn("Ano inválido fornecido", { anoFornecido: ano, anoUsado: anoValido });
+    setAno(anoValido);
+  }
+
+  // Validar contrato (apenas log no topo, renderização tratada abaixo)
+  if (!contrato?.id || typeof contrato.id !== 'string') {
+    logger.error("Contrato sem ID válido", { contrato });
+  }
+
+  // Validar dados carregados
+  if (!Array.isArray(lancamentos)) {
+    logger.warn("Lançamentos não é um array", { tipo: typeof lancamentos });
+    setLancamentos([]);
+  }
+
+  if (!Array.isArray(itensOrcados)) {
+    logger.warn("Itens orçados não é um array", { tipo: typeof itensOrcados });
+    setItensOrcados([]);
+  }
+
   // Adicionar estado de retry
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 3;
@@ -309,16 +332,11 @@ export default function ContractFinancialOverview({ contrato }) {
   const pctAprovOrcadoGeral = orcadoTotalAnual > 0 ? (totalAprovGeral / orcadoTotalAnual) * 100 : 0;
 
   // --- RENDERIZAÇÃO ---
-  if (!contrato || !contrato.id) {
+  if (!contrato?.id || typeof contrato.id !== 'string') {
     return (
-      <Card className="border border-red-200 bg-red-50">
-        <CardContent className="p-4">
-          <div className="text-red-600 font-semibold">
-            ❌ Contrato inválido ou não encontrado
-          </div>
-          <div className="text-xs text-red-500 mt-1">
-            Não foi possível carregar os dados financeiros. Verifique se o contrato existe.
-          </div>
+      <Card className="border border-red-200">
+        <CardContent className="p-4 text-red-600">
+          Contrato inválido. Não é possível carregar dados.
         </CardContent>
       </Card>
     );
