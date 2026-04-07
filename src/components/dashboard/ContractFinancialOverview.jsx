@@ -53,6 +53,49 @@ const identificarCategoria = (itemLabelNormalizado) => {
   return servicosFixosLabels.includes(itemLabelNormalizado) ? 'Serviços Fixos' : 'Demandas Eventuais';
 };
 
+// Logger estruturado
+const logger = {
+  error: (message, context = {}) => {
+    const errorLog = {
+      timestamp: new Date().toISOString(),
+      level: 'ERROR',
+      message,
+      context: {
+        componente: 'ContractFinancialOverview',
+        ...context
+      }
+    };
+    console.error(JSON.stringify(errorLog, null, 2));
+    // Aqui você poderia enviar para um serviço de logging externo
+  },
+  
+  info: (message, context = {}) => {
+    const infoLog = {
+      timestamp: new Date().toISOString(),
+      level: 'INFO',
+      message,
+      context: {
+        componente: 'ContractFinancialOverview',
+        ...context
+      }
+    };
+    console.log(JSON.stringify(infoLog, null, 2));
+  },
+  
+  warn: (message, context = {}) => {
+    const warnLog = {
+      timestamp: new Date().toISOString(),
+      level: 'WARN',
+      message,
+      context: {
+        componente: 'ContractFinancialOverview',
+        ...context
+      }
+    };
+    console.warn(JSON.stringify(warnLog, null, 2));
+  }
+};
+
 // Função centralizada de cálculos
 const calcularTotaisPorItem = (lancamentos, itensOrcados, itemFiltro = "todos") => {
   const allRelevantLabels = new Set();
@@ -192,7 +235,13 @@ export default function ContractFinancialOverview({ contrato }) {
         setItensOrcados(oi);
       })
       .catch((err) => {
-        console.error("Erro ao carregar dados financeiros:", err);
+        logger.error("Falha ao carregar dados financeiros", {
+          contratoId: contrato.id,
+          ano,
+          retryCount,
+          errorMessage: err?.message,
+          errorStack: err?.stack
+        });
         setError("Não foi possível carregar os dados financeiros. Tente novamente.");
       })
       .finally(() => {
