@@ -138,6 +138,12 @@ export default function ContractFinancialOverview({ contrato }) {
 
   const temTabela = gruposComItens.length > 0 || itensSemGrupoRows.length > 0;
 
+  const totalTabelaOrcado = [...gruposComItens.flatMap(g => g.rows), ...itensSemGrupoRows].reduce((s, i) => s + i.orcado, 0);
+  const totalTabelaPago = [...gruposComItens.flatMap(g => g.rows), ...itensSemGrupoRows].reduce((s, i) => s + i.pago, 0);
+  const totalTabelaAprov = [...gruposComItens.flatMap(g => g.rows), ...itensSemGrupoRows].reduce((s, i) => s + i.aprov, 0);
+  const totalTabelaSaldo = totalTabelaOrcado - totalTabelaPago - totalTabelaAprov;
+  const totalTabelaPct = totalTabelaOrcado > 0 ? Math.min((totalTabelaPago / totalTabelaOrcado) * 100, 100) : 0;
+
   return (
     <Card className="border border-blue-100">
       <CardHeader className="pb-2 pt-4 px-4">
@@ -283,6 +289,31 @@ export default function ContractFinancialOverview({ contrato }) {
                     </>
                 }
                 </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 border-t-2 border-slate-200">
+                    <td className="py-2.5 font-bold text-slate-800 pl-4">Total Geral</td>
+                    <td className="py-2.5 text-right font-bold text-blue-700">{fmt(totalTabelaOrcado)}</td>
+                    <td className="py-2.5 text-right font-bold text-green-700">{fmt(totalTabelaPago)}</td>
+                    <td className="py-2.5 text-right font-bold text-amber-600">{fmt(totalTabelaAprov)}</td>
+                    <td className={`py-2.5 text-right font-bold ${totalTabelaSaldo < 0 ? "text-red-600" : "text-[#1a2e4a]"}`}>
+                      {fmt(totalTabelaSaldo)}
+                    </td>
+                    <td className="py-2.5 pl-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                          <div
+                            className="h-1.5 rounded-full transition-all"
+                            style={{
+                              width: `${totalTabelaPct}%`,
+                              backgroundColor: totalTabelaPct >= 90 ? "#ef4444" : totalTabelaPct >= 70 ? "#f59e0b" : "#22c55e"
+                            }}
+                          />
+                        </div>
+                        <span className="text-slate-600 font-bold w-7 text-right">{totalTabelaPct.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
