@@ -94,16 +94,12 @@ export default function Layout({ children, currentPageName }) {
         {/* Logo */}
         {/* Logo and Collapse Button */}
         <div className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between gap-2"}`}>
-          <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
-            <div className="w-9 h-9 bg-blue-500 rounded-lg flex items-center justify-center shrink-0">
-              <Scale className="w-5 h-5 text-white" />
-            </div>
-            {!isCollapsed && (
-              <div className="overflow-hidden whitespace-nowrap">
-                <div className="font-bold text-sm leading-tight">Easy Control</div>
-                <div className="text-xs text-blue-300">Gestão de Contratos</div>
-              </div>
-            )}
+          <div className="flex items-center">
+            <img 
+              src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/381cdafbd_Gemini_Generated_Image_aq6aq5aq6aq5aq6a.png" 
+              alt="Easy Control Logo" 
+              className={`transition-all duration-300 ${isCollapsed ? "h-8 w-[2.2rem] object-cover object-left" : "h-10 w-auto object-contain"}`}
+            />
           </div>
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -191,7 +187,11 @@ export default function Layout({ children, currentPageName }) {
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="font-semibold text-[#1a2e4a]">Easy Control</div>
+          <img 
+            src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/381cdafbd_Gemini_Generated_Image_aq6aq5aq6aq5aq6a.png" 
+            alt="Easy Control Logo" 
+            className="h-8 w-auto object-contain"
+          />
         </header>
 
         <main className="flex-1">
