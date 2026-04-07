@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ContratoCard from "@/components/dashboard/ContratoCard";
 import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
 import ContractFinancialOverview from "@/components/dashboard/ContractFinancialOverview";
@@ -151,15 +152,39 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
-            </div>
-            <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
-          </CardContent>
-        </Card>
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-l-4 border-l-blue-500 cursor-help transition-colors hover:bg-blue-50/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
+                  </div>
+                  <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent 
+              side="bottom" 
+              className="bg-[#1a2e4a] text-white p-3 max-h-64 overflow-y-auto max-w-sm border-none shadow-xl z-50"
+            >
+              <div className="space-y-2">
+                <p className="font-semibold text-sm border-b border-blue-400/30 pb-1 mb-2">Contratos Ativos</p>
+                {contratos.filter(c => c.status === "ativo").length === 0 ? (
+                  <p className="text-xs text-gray-400">Nenhum contrato ativo</p>
+                ) : (
+                  contratos.filter(c => c.status === "ativo").map(c => (
+                    <div key={c.id} className="text-xs leading-tight">
+                      <span className="font-bold text-blue-300">{c.numero}</span> <br/> 
+                      <span className="text-gray-300">{c.contratada}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
