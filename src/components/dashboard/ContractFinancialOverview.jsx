@@ -112,40 +112,43 @@ export default function ContractFinancialOverview({ contrato }) {
       return;
     }
 
-    const cachedData = getCachedData(contrato.id, ano);
-    if (cachedData && retryCount === 0) { // Ignora cache se for um retry forçado
-      setOrcamentoAnual(cachedData.oa);
-      setLancamentos(cachedData.l);
-      setItensOrcados(cachedData.oi);
-      setIsCached(true);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
+
+    const cacheKey = getCacheKey(contrato.id, ano);
+    const cachedData = getCachedData(contrato.id, ano);
+
+    if (cachedData && retryCount === 0) {
+      const [oa, l, oi] = cachedData;
+      setOrcamentoAnual(oa[0] || null);
+      setLancamentos(l);
+      setItensOrcados(oi);
+      setIsCached(true);
+      setLoading(false);
+      return; // Usar dados em cache
+    }
+
     setIsCached(false);
 
+    // Se não houver cache, buscar do BD
     Promise.all([
       base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contrato.id, ano }),
       base44.entities.LancamentoFinanceiro.filter({ contrato_id: contrato.id, ano }),
       base44.entities.OrcamentoContratualItemAnual.filter({ contrato_id: contrato.id, ano }),
-    ]).then(([oa, l, oi]) => {
-      setOrcamentoAnual(oa[0] || null);
-      setLancamentos(l);
-      setItensOrcados(oi);
-      
-      setCachedData(contrato.id, ano, {
-        oa: oa[0] || null,
-        l,
-        oi
+    ])
+      .then(([oa, l, oi]) => {
+        setCachedData(contrato.id, ano, [oa, l, oi]); // Cachear dados
+        setOrcamentoAnual(oa[0] || null);
+        setLancamentos(l);
+        setItensOrcados(oi);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar dados financeiros:", err);
+        setError("Não foi possível carregar os dados financeiros. Tente novamente.");
+      })
+      .finally(() => {
+        setLoading(false);
       });
-    }).catch((err) => {
-      console.error("Erro ao carregar dados financeiros:", err);
-      setError("Não foi possível carregar os dados financeiros.");
-    }).finally(() => {
-      setLoading(false);
-    });
   }, [contrato?.id, ano, retryCount]);
 
   // --- CÁLCULOS E PROCESSAMENTO DE DADOS ---
