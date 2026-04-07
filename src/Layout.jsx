@@ -94,11 +94,11 @@ export default function Layout({ children, currentPageName }) {
         {/* Logo */}
         {/* Logo and Collapse Button */}
         <div className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between gap-2"}`}>
-          <div className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""}`}>
+          <div className={`flex items-center w-full ${isCollapsed ? "justify-center" : "justify-center"}`}>
             {!isCollapsed ? (
-              <img src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/1282968b5_Gemini_Generated_Image_7hdug7hdug7hdug7.png" alt="Easy Control" className="h-10 w-auto object-contain bg-white rounded px-2" />
+              <img src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/1282968b5_Gemini_Generated_Image_7hdug7hdug7hdug7.png" alt="Easy Control" className="h-16 w-full object-contain bg-white rounded p-2 shadow-sm" />
             ) : (
-              <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center shrink-0 overflow-hidden p-1">
+              <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center shrink-0 overflow-hidden p-1.5 shadow-sm">
                 <img src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/1282968b5_Gemini_Generated_Image_7hdug7hdug7hdug7.png" alt="EC" className="w-full h-full object-cover object-left" />
               </div>
             )}
