@@ -86,6 +86,7 @@ export default function ContractFinancialOverview({ contrato }) {
 
   const todosItensBrutos = [
   ...new Set([
+  ...itensContrato.map((i) => i.nome),
   ...lancamentos.map((l) => l.item_label),
   ...itensOrcados.map((i) => i.item_label)].
   filter(Boolean))];
@@ -113,7 +114,8 @@ export default function ContractFinancialOverview({ contrato }) {
       if (nomesJaProcessados.has(mapName(orig))) return;
       const allOrigsOfSameMappedName = g.itensOriginais.filter((x) => mapName(x) === mapName(orig));
       const stats = buildItem(allOrigsOfSameMappedName);
-      if (stats.orcado > 0 || stats.pago > 0) {
+      // Exibe apenas se tem valores ou se o item realmente faz parte dos itens deste contrato
+      if (stats.orcado > 0 || stats.pago > 0 || stats.aprov > 0 || allOrigsOfSameMappedName.some(x => todosItensBrutos.includes(x))) {
         rows.push({ label: mapName(orig), ...stats });
         nomesJaProcessados.add(mapName(orig));
       }
@@ -130,10 +132,8 @@ export default function ContractFinancialOverview({ contrato }) {
     if (nomesSemGrupoProcessados.has(mapName(orig))) return;
     const allOrigs = itensSemGrupoOriginais.filter((x) => mapName(x) === mapName(orig));
     const stats = buildItem(allOrigs);
-    if (stats.orcado > 0 || stats.pago > 0) {
-      itensSemGrupoRows.push({ label: mapName(orig), ...stats });
-      nomesSemGrupoProcessados.add(mapName(orig));
-    }
+    itensSemGrupoRows.push({ label: mapName(orig), ...stats });
+    nomesSemGrupoProcessados.add(mapName(orig));
   });
 
   const temTabela = gruposComItens.length > 0 || itensSemGrupoRows.length > 0;
