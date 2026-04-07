@@ -9,48 +9,10 @@ import GaugeChart from './GaugeChart';
 const ANOS = [2024, 2025, 2026, 2027, 2028];
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-// Mapeamento para normalizar labels de itens
-const NOME_MAP = {
-  "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento Corretivo",
-  "SERVIÇOS DE DESLOCAMENTO PREVENTIVO": "Deslocamento Preventivo",
-  "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do Engenheiro",
-  "SERVIÇOS EVENTUAIS": "Serviços Eventuais",
-  "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS": "Locações",
-  "FORNECIMENTO DE MATERIAL": "Fornecimento de Materiais",
-};
-
-// Definição dos grupos de itens (apenas Serviços Fixos e Demandas Eventuais)
-const GRUPOS_DEFINICAO = [
-  {
-    nome: "Serviços Fixos",
-    itens: ["MOR Natal", "MOR Mossoró", "Deslocamento Preventivo"]
-  },
-  {
-    nome: "Demandas Eventuais",
-    itens: ["Deslocamento Corretivo", "Deslocamento do Engenheiro", "Serviços Eventuais", "Locações", "Fornecimento de Materiais"]
-  }
-];
-
-// Lista de todos os labels de itens válidos para exibição
-const TODOS_ITENS_VALIDOS = GRUPOS_DEFINICAO.flatMap(g => g.itens);
-
-// Função para normalizar labels (remover "Serviços de", tratar MOR)
-const normalizarLabel = (label) => {
+// Função para normalizar labels para comparação (evita problemas de maiúsculas/minúsculas)
+const normalizarParaComparacao = (label) => {
   if (!label) return "";
-  const upper = label.toUpperCase();
-  if (NOME_MAP[upper]) return NOME_MAP[upper];
-
-  // Tratamento especial para MOR
-  if (upper.includes("MOR NATAL")) return "MOR Natal";
-  if (upper.includes("MOR MOSSORO") || upper.includes("MOR MOSSORÓ")) return "MOR Mossoró";
-
-  return label;
-};
-
-// Função para identificar a categoria principal de um item normalizado
-const identificarCategoria = (itemLabelNormalizado) => {
-  const servicosFixosLabels = GRUPOS_DEFINICAO.find(g => g.nome === "Serviços Fixos")?.itens || [];
-  return servicosFixosLabels.includes(itemLabelNormalizado) ? 'Serviços Fixos' : 'Demandas Eventuais';
+  return label.toUpperCase().trim();
 };
 
 // Logger estruturado
@@ -98,42 +60,67 @@ const logger = {
 
 // Função centralizada de cálculos
 const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFiltro = "todos") => {
-  const allRelevantLabels = new Set();
+  const itensMap = new Map(); // key: label normalizado, value: object
   
+  // 1. Cadastramos todos os itens do contrato
   itensContrato.forEach(i => {
-    if (i.nome) allRelevantLabels.add(normalizarLabel(i.nome));
+    if (i.nome) {
+      const key = normalizarParaComparacao(i.nome);
+      if (!itensMap.has(key)) {
+        itensMap.set(key, { 
+          label: i.nome, 
+          grupo: i.grupo_servico === 'fixo' ? 'Serviços Fixos' : 'Demandas Eventuais',
+          orcado: 0, pago: 0, aprov: 0 
+        });
+      }
+    }
   });
 
+  // 2. Orçamentos
   itensOrcados.forEach(i => {
-    const normalized = normalizarLabel(i.item_label);
-    if (TODOS_ITENS_VALIDOS.includes(normalized)) {
-      allRelevantLabels.add(normalized);
+    if (i.item_label) {
+      const key = normalizarParaComparacao(i.item_label);
+      if (!itensMap.has(key)) {
+        itensMap.set(key, { 
+          label: i.item_label, 
+          grupo: 'Demandas Eventuais', // Fallback se não estiver no ItemContrato
+          orcado: 0, pago: 0, aprov: 0 
+        });
+      }
+      const item = itensMap.get(key);
+      item.orcado += (i.valor_orcado || 0);
     }
   });
   
+  // 3. Lançamentos
   lancamentos.forEach(l => {
-    const normalized = normalizarLabel(l.item_label);
-    if (TODOS_ITENS_VALIDOS.includes(normalized)) {
-      allRelevantLabels.add(normalized);
+    if (l.item_label) {
+      const key = normalizarParaComparacao(l.item_label);
+      if (!itensMap.has(key)) {
+        itensMap.set(key, { 
+          label: l.item_label, 
+          grupo: 'Demandas Eventuais', // Fallback
+          orcado: 0, pago: 0, aprov: 0 
+        });
+      }
+      const item = itensMap.get(key);
+      if (l.status === "Pago") {
+        item.pago += (l.valor_pago_final || 0);
+      } else if (l.status === "Aprovisionado") {
+        item.aprov += (l.valor || 0);
+      }
     }
   });
   
-  const labelsParaProcessar = itemFiltro === "todos"
-    ? Array.from(allRelevantLabels)
-    : [itemFiltro];
-  
-  return labelsParaProcessar.map(label => {
-    const itemOrcado = itensOrcados.find(i => normalizarLabel(i.item_label) === label);
-    const orcado = itemOrcado?.valor_orcado || 0;
-    
-    const lancamentosDoItem = lancamentos.filter(l => normalizarLabel(l.item_label) === label);
-    const pago = lancamentosDoItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor_pago_final || 0), 0);
-    const aprov = lancamentosDoItem.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-    const saldo = orcado - pago - aprov;
-    const pct = orcado > 0 ? Math.min((pago / orcado) * 100, 100) : 0;
-    
-    return { label, orcado, pago, aprov, saldo, pct };
+  // Converter mapa para array e calcular saldo/pct
+  const todosOsItens = Array.from(itensMap.values()).map(item => {
+    const saldo = item.orcado - item.pago - item.aprov;
+    const pct = item.orcado > 0 ? Math.min((item.pago / item.orcado) * 100, 100) : 0;
+    return { ...item, saldo, pct };
   });
+
+  if (itemFiltro === "todos") return todosOsItens;
+  return todosOsItens.filter(item => normalizarParaComparacao(item.label) === normalizarParaComparacao(itemFiltro));
 };
 
 const calcularTotaisGerais = (items) => {
@@ -283,25 +270,21 @@ export default function ContractFinancialOverview({ contrato }) {
   // --- CÁLCULOS E PROCESSAMENTO DE DADOS ---
   const orcadoTotalAnual = orcamentoAnual?.valor_orcado || 0;
 
-  // Itens únicos para o filtro dropdown (apenas os que pertencem aos grupos válidos)
+  // Itens únicos para o filtro dropdown
   const itensDisponiveisParaFiltro = useMemo(() => {
-    const uniqueLabels = new Set();
+    const uniqueLabelsMap = new Map();
+    
     itensContrato.forEach(i => {
-      if (i.nome) uniqueLabels.add(normalizarLabel(i.nome));
+      if (i.nome) uniqueLabelsMap.set(normalizarParaComparacao(i.nome), i.nome);
     });
     lancamentos.forEach(l => {
-      const normalized = normalizarLabel(l.item_label);
-      if (TODOS_ITENS_VALIDOS.includes(normalized)) {
-        uniqueLabels.add(normalized);
-      }
+      if (l.item_label) uniqueLabelsMap.set(normalizarParaComparacao(l.item_label), l.item_label);
     });
     itensOrcados.forEach(i => {
-      const normalized = normalizarLabel(i.item_label);
-      if (TODOS_ITENS_VALIDOS.includes(normalized)) {
-        uniqueLabels.add(normalized);
-      }
+      if (i.item_label) uniqueLabelsMap.set(normalizarParaComparacao(i.item_label), i.item_label);
     });
-    return Array.from(uniqueLabels).sort();
+    
+    return Array.from(uniqueLabelsMap.values()).sort();
   }, [lancamentos, itensOrcados, itensContrato]);
 
   // Processamento da tabela detalhada por item
@@ -315,14 +298,7 @@ export default function ContractFinancialOverview({ contrato }) {
     ];
 
     tabelaItens.forEach(item => {
-      const ic = itensContrato.find(i => normalizarLabel(i.nome) === item.label);
-      const grupoNome = (ic && ic.grupo_servico === "fixo") 
-        ? "Serviços Fixos" 
-        : (ic && ic.grupo_servico === "por_demanda" 
-            ? "Demandas Eventuais" 
-            : identificarCategoria(item.label));
-
-      if (grupoNome === "Serviços Fixos") {
+      if (item.grupo === "Serviços Fixos") {
         gruposComItens[0].rows.push(item);
       } else {
         gruposComItens[1].rows.push(item);
