@@ -48,9 +48,9 @@ export default function ContractFinancialOverview({ contrato }) {
 
   // Mapa para renomear os labels (removendo "Serviços de")
   const NOME_MAP = {
-    "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento corretivo",
+    "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento Corretivo",
     "SERVIÇOS DE DESLOCAMENTO PREVENTIVO": "Deslocamento Preventivo",
-    "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do engenheiro",
+    "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do Engenheiro",
     "SERVIÇOS EVENTUAIS": "Serviços Eventuais",
     "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS": "Locações",
     "FORNECIMENTO DE MATERIAL": "Fornecimento de Materiais",
