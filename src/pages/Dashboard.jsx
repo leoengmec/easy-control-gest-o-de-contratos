@@ -3,7 +3,6 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FileText, CheckCircle2, Clock, PiggyBank, Filter, X } from "lucide-react";
 import ContratoCard from "@/components/dashboard/ContratoCard";
 import GraficoDashboardConsolidado from "@/components/dashboard/GraficoDashboardConsolidado";
@@ -12,7 +11,6 @@ import ContractFinancialOverview from "@/components/dashboard/ContractFinancialO
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
 export default function Dashboard() {
-  // Forced HMR update
   const [contratos, setContratos] = useState([]);
   const [lancamentos, setLancamentos] = useState([]);
   const [empenhos, setEmpenhos] = useState([]);
@@ -24,7 +22,6 @@ export default function Dashboard() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [totalContratos, setTotalContratos] = useState(0);
   const [totalContratosAtivos, setTotalContratosAtivos] = useState(0);
-  const [listaContratosAtivos, setListaContratosAtivos] = useState([]);
   const itensPorPagina = 10;
 
   const anoAtual = new Date().getFullYear();
@@ -76,7 +73,6 @@ export default function Dashboard() {
     ]).then(([todosContratos, contratosAtivos, todosLancamentos, todosOrcamentos]) => {
       setTotalContratos(todosContratos.length);
       setTotalContratosAtivos(contratosAtivos.length);
-      setListaContratosAtivos(contratosAtivos);
       
       // Extrair anos únicos de lançamentos e orçamentos
       const anosLanc = todosLancamentos.map(l => l.ano).filter(Boolean);
@@ -155,39 +151,15 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <TooltipProvider delayDuration={100}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Card className="border-l-4 border-l-blue-500 cursor-help hover:bg-slate-50 transition-colors">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
-                  </div>
-                  <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
-                </CardContent>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent 
-              side="bottom" 
-              align="start" 
-              className="max-h-64 overflow-y-auto p-3 shadow-xl border border-slate-200 bg-white text-slate-900 z-[100]"
-            >
-              {listaContratosAtivos.length > 0 ? (
-                <ul className="text-xs space-y-3">
-                  {listaContratosAtivos.map(c => (
-                    <li key={c.id} className="border-b border-slate-100 last:border-0 pb-2 last:pb-0 flex flex-col gap-1">
-                      <span className="font-bold text-slate-900 text-[13px]">{c.numero}</span>
-                      <span className="text-slate-600 font-medium">{c.contratada}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-xs text-slate-600 font-medium">Nenhum contrato ativo</div>
-              )}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-4 h-4 text-blue-500" />
+              <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
+            </div>
+            <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
+          </CardContent>
+        </Card>
         <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -225,13 +197,20 @@ export default function Dashboard() {
         contratoSelecionado={contratoSelecionado}
       />
 
-      <div className="space-y-6 mt-8">
-        <h2 className="text-xl font-bold text-[#1a2e4a] border-b pb-2">Quadros de Análise Financeira</h2>
-        <div className="space-y-6">
-          <ContractFinancialOverview title="Quadro Superior" defaultAno={anoAtual} />
-          <ContractFinancialOverview title="Quadro Inferior" defaultAno={anoAtual} />
+      {/* Seção de Gauge Charts por contrato */}
+      {contratoSelecionado !== "todos" ? (
+        (() => {
+          const c = contratos.find(x => x.id === contratoSelecionado);
+          return c ? <ContractFinancialOverview contrato={c} /> : null;
+        })()
+      ) : (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold mt-4 text-foreground">Visão Financeira por Contrato/Item</h3>
+          {contratos.filter(c => c.status === "ativo").map(c => (
+            <ContractFinancialOverview key={c.id} contrato={c} />
+          ))}
         </div>
-      </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-1">

@@ -250,19 +250,6 @@ export const AbaValoresSaldos = ({ contrato, itens_iniciais }) => {
                 );
               })()}
             </TableBody>
-            <tfoot className="bg-slate-100 border-t-2 border-slate-200">
-              <TableRow className="hover:bg-slate-100">
-                <TableHead className="py-2.5 font-bold text-slate-800 pl-6 h-auto">Total Geral</TableHead>
-                <TableHead className="py-2.5 text-right font-bold text-blue-700 h-auto">{fmt(valores.total_contratado)}</TableHead>
-                <TableHead className="py-2.5 text-right font-bold text-green-700 h-auto">{fmt(valores.total_pago)}</TableHead>
-                <TableHead className={`py-2.5 text-right font-bold h-auto ${valores.saldo_total < 0 ? "text-red-600" : "text-[#1a2e4a]"}`}>
-                  {fmt(valores.saldo_total)}
-                </TableHead>
-                <TableHead className="text-center pr-6 h-auto">
-                  <Badge variant="outline" className="bg-slate-200 font-bold">{valores.percentual_execucao}%</Badge>
-                </TableHead>
-              </TableRow>
-            </tfoot>
           </Table>
         </CardContent>
       </Card>
