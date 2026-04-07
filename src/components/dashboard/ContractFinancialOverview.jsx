@@ -343,7 +343,21 @@ export default function ContractFinancialOverview({ contrato }) {
   }
 
   if (loading) {
-    return <div className="text-center py-4 text-gray-500">Carregando dados financeiros...</div>;
+    return (
+      <Card className="border border-blue-100 bg-blue-50">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin">⏳</div>
+            <div className="text-blue-700 font-medium">
+              Carregando dados financeiros...
+            </div>
+          </div>
+          <div className="text-xs text-blue-600 mt-2">
+            Contrato: {contrato.numero} | Ano: {ano}
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (error) {
