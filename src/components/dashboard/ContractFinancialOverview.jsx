@@ -97,9 +97,13 @@ const logger = {
 };
 
 // Função centralizada de cálculos
-const calcularTotaisPorItem = (lancamentos, itensOrcados, itemFiltro = "todos") => {
+const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFiltro = "todos") => {
   const allRelevantLabels = new Set();
   
+  itensContrato.forEach(i => {
+    if (i.nome) allRelevantLabels.add(normalizarLabel(i.nome));
+  });
+
   itensOrcados.forEach(i => {
     const normalized = normalizarLabel(i.item_label);
     if (TODOS_ITENS_VALIDOS.includes(normalized)) {
@@ -178,6 +182,7 @@ export default function ContractFinancialOverview({ contrato }) {
   const [orcamentoAnual, setOrcamentoAnual] = useState(null);
   const [lancamentos, setLancamentos] = useState([]);
   const [itensOrcados, setItensOrcados] = useState([]);
+  const [itensContrato, setItensContrato] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCached, setIsCached] = useState(false);
@@ -234,10 +239,11 @@ export default function ContractFinancialOverview({ contrato }) {
     const cachedData = getCachedData(contrato.id, ano);
 
     if (cachedData && retryCount === 0) {
-      const [oa, l, oi] = cachedData;
+      const [oa, l, oi, ic] = cachedData;
       setOrcamentoAnual(oa[0] || null);
       setLancamentos(l);
       setItensOrcados(oi);
+      setItensContrato(ic || []);
       setIsCached(true);
       setLoading(false);
       return; // Usar dados em cache
@@ -250,12 +256,14 @@ export default function ContractFinancialOverview({ contrato }) {
       base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contrato.id, ano }),
       base44.entities.LancamentoFinanceiro.filter({ contrato_id: contrato.id, ano }),
       base44.entities.OrcamentoContratualItemAnual.filter({ contrato_id: contrato.id, ano }),
+      base44.entities.ItemContrato.filter({ contrato_id: contrato.id }),
     ])
-      .then(([oa, l, oi]) => {
-        setCachedData(contrato.id, ano, [oa, l, oi]); // Cachear dados
+      .then(([oa, l, oi, ic]) => {
+        setCachedData(contrato.id, ano, [oa, l, oi, ic]); // Cachear dados
         setOrcamentoAnual(oa[0] || null);
         setLancamentos(l);
         setItensOrcados(oi);
+        setItensContrato(ic || []);
       })
       .catch((err) => {
         logger.error("Falha ao carregar dados financeiros", {
@@ -278,6 +286,9 @@ export default function ContractFinancialOverview({ contrato }) {
   // Itens únicos para o filtro dropdown (apenas os que pertencem aos grupos válidos)
   const itensDisponiveisParaFiltro = useMemo(() => {
     const uniqueLabels = new Set();
+    itensContrato.forEach(i => {
+      if (i.nome) uniqueLabels.add(normalizarLabel(i.nome));
+    });
     lancamentos.forEach(l => {
       const normalized = normalizarLabel(l.item_label);
       if (TODOS_ITENS_VALIDOS.includes(normalized)) {
@@ -291,16 +302,31 @@ export default function ContractFinancialOverview({ contrato }) {
       }
     });
     return Array.from(uniqueLabels).sort();
-  }, [lancamentos, itensOrcados]);
+  }, [lancamentos, itensOrcados, itensContrato]);
 
   // Processamento da tabela detalhada por item
   const { gruposComItens, totalTabelaOrcado, totalTabelaPago, totalTabelaAprov, totalTabelaSaldo, totalTabelaPct } = useMemo(() => {
-    const tabelaItens = calcularTotaisPorItem(lancamentos, itensOrcados, itemFiltro);
+    const tabelaItens = calcularTotaisPorItem(lancamentos, itensOrcados, itensContrato, itemFiltro);
 
-    // Organizar os itens processados nos grupos definidos
-    const gruposComItens = GRUPOS_DEFINICAO.map(grupo => {
-      const rows = tabelaItens.filter(item => grupo.itens.includes(item.label));
-      return { ...grupo, rows };
+    // Organizar os itens processados nos grupos
+    const gruposComItens = [
+      { nome: "Serviços Fixos", rows: [] },
+      { nome: "Demandas Eventuais", rows: [] }
+    ];
+
+    tabelaItens.forEach(item => {
+      const ic = itensContrato.find(i => normalizarLabel(i.nome) === item.label);
+      const grupoNome = (ic && ic.grupo_servico === "fixo") 
+        ? "Serviços Fixos" 
+        : (ic && ic.grupo_servico === "por_demanda" 
+            ? "Demandas Eventuais" 
+            : identificarCategoria(item.label));
+
+      if (grupoNome === "Serviços Fixos") {
+        gruposComItens[0].rows.push(item);
+      } else {
+        gruposComItens[1].rows.push(item);
+      }
     });
 
     // Calcular totais gerais da tabela (apenas dos itens visíveis)
@@ -317,13 +343,13 @@ export default function ContractFinancialOverview({ contrato }) {
       totalTabelaPct 
     };
 
-  }, [lancamentos, itensOrcados, itemFiltro]);
+  }, [lancamentos, itensOrcados, itensContrato, itemFiltro]);
 
   // Cálculos para os Gauge Charts (sempre baseados no total anual, não no filtro de item)
   const totaisAnuais = useMemo(() => {
-    const todosItens = calcularTotaisPorItem(lancamentos, itensOrcados, "todos");
+    const todosItens = calcularTotaisPorItem(lancamentos, itensOrcados, itensContrato, "todos");
     return calcularTotaisGerais(todosItens);
-  }, [lancamentos, itensOrcados]);
+  }, [lancamentos, itensOrcados, itensContrato]);
 
   const totalPagoGeral = totaisAnuais.pago;
   const totalAprovGeral = totaisAnuais.aprov;
