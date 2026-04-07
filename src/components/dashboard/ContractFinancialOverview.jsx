@@ -138,6 +138,12 @@ export default function ContractFinancialOverview({ contrato }) {
 
   const temTabela = gruposComItens.length > 0 || itensSemGrupoRows.length > 0;
 
+  const totalTabelaOrcado = [...gruposComItens.flatMap(g => g.rows), ...itensSemGrupoRows].reduce((s, i) => s + i.orcado, 0);
+  const totalTabelaPago = [...gruposComItens.flatMap(g => g.rows), ...itensSemGrupoRows].reduce((s, i) => s + i.pago, 0);
+  const totalTabelaAprov = [...gruposComItens.flatMap(g => g.rows), ...itensSemGrupoRows].reduce((s, i) => s + i.aprov, 0);
+  const totalTabelaSaldo = totalTabelaOrcado - totalTabelaPago - totalTabelaAprov;
+  const totalTabelaPct = totalTabelaOrcado > 0 ? Math.min((totalTabelaPago / totalTabelaOrcado) * 100, 100) : 0;
+
   return (
     <Card className="border border-blue-100">
       <CardHeader className="pb-2 pt-4 px-4">
@@ -249,40 +255,64 @@ export default function ContractFinancialOverview({ contrato }) {
                 )}
 
                   {itensSemGrupoRows.length > 0 &&
-                <>
+                    <>
                       <tr className="bg-gray-100 border-b border-gray-200">
-                        
-
-                    
+                        <td colSpan={6} className="py-1.5 font-bold text-gray-600 uppercase tracking-wider pl-4">
+                          Outros Itens
+                        </td>
                       </tr>
                       {itensSemGrupoRows.map((item, i) =>
-                  <tr key={`other-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
-                          
-                          
-                          
-                          
-                          
-
-                    
+                        <tr key={`other-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="py-1.5 font-medium text-gray-700 pl-4">{item.label}</td>
+                          <td className="py-1.5 text-right text-blue-600">{fmt(item.orcado)}</td>
+                          <td className="py-1.5 text-right text-green-600 font-semibold">{fmt(item.pago)}</td>
+                          <td className="py-1.5 text-right text-amber-500">{fmt(item.aprov)}</td>
+                          <td className={`py-1.5 text-right font-bold ${item.saldo < 0 ? "text-red-500" : "text-[#1a2e4a]"}`}>
+                            {fmt(item.saldo)}
+                          </td>
                           <td className="py-1.5 pl-3">
-                            
-
-
-
-
-
-
-
-
-
-
-                      
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                                <div
+                                  className="h-1.5 rounded-full transition-all"
+                                  style={{
+                                    width: `${item.pct}%`,
+                                    backgroundColor: item.pct >= 90 ? "#ef4444" : item.pct >= 70 ? "#f59e0b" : "#22c55e"
+                                  }} />
+                              </div>
+                              <span className="text-gray-400 w-7 text-right">{item.pct.toFixed(0)}%</span>
+                            </div>
                           </td>
                         </tr>
-                  )}
+                      )}
                     </>
-                }
+                  }
                 </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 border-t-2 border-slate-200">
+                    <td className="py-2.5 font-bold text-slate-800 pl-4">Total Geral</td>
+                    <td className="py-2.5 text-right font-bold text-blue-700">{fmt(totalTabelaOrcado)}</td>
+                    <td className="py-2.5 text-right font-bold text-green-700">{fmt(totalTabelaPago)}</td>
+                    <td className="py-2.5 text-right font-bold text-amber-600">{fmt(totalTabelaAprov)}</td>
+                    <td className={`py-2.5 text-right font-bold ${totalTabelaSaldo < 0 ? "text-red-600" : "text-[#1a2e4a]"}`}>
+                      {fmt(totalTabelaSaldo)}
+                    </td>
+                    <td className="py-2.5 pl-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                          <div
+                            className="h-1.5 rounded-full transition-all"
+                            style={{
+                              width: `${totalTabelaPct}%`,
+                              backgroundColor: totalTabelaPct >= 90 ? "#ef4444" : totalTabelaPct >= 70 ? "#f59e0b" : "#22c55e"
+                            }}
+                          />
+                        </div>
+                        <span className="text-slate-600 font-bold w-7 text-right">{totalTabelaPct.toFixed(0)}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
