@@ -59,8 +59,20 @@ const logger = {
 };
 
 // Função centralizada de cálculos
-const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFiltro = "todos") => {
+const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFiltro = "todos", contratoNumero = "") => {
   const itensMap = new Map(); // key: label normalizado, value: object
+  
+  const isContratoEspecifico = contratoNumero && (contratoNumero.includes("12-2025") || contratoNumero.includes("12/2025") || contratoNumero.includes("JFRN"));
+  const itensFixosEspecificos = ["MOR NATAL", "MOR MOSSORÓ", "MOR MOSSORO", "DESLOCAMENTO PREVENTIVO"];
+
+  const classificarGrupo = (label, grupoPadrao) => {
+    if (isContratoEspecifico && label) {
+      const labelNorm = normalizarParaComparacao(label);
+      const isFixo = itensFixosEspecificos.some(f => labelNorm.includes(f));
+      return isFixo ? 'Serviços Fixos' : 'Demandas Eventuais';
+    }
+    return grupoPadrao;
+  };
   
   // 1. Cadastramos todos os itens do contrato
   itensContrato.forEach(i => {
@@ -69,7 +81,7 @@ const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFil
       if (!itensMap.has(key)) {
         itensMap.set(key, { 
           label: i.nome, 
-          grupo: i.grupo_servico === 'fixo' ? 'Serviços Fixos' : 'Demandas Eventuais',
+          grupo: classificarGrupo(i.nome, i.grupo_servico === 'fixo' ? 'Serviços Fixos' : 'Demandas Eventuais'),
           orcado: 0, pago: 0, aprov: 0 
         });
       }
@@ -83,7 +95,7 @@ const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFil
       if (!itensMap.has(key)) {
         itensMap.set(key, { 
           label: i.item_label, 
-          grupo: 'Demandas Eventuais', // Fallback se não estiver no ItemContrato
+          grupo: classificarGrupo(i.item_label, 'Demandas Eventuais'), // Fallback se não estiver no ItemContrato
           orcado: 0, pago: 0, aprov: 0 
         });
       }
@@ -99,7 +111,7 @@ const calcularTotaisPorItem = (lancamentos, itensOrcados, itensContrato, itemFil
       if (!itensMap.has(key)) {
         itensMap.set(key, { 
           label: l.item_label, 
-          grupo: 'Demandas Eventuais', // Fallback
+          grupo: classificarGrupo(l.item_label, 'Demandas Eventuais'), // Fallback
           orcado: 0, pago: 0, aprov: 0 
         });
       }
@@ -291,7 +303,7 @@ export default function ContractFinancialOverview({ contrato }) {
 
   // Processamento da tabela detalhada por item
   const { gruposComItens, totalTabelaOrcado, totalTabelaPago, totalTabelaAprov, totalTabelaSaldo, totalTabelaPct } = useMemo(() => {
-    const tabelaItens = calcularTotaisPorItem(lancamentos, itensOrcados, itensContrato, itemFiltro);
+    const tabelaItens = calcularTotaisPorItem(lancamentos, itensOrcados, itensContrato, itemFiltro, contrato?.numero || "");
 
     // Organizar os itens processados nos grupos
     const gruposComItens = [
@@ -325,9 +337,9 @@ export default function ContractFinancialOverview({ contrato }) {
 
   // Cálculos para os Gauge Charts (sempre baseados no total anual, não no filtro de item)
   const totaisAnuais = useMemo(() => {
-    const todosItens = calcularTotaisPorItem(lancamentos, itensOrcados, itensContrato, "todos");
+    const todosItens = calcularTotaisPorItem(lancamentos, itensOrcados, itensContrato, "todos", contrato?.numero || "");
     return calcularTotaisGerais(todosItens);
-  }, [lancamentos, itensOrcados, itensContrato]);
+  }, [lancamentos, itensOrcados, itensContrato, contrato?.numero]);
 
   const totalPagoGeral = totaisAnuais.pago;
   const totalAprovGeral = totaisAnuais.aprov;
