@@ -12,7 +12,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 const ANOS = [2024, 2025, 2026, 2027, 2028];
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-export default function ContractFinancialOverview({ id = "Quadro", defaultAno = new Date().getFullYear() }) { // force rebuild
+export default function ContractFinancialOverview({ id = "Quadro", defaultAno = new Date().getFullYear() }) { // Build fix
   const queryClient = useQueryClient();
   const [ano, setAno] = useState(defaultAno);
   const [contratoId, setContratoId] = useState("selecione");
