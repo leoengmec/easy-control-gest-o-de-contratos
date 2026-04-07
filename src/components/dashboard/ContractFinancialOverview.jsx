@@ -53,6 +53,55 @@ const identificarCategoria = (itemLabelNormalizado) => {
   return servicosFixosLabels.includes(itemLabelNormalizado) ? 'Serviços Fixos' : 'Demandas Eventuais';
 };
 
+// Função centralizada de cálculos
+const calcularTotaisPorItem = (lancamentos, itensOrcados, itemFiltro = "todos") => {
+  const allRelevantLabels = new Set();
+  
+  itensOrcados.forEach(i => {
+    const normalized = normalizarLabel(i.item_label);
+    if (TODOS_ITENS_VALIDOS.includes(normalized)) {
+      allRelevantLabels.add(normalized);
+    }
+  });
+  
+  lancamentos.forEach(l => {
+    const normalized = normalizarLabel(l.item_label);
+    if (TODOS_ITENS_VALIDOS.includes(normalized)) {
+      allRelevantLabels.add(normalized);
+    }
+  });
+  
+  const labelsParaProcessar = itemFiltro === "todos"
+    ? Array.from(allRelevantLabels)
+    : [itemFiltro];
+  
+  return labelsParaProcessar.map(label => {
+    const itemOrcado = itensOrcados.find(i => normalizarLabel(i.item_label) === label);
+    const orcado = itemOrcado?.valor_orcado || 0;
+    
+    const lancamentosDoItem = lancamentos.filter(l => normalizarLabel(l.item_label) === label);
+    const pago = lancamentosDoItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor_pago_final || 0), 0);
+    const aprov = lancamentosDoItem.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+    const saldo = orcado - pago - aprov;
+    const pct = orcado > 0 ? Math.min((pago / orcado) * 100, 100) : 0;
+    
+    return { label, orcado, pago, aprov, saldo, pct };
+  });
+};
+
+const calcularTotaisGerais = (items) => {
+  const orcado = items.reduce((s, i) => s + i.orcado, 0);
+  const pago = items.reduce((s, i) => s + i.pago, 0);
+  const aprov = items.reduce((s, i) => s + i.aprov, 0);
+  const saldo = orcado - pago - aprov;
+  return {
+    orcado,
+    pago,
+    aprov,
+    saldo,
+  };
+};
+
 // Cache global (fora do componente)
 const dataCache = new Map();
 
@@ -174,41 +223,7 @@ export default function ContractFinancialOverview({ contrato }) {
 
   // Processamento da tabela detalhada por item
   const { gruposComItens, totalTabelaOrcado, totalTabelaPago, totalTabelaAprov, totalTabelaSaldo, totalTabelaPct } = useMemo(() => {
-    // Coletar todos os labels de itens que devem aparecer na tabela (de orçamentos e lançamentos)
-    const allRelevantLabels = new Set();
-    itensOrcados.forEach(i => {
-      const normalized = normalizarLabel(i.item_label);
-      if (TODOS_ITENS_VALIDOS.includes(normalized)) {
-        allRelevantLabels.add(normalized);
-      }
-    });
-    lancamentos.forEach(l => {
-      const normalized = normalizarLabel(l.item_label);
-      if (TODOS_ITENS_VALIDOS.includes(normalized)) {
-        allRelevantLabels.add(normalized);
-      }
-    });
-
-    // Se o filtro de item estiver ativo, considerar apenas ele
-    const labelsParaProcessar = itemFiltro === "todos"
-      ? Array.from(allRelevantLabels)
-      : [itemFiltro];
-
-    const tabelaItens = labelsParaProcessar.map(label => {
-      // Buscar orçado para o item
-      const itemOrcado = itensOrcados.find(i => normalizarLabel(i.item_label) === label);
-      const orcado = itemOrcado?.valor_orcado || 0;
-
-      // Buscar lançamentos para o item
-      const lancamentosDoItem = lancamentos.filter(l => normalizarLabel(l.item_label) === label);
-
-      const pago = lancamentosDoItem.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor_pago_final || 0), 0);
-      const aprov = lancamentosDoItem.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
-      const saldo = orcado - pago - aprov;
-      const pct = orcado > 0 ? Math.min((pago / orcado) * 100, 100) : 0;
-
-      return { label, orcado, pago, aprov, saldo, pct };
-    });
+    const tabelaItens = calcularTotaisPorItem(lancamentos, itensOrcados, itemFiltro);
 
     // Organizar os itens processados nos grupos definidos
     const gruposComItens = GRUPOS_DEFINICAO.map(grupo => {
@@ -218,19 +233,28 @@ export default function ContractFinancialOverview({ contrato }) {
 
     // Calcular totais gerais da tabela (apenas dos itens visíveis)
     const todosOsItensDaTabela = gruposComItens.flatMap(g => g.rows);
-    const totalTabelaOrcado = todosOsItensDaTabela.reduce((s, i) => s + i.orcado, 0);
-    const totalTabelaPago = todosOsItensDaTabela.reduce((s, i) => s + i.pago, 0);
-    const totalTabelaAprov = todosOsItensDaTabela.reduce((s, i) => s + i.aprov, 0);
-    const totalTabelaSaldo = totalTabelaOrcado - totalTabelaPago - totalTabelaAprov;
-    const totalTabelaPct = totalTabelaOrcado > 0 ? Math.min((totalTabelaPago / totalTabelaOrcado) * 100, 100) : 0;
+    const totais = calcularTotaisGerais(todosOsItensDaTabela);
+    const totalTabelaPct = totais.orcado > 0 ? Math.min((totais.pago / totais.orcado) * 100, 100) : 0;
 
-    return { gruposComItens, totalTabelaOrcado, totalTabelaPago, totalTabelaAprov, totalTabelaSaldo, totalTabelaPct };
+    return { 
+      gruposComItens, 
+      totalTabelaOrcado: totais.orcado, 
+      totalTabelaPago: totais.pago, 
+      totalTabelaAprov: totais.aprov, 
+      totalTabelaSaldo: totais.saldo, 
+      totalTabelaPct 
+    };
 
   }, [lancamentos, itensOrcados, itemFiltro]);
 
   // Cálculos para os Gauge Charts (sempre baseados no total anual, não no filtro de item)
-  const totalPagoGeral = lancamentos.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor_pago_final || 0), 0);
-  const totalAprovGeral = lancamentos.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+  const totaisAnuais = useMemo(() => {
+    const todosItens = calcularTotaisPorItem(lancamentos, itensOrcados, "todos");
+    return calcularTotaisGerais(todosItens);
+  }, [lancamentos, itensOrcados]);
+
+  const totalPagoGeral = totaisAnuais.pago;
+  const totalAprovGeral = totaisAnuais.aprov;
 
   const pctPagoOrcadoGeral = orcadoTotalAnual > 0 ? (totalPagoGeral / orcadoTotalAnual) * 100 : 0;
   const pctAprovOrcadoGeral = orcadoTotalAnual > 0 ? (totalAprovGeral / orcadoTotalAnual) * 100 : 0;
