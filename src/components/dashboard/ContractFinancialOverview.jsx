@@ -174,12 +174,14 @@ export default function ContractFinancialOverview({ contrato }) {
   const [error, setError] = useState(null);
   const [isCached, setIsCached] = useState(false);
 
-  // Validar ano
-  const anoValido = ANOS.includes(ano) ? ano : new Date().getFullYear();
-  if (anoValido !== ano) {
-    logger.warn("Ano inválido fornecido", { anoFornecido: ano, anoUsado: anoValido });
-    setAno(anoValido);
-  }
+  // Validar ano de forma segura (sem causar re-render síncrono)
+  useEffect(() => {
+    const anoValido = ANOS.includes(ano) ? ano : new Date().getFullYear();
+    if (anoValido !== ano) {
+      logger.warn("Ano inválido fornecido", { anoFornecido: ano, anoUsado: anoValido });
+      setAno(anoValido);
+    }
+  }, [ano]);
 
   // Validar contrato (apenas log no topo, renderização tratada abaixo)
   if (!contrato?.id || typeof contrato.id !== 'string') {
