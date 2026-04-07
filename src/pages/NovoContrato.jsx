@@ -194,7 +194,7 @@ export default function NovoContrato() {
             <CardHeader><CardTitle className="text-lg">Informações Gerais</CardTitle></CardHeader>
             <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="numero" render={({ field }) => (
-                <FormItem><FormLabel>Número do Contrato *</FormLabel><FormControl><Input placeholder="Ex: 01/2024" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Número do Contrato *</FormLabel><FormControl><Input placeholder="Ex: 01/2024" disabled={editando} {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               
               <FormField control={form.control} name="contratada" render={({ field }) => (
