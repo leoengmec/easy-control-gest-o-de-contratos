@@ -96,7 +96,7 @@ export default function Layout({ children, currentPageName }) {
         <div className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between gap-2"}`}>
           <div className="flex items-center">
             <img 
-              src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/381cdafbd_Gemini_Generated_Image_aq6aq5aq6aq5aq6a.png" 
+              src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/6b1fe7a9a_easycontrol.png" 
               alt="Easy Control Logo" 
               className={`transition-all duration-300 ${isCollapsed ? "h-8 w-[2.2rem] object-cover object-left" : "h-10 w-auto object-contain"}`}
             />
@@ -188,7 +188,7 @@ export default function Layout({ children, currentPageName }) {
             <Menu className="w-5 h-5" />
           </Button>
           <img 
-            src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/381cdafbd_Gemini_Generated_Image_aq6aq5aq6aq5aq6a.png" 
+            src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/6b1fe7a9a_easycontrol.png" 
             alt="Easy Control Logo" 
             className="h-8 w-auto object-contain"
           />
