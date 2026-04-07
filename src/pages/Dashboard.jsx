@@ -154,35 +154,39 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <FileText className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
-            </div>
-            <TooltipProvider delayDuration={100}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-2xl font-bold text-[#1a2e4a] cursor-help w-max">{totalContratosAtivos}</div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="start" className="max-h-64 overflow-y-auto p-3 shadow-lg border border-slate-100 z-[100]">
-                  {listaContratosAtivos.length > 0 ? (
-                    <ul className="text-xs space-y-2">
-                      {listaContratosAtivos.map(c => (
-                        <li key={c.id} className="border-b border-slate-100 last:border-0 pb-1.5 last:pb-0 flex flex-col gap-0.5">
-                          <span className="font-bold text-slate-800">{c.numero}</span>
-                          <span className="text-slate-500">{c.contratada}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="text-xs">Nenhum contrato ativo</div>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </CardContent>
-        </Card>
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-l-4 border-l-blue-500 cursor-help hover:bg-slate-50 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    <span className="text-xs text-gray-500 font-medium">Contratos Ativos</span>
+                  </div>
+                  <div className="text-2xl font-bold text-[#1a2e4a]">{totalContratosAtivos}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent 
+              side="bottom" 
+              align="start" 
+              className="max-h-64 overflow-y-auto p-3 shadow-xl border border-slate-200 bg-white text-slate-900 z-[100]"
+            >
+              {listaContratosAtivos.length > 0 ? (
+                <ul className="text-xs space-y-3">
+                  {listaContratosAtivos.map(c => (
+                    <li key={c.id} className="border-b border-slate-100 last:border-0 pb-2 last:pb-0 flex flex-col gap-1">
+                      <span className="font-bold text-slate-900 text-[13px]">{c.numero}</span>
+                      <span className="text-slate-600 font-medium">{c.contratada}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-xs text-slate-600 font-medium">Nenhum contrato ativo</div>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
