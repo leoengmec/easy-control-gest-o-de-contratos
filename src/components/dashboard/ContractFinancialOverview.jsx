@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { base44 } from '@/api/base44Client';
 import GaugeChart from './GaugeChart';
 
@@ -63,8 +64,27 @@ export default function ContractFinancialOverview({ contrato }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Adicionar estado de retry
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
+
+  // Função de retry
+  const handleRetry = useCallback(() => {
+    if (retryCount < maxRetries) {
+      setRetryCount(prev => prev + 1);
+      setError(null);
+      setLoading(true);
+    } else {
+      setError("Número máximo de tentativas atingido. Contate o suporte.");
+    }
+  }, [retryCount]);
+
   // Efeito para carregar dados do BD
   useEffect(() => {
+    if (!contrato || !contrato.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     Promise.all([
@@ -81,7 +101,7 @@ export default function ContractFinancialOverview({ contrato }) {
     }).finally(() => {
       setLoading(false);
     });
-  }, [contrato.id, ano]);
+  }, [contrato?.id, ano, retryCount]);
 
   // --- CÁLCULOS E PROCESSAMENTO DE DADOS ---
   const orcadoTotalAnual = orcamentoAnual?.valor_orcado || 0;
@@ -168,12 +188,50 @@ export default function ContractFinancialOverview({ contrato }) {
   const pctAprovOrcadoGeral = orcadoTotalAnual > 0 ? (totalAprovGeral / orcadoTotalAnual) * 100 : 0;
 
   // --- RENDERIZAÇÃO ---
+  if (!contrato || !contrato.id) {
+    return (
+      <Card className="border border-red-200 bg-red-50">
+        <CardContent className="p-4">
+          <div className="text-red-600 font-semibold">
+            ❌ Contrato inválido ou não encontrado
+          </div>
+          <div className="text-xs text-red-500 mt-1">
+            Não foi possível carregar os dados financeiros. Verifique se o contrato existe.
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (loading) {
     return <div className="text-center py-4 text-gray-500">Carregando dados financeiros...</div>;
   }
 
   if (error) {
-    return <div className="text-center py-4 text-red-500">Erro: {error}</div>;
+    return (
+      <Card className="border border-red-200 bg-red-50">
+        <CardContent className="p-4 flex items-center justify-between">
+          <div>
+            <div className="text-red-600 font-semibold">⚠️ Erro ao carregar dados</div>
+            <div className="text-xs text-red-500 mt-1">{error}</div>
+            {retryCount < maxRetries && (
+              <div className="text-xs text-red-400 mt-2">
+                Tentativa {retryCount + 1} de {maxRetries}
+              </div>
+            )}
+          </div>
+          {retryCount < maxRetries && (
+            <Button 
+              size="sm" 
+              onClick={handleRetry}
+              className="ml-4"
+            >
+              🔄 Tentar Novamente
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
