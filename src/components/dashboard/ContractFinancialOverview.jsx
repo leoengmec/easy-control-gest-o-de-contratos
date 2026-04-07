@@ -53,6 +53,31 @@ const identificarCategoria = (itemLabelNormalizado) => {
   return servicosFixosLabels.includes(itemLabelNormalizado) ? 'Serviços Fixos' : 'Demandas Eventuais';
 };
 
+// Cache global (fora do componente)
+const dataCache = new Map();
+
+const getCacheKey = (contratoId, ano) => `${contratoId}-${ano}`;
+
+const getCachedData = (contratoId, ano) => {
+  const key = getCacheKey(contratoId, ano);
+  const cached = dataCache.get(key);
+  
+  if (cached && Date.now() - cached.timestamp < 5 * 60 * 1000) { // 5 minutos
+    return cached.data;
+  }
+  
+  dataCache.delete(key);
+  return null;
+};
+
+const setCachedData = (contratoId, ano, data) => {
+  const key = getCacheKey(contratoId, ano);
+  dataCache.set(key, {
+    data,
+    timestamp: Date.now()
+  });
+};
+
 // --- COMPONENTE PRINCIPAL ---
 export default function ContractFinancialOverview({ contrato }) {
   const [ano, setAno] = useState(new Date().getFullYear());
@@ -63,6 +88,7 @@ export default function ContractFinancialOverview({ contrato }) {
   const [itensOrcados, setItensOrcados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isCached, setIsCached] = useState(false);
 
   // Adicionar estado de retry
   const [retryCount, setRetryCount] = useState(0);
@@ -85,8 +111,21 @@ export default function ContractFinancialOverview({ contrato }) {
       setLoading(false);
       return;
     }
+
+    const cachedData = getCachedData(contrato.id, ano);
+    if (cachedData && retryCount === 0) { // Ignora cache se for um retry forçado
+      setOrcamentoAnual(cachedData.oa);
+      setLancamentos(cachedData.l);
+      setItensOrcados(cachedData.oi);
+      setIsCached(true);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setIsCached(false);
+
     Promise.all([
       base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contrato.id, ano }),
       base44.entities.LancamentoFinanceiro.filter({ contrato_id: contrato.id, ano }),
@@ -95,6 +134,12 @@ export default function ContractFinancialOverview({ contrato }) {
       setOrcamentoAnual(oa[0] || null);
       setLancamentos(l);
       setItensOrcados(oi);
+      
+      setCachedData(contrato.id, ano, {
+        oa: oa[0] || null,
+        l,
+        oi
+      });
     }).catch((err) => {
       console.error("Erro ao carregar dados financeiros:", err);
       setError("Não foi possível carregar os dados financeiros.");
@@ -242,7 +287,12 @@ export default function ContractFinancialOverview({ contrato }) {
             <div className="text-sm font-bold text-[#1a2e4a]">{contrato.numero}</div>
             <div className="text-xs text-gray-500 truncate max-w-xs">{contrato.contratada}</div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            {isCached && (
+              <div className="flex items-center text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200" title="Dados carregados do cache (5 min)">
+                ⚡ Em cache
+              </div>
+            )}
             <Select value={String(ano)} onValueChange={v => setAno(Number(v))}>
               <SelectTrigger className="h-7 text-xs w-24">
                 <SelectValue />
