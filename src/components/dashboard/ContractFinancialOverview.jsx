@@ -261,22 +261,22 @@ export default function ContractFinancialOverview({ contrato }) {
                           
                           
                           
-                          <td className={`py-1.5 text-right font-bold ${item.saldo < 0 ? "text-red-500" : "text-[#1a2e4a]"}`}>
-                            {fmt(item.saldo)}
-                          </td>
-                          <td className="py-1.5 pl-3">
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                                <div
-                            className="h-1.5 rounded-full transition-all"
-                            style={{
-                              width: `${item.pct}%`,
-                              backgroundColor: item.pct >= 90 ? "#ef4444" : item.pct >= 70 ? "#f59e0b" : "#22c55e"
-                            }} />
                           
-                              </div>
-                              <span className="text-gray-400 w-7 text-right">{item.pct.toFixed(0)}%</span>
-                            </div>
+
+                    
+                          <td className="py-1.5 pl-3">
+                            
+
+
+
+
+
+
+
+
+
+
+                      
                           </td>
                         </tr>
                   )}
