@@ -3,6 +3,10 @@ import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import GaugeChart from "./GaugeChart";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { Info, History, ChevronDown, ChevronRight } from "lucide-react";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const ANOS = [2024, 2025, 2026, 2027];
@@ -58,6 +62,14 @@ export default function ContractFinancialOverview({ contrato }) {
   const [itensContrato, setItensContrato] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [expandedRow, setExpandedRow] = useState(null);
+  const [logs, setLogs] = useState({});
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
+
   useEffect(() => {
     setIsLoading(true);
     Promise.all([
@@ -72,6 +84,50 @@ export default function ContractFinancialOverview({ contrato }) {
       setItensContrato(ic);
     }).finally(() => setIsLoading(false));
   }, [contrato.id, ano]);
+
+  const loadLogs = async (lancId) => {
+    try {
+      const resp = await base44.entities.HistoricoLancamento.filter({ lancamento_financeiro_id: lancId });
+      const sorted = resp.sort((a,b) => new Date(b.data_acao).getTime() - new Date(a.data_acao).getTime()).slice(0,3);
+      setLogs(prev => ({ ...prev, [lancId]: sorted }));
+    } catch(e) {}
+  };
+
+  const handleStatusChange = async (lanc, novoStatus) => {
+    if (!user) return;
+    const statusAnterior = lanc.status;
+    if (statusAnterior === novoStatus) return;
+
+    // Optimistic update
+    setLancamentos(prev => prev.map(l => l.id === lanc.id ? { ...l, status: novoStatus } : l));
+
+    try {
+      await base44.entities.LancamentoFinanceiro.update(lanc.id, { status: novoStatus });
+      await base44.entities.HistoricoLancamento.create({
+        lancamento_financeiro_id: lanc.id,
+        tipo_acao: "atualizacao_status",
+        status_anterior: statusAnterior,
+        status_novo: novoStatus,
+        realizado_por: user.full_name || user.email,
+        data_acao: new Date().toISOString()
+      });
+      toast.success("Status atualizado com sucesso!");
+      loadLogs(lanc.id);
+    } catch (e) {
+      toast.error("Erro ao atualizar status");
+      // Rollback
+      setLancamentos(prev => prev.map(l => l.id === lanc.id ? { ...l, status: statusAnterior } : l));
+    }
+  };
+
+  const toggleRow = (label) => {
+    const isExpanding = expandedRow !== label;
+    setExpandedRow(isExpanding ? label : null);
+    if (isExpanding) {
+      const lancsDaLinha = lancamentos.filter(l => mapName(l.item_label) === label);
+      lancsDaLinha.forEach(l => loadLogs(l.id));
+    }
+  };
 
   const orcadoTotal = orcamentoAnual?.valor_orcado || 0;
   const contratadoTotal = contrato.valor_global || 0;
@@ -90,7 +146,7 @@ export default function ContractFinancialOverview({ contrato }) {
   const pctPagoOrcado = orcadoFiltrado > 0 ? (totalPago / orcadoFiltrado) * 100 : 0;
   const pctAprovOrcado = orcadoFiltrado > 0 ? (totalAprov / orcadoFiltrado) * 100 : 0;
 
-  const { itensDisponiveis, gruposComItens, temTabela } = React.useMemo(() => {
+  const { itensDisponiveis, gruposComItens, temTabela } = useMemo(() => {
     const todosItensBrutos = [
       ...new Set([
         ...lancamentos.map(l => l.item_label),
@@ -234,6 +290,7 @@ export default function ContractFinancialOverview({ contrato }) {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-gray-100">
+                    <th scope="col" className="text-left py-1.5 text-gray-500 font-medium w-6"></th>
                     <th scope="col" className="text-left py-1.5 text-gray-500 font-medium">Item / Categoria</th>
                     <th scope="col" className="text-right py-1.5 text-gray-500 font-medium">Orçado</th>
                     <th scope="col" className="text-right py-1.5 text-gray-500 font-medium">Pago</th>
@@ -246,39 +303,118 @@ export default function ContractFinancialOverview({ contrato }) {
                   {gruposComItens.map((g, gi) => (
                     <React.Fragment key={`group-${gi}`}>
                       <tr className={`${g.bg} border-b border-gray-100`}>
-                        <td colSpan={6} className={`py-1.5 font-bold ${g.cor} uppercase tracking-wider`}>
+                        <td colSpan={7} className={`py-1.5 font-bold ${g.cor} uppercase tracking-wider px-2`}>
                           {g.titulo}
                         </td>
                       </tr>
                       {g.rows.map((item, i) => (
-                        <tr key={`item-${gi}-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="py-1.5 font-medium text-gray-700 pl-4">{item.label}</td>
-                          <td className="py-1.5 text-right text-blue-600">{fmt(item.orcado)}</td>
-                          <td className="py-1.5 text-right text-green-600 font-semibold">{fmt(item.pago)}</td>
-                          <td className="py-1.5 text-right text-amber-500">{fmt(item.aprov)}</td>
-                          <td className={`py-1.5 text-right font-bold ${item.saldo < 0 ? "text-red-500" : "text-[#1a2e4a]"}`}>
-                            {fmt(item.saldo)}
-                          </td>
-                          <td className="py-1.5 pl-3">
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-100 rounded-full h-1.5" role="progressbar" aria-valuenow={item.pct} aria-valuemin="0" aria-valuemax="100">
-                                <div
-                                  className="h-1.5 rounded-full transition-all"
-                                  style={{
-                                    width: `${item.pct}%`,
-                                    backgroundColor: item.pct >= 90 ? "#ef4444" : item.pct >= 70 ? "#f59e0b" : "#22c55e"
-                                  }}
-                                />
+                        <React.Fragment key={`item-${gi}-${i}`}>
+                          <tr 
+                            className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors"
+                            onClick={() => toggleRow(item.label)}
+                          >
+                            <td className="py-1.5 px-2 text-gray-400">
+                              {expandedRow === item.label ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                            </td>
+                            <td className="py-1.5 font-medium text-gray-700">{item.label}</td>
+                            <td className="py-1.5 text-right text-blue-600">{fmt(item.orcado)}</td>
+                            <td className="py-1.5 text-right text-green-600 font-semibold">{fmt(item.pago)}</td>
+                            <td className="py-1.5 text-right text-amber-500">{fmt(item.aprov)}</td>
+                            <td className={`py-1.5 text-right font-bold ${item.saldo < 0 ? "text-red-500" : "text-[#1a2e4a]"}`}>
+                              {fmt(item.saldo)}
+                            </td>
+                            <td className="py-1.5 pl-3">
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 bg-gray-100 rounded-full h-1.5" role="progressbar" aria-valuenow={item.pct} aria-valuemin="0" aria-valuemax="100">
+                                  <div
+                                    className="h-1.5 rounded-full transition-all"
+                                    style={{
+                                      width: `${item.pct}%`,
+                                      backgroundColor: item.pct >= 90 ? "#ef4444" : item.pct >= 70 ? "#f59e0b" : "#22c55e"
+                                    }}
+                                  />
+                                </div>
+                                <span className="text-gray-400 w-7 text-right">{item.pct.toFixed(0)}%</span>
                               </div>
-                              <span className="text-gray-400 w-7 text-right">{item.pct.toFixed(0)}%</span>
-                            </div>
-                          </td>
-                        </tr>
+                            </td>
+                          </tr>
+                          
+                          {/* Sub-tabela de lançamentos (expansível) */}
+                          {expandedRow === item.label && (
+                            <tr className="bg-slate-50/50 border-b border-gray-100">
+                              <td colSpan={7} className="p-4">
+                                <div className="text-xs text-gray-600 mb-3 font-semibold ml-6">Lançamentos Financeiros (Ano {ano})</div>
+                                <div className="space-y-3 ml-6">
+                                  {lancamentos.filter(l => mapName(l.item_label) === item.label).map(l => (
+                                    <div key={l.id} className="p-3 bg-white border border-gray-100 rounded-lg shadow-sm">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                          <span className="font-medium text-gray-700">Mês {l.mes}</span>
+                                          <span className="text-blue-600 font-bold">{fmt(getValorFinal(l))}</span>
+                                          
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button className="flex items-center justify-center rounded-full hover:bg-gray-100 p-1 transition-colors">
+                                                  <Info className="w-4 h-4 text-gray-400 cursor-help" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent side="top">
+                                                <p className="max-w-[250px] text-xs">{l.observacoes || "Sem observações registradas."}</p>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        </div>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <button className="px-3 py-1.5 text-[10px] font-bold rounded-full border border-gray-200 hover:bg-gray-100 flex items-center gap-1.5 transition-colors">
+                                              <span className={
+                                                l.status === "Pago" || l.status === "SOF" ? "text-green-600" :
+                                                l.status === "Aprovisionado" ? "text-amber-500" :
+                                                l.status === "Cancelado" ? "text-red-500" : "text-gray-500"
+                                              }>
+                                                {l.status}
+                                              </span>
+                                              <ChevronDown className="w-3 h-3 text-gray-400" />
+                                            </button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => handleStatusChange(l, "Aprovisionado")}>Aprovisionado</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleStatusChange(l, "Pago")}>Pago</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleStatusChange(l, "SOF")}>SOF</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleStatusChange(l, "Cancelado")}>Cancelado</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleStatusChange(l, "Em instrução")}>Em instrução</DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                      
+                                      {/* Logs Area */}
+                                      {logs[l.id] && logs[l.id].length > 0 && (
+                                        <div className="mt-3 pt-2 pl-2 border-l-2 border-blue-100 space-y-1.5">
+                                          {logs[l.id].map(log => (
+                                            <div key={log.id} className="text-[10px] text-gray-500 flex items-center gap-1.5">
+                                              <History className="w-3 h-3 text-blue-400" />
+                                              <span>
+                                                Alterado em <span className="font-medium text-gray-600">{new Date(log.data_acao).toLocaleDateString()}</span> por <span className="font-medium text-gray-600">{log.realizado_por}</span> 
+                                                <span className="text-gray-400 ml-1">({log.status_anterior} &rarr; {log.status_novo})</span>
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {lancamentos.filter(l => mapName(l.item_label) === item.label).length === 0 && (
+                                    <div className="text-xs text-gray-400 italic">Nenhum lançamento vinculado.</div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       ))}
                     </React.Fragment>
                   ))}
-
-
                 </tbody>
               </table>
             </div>

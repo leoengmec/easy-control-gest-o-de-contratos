@@ -3,28 +3,15 @@ import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { base44 } from "@/api/base44Client";
 import {
-  LayoutDashboard,
-  FileText,
-  DollarSign,
-  PiggyBank,
-  BarChart2,
-  Menu,
-  X,
-  ChevronRight,
-  ChevronLeft,
-  PanelLeftClose,
-  PanelLeftOpen,
-  LogOut,
-  Scale,
-  ShoppingCart,
-  Shield,
-  Bell,
-  AlertTriangle
+  LayoutDashboard, FileText, DollarSign, PiggyBank,
+  BarChart2, Menu, X, ChevronRight, ChevronLeft,
+  PanelLeftClose, PanelLeftOpen, LogOut, ShoppingCart,
+  Shield, Bell, AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import BarraAcessibilidade from "@/components/acessibilidade/BarraAcessibilidade";
 
-const navItems = [
+const NAV_CONFIG = [
   { label: "Dashboard", page: "Dashboard", icon: LayoutDashboard, roles: ["admin", "gestor", "fiscal", "direcao"] },
   { label: "Contratos", page: "Contratos", icon: FileText, roles: ["admin", "gestor", "fiscal", "direcao"] },
   { label: "Lançamentos", page: "Lancamentos", icon: DollarSign, roles: ["admin", "gestor", "fiscal"] },
@@ -42,36 +29,44 @@ export default function Layout({ children, currentPageName }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const [logoError, setLogoError] = useState(false);
 
   useEffect(() => {
+    let timeout;
     base44.auth.me().then(u => {
+      if (!u) {
+        base44.auth.redirectToLogin();
+        return;
+      }
       setUser(u);
-      // Se o usuário não tem role ou tem role "user" e foi criado recentemente (últimas 2h), gera notificação
-      if (u && (!u.role || u.role === "user")) {
+      const role = u.role || "guest";
+      if (role === "guest") {
         const criadoEm = u.created_date ? new Date(u.created_date) : null;
         const agora = new Date();
         const duasHoras = 2 * 60 * 60 * 1000;
         if (criadoEm && (agora - criadoEm) < duasHoras) {
-          // Verifica se já existe notificação para este usuário para não duplicar
-          base44.entities.NotificacaoAdmin.filter({ dados_extras: u.email })
-            .then(existentes => {
-              if (existentes.length === 0) {
-                base44.entities.NotificacaoAdmin.create({
-                  tipo: "novo_usuario",
-                  titulo: "Novo usuário registrado",
-                  mensagem: `${u.full_name || u.email} criou uma conta e aguarda atribuição de perfil.`,
-                  lida: false,
-                  dados_extras: u.email,
-                });
-              }
-            }).catch(() => {});
+          timeout = setTimeout(() => {
+            base44.entities.NotificacaoAdmin.filter({ dados_extras: u.email })
+              .then(existentes => {
+                if (existentes.length === 0) {
+                  base44.entities.NotificacaoAdmin.create({
+                    tipo: "novo_usuario",
+                    titulo: "Novo usuário registrado",
+                    mensagem: `${u.full_name || u.email} aguarda perfil.`,
+                    lida: false,
+                    dados_extras: u.email,
+                  });
+                }
+              }).catch(() => {});
+          }, 1000);
         }
       }
-    }).catch(() => {});
+    }).catch(() => base44.auth.redirectToLogin());
+    return () => clearTimeout(timeout);
   }, []);
 
-  const userRole = user?.role || "direcao";
-  const visibleNav = navItems.filter(item => item.roles.includes(userRole));
+  const userRole = user?.role || "guest";
+  const visibleNav = NAV_CONFIG.filter(item => item.roles.includes(userRole));
 
   if (currentPageName === "LandingPage") {
     return <>{children}</>;
@@ -81,22 +76,21 @@ export default function Layout({ children, currentPageName }) {
     <div className="min-h-screen bg-gray-50 flex">
       <BarraAcessibilidade />
       <style>{`
-        :root {
-          --primary: 220 70% 30%;
-          --primary-foreground: 0 0% 100%;
-        }
+        :root { --primary: 220 70% 30%; --primary-foreground: 0 0% 100%; }
         .nav-active { background: #1e3a5f; color: white; }
         .nav-item:hover { background: #2a4a7a; color: white; }
       `}</style>
 
-      {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 ${isCollapsed ? "w-20" : "w-64"} bg-[#1a2e4a] text-white flex flex-col transform transition-all duration-300 lg:sticky lg:top-0 lg:h-screen ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        {/* Logo */}
-        {/* Logo and Collapse Button */}
+      <aside 
+        aria-expanded={!isCollapsed} 
+        aria-label="Menu Lateral" 
+        className={`fixed inset-y-0 left-0 z-50 ${isCollapsed ? "w-20" : "w-64"} bg-[#1a2e4a] text-white flex flex-col transform transition-all duration-300 lg:sticky lg:top-0 lg:h-screen ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+      >
         <div className={`p-4 border-b border-white/10 flex items-center ${isCollapsed ? "justify-center flex-col gap-4" : "justify-between gap-2"}`}>
           <div className={`flex items-center ${isCollapsed ? "" : "w-[85%]"}`}>
             <img 
-              src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/6b1fe7a9a_easycontrol.png" 
+              src={logoError ? "/fallback-logo.png" : "https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/6b1fe7a9a_easycontrol.png"}
+              onError={() => setLogoError(true)}
               alt="Easy Control Logo" 
               className={`transition-all duration-300 ${isCollapsed ? "h-8 w-[2.2rem] object-cover object-left" : "w-full h-auto object-contain"}`}
             />
@@ -105,13 +99,13 @@ export default function Layout({ children, currentPageName }) {
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="hidden lg:flex text-blue-300 hover:text-white transition-colors"
             title={isCollapsed ? "Expandir menu" : "Recolher menu"}
+            aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
           >
             {isCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto" aria-label="Navegação Principal">
           {visibleNav.map(item => {
             const isActive = location.pathname.includes(item.page) || (currentPageName === item.page);
             return (
@@ -120,17 +114,17 @@ export default function Layout({ children, currentPageName }) {
                 to={createPageUrl(item.page)}
                 onClick={() => setSidebarOpen(false)}
                 title={isCollapsed ? item.label : undefined}
+                aria-current={isActive ? "page" : undefined}
                 className={`nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${isActive ? "nav-active" : "text-blue-100"} ${isCollapsed ? "justify-center px-0" : ""}`}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <item.icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                 {!isCollapsed && <span>{item.label}</span>}
-                {!isCollapsed && isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
+                {!isCollapsed && isActive && <ChevronRight className="w-3 h-3 ml-auto" aria-hidden="true" />}
               </Link>
             );
           })}
         </nav>
 
-        {/* User */}
         {user && (
           <div className="p-4 border-t border-white/10">
             {!isCollapsed ? (
@@ -140,7 +134,7 @@ export default function Layout({ children, currentPageName }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium truncate">{user.full_name}</div>
-                  <div className="text-xs text-blue-300 capitalize">{user.role || "usuário"}</div>
+                  <div className="text-xs text-blue-300 capitalize">{user.role || "guest"}</div>
                 </div>
               </div>
             ) : (
@@ -155,40 +149,26 @@ export default function Layout({ children, currentPageName }) {
               size="sm"
               className={`w-full text-blue-200 hover:text-white hover:bg-white/10 text-xs ${isCollapsed ? "justify-center px-0" : "justify-start"}`}
               onClick={() => base44.auth.logout()}
-              title={isCollapsed ? "Sair" : undefined}
+              aria-label="Sair do sistema"
             >
-              <LogOut className={`w-4 h-4 ${!isCollapsed ? "mr-2" : ""}`} /> {!isCollapsed && "Sair"}
+              <LogOut className={`w-4 h-4 ${!isCollapsed ? "mr-2" : ""}`} aria-hidden="true" /> {!isCollapsed && "Sair"}
             </Button>
           </div>
         )}
-
-        {/* Footer */}
-        <div className={`hidden lg:flex bg-[#111e30] text-blue-300/60 text-[10px] py-3 flex-col gap-0.5 border-t border-white/5 text-center ${isCollapsed ? "px-1" : "px-4"}`}>
-          {!isCollapsed ? (
-            <>
-              <span>© {new Date().getFullYear()} Easy Control — Gestão de Contratos</span>
-              <span>Desenvolvido por <span className="text-blue-200/80 font-medium">Leonardo Alves</span> · v1.0.0</span>
-            </>
-          ) : (
-            <span className="leading-tight">© {new Date().getFullYear()}<br/>v1.0.0</span>
-          )}
-        </div>
       </aside>
 
-      {/* Overlay mobile */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
       )}
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 max-w-full">
-        {/* Top bar mobile */}
         <header className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white border-b shadow-sm sticky top-0 z-30">
-          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
-            <Menu className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu">
+            <Menu className="w-5 h-5" aria-hidden="true" />
           </Button>
           <img 
-            src="https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/6b1fe7a9a_easycontrol.png" 
+            src={logoError ? "/fallback-logo.png" : "https://media.base44.com/images/public/69a6ff7797ad3d24713a3ae6/6b1fe7a9a_easycontrol.png"}
+            onError={() => setLogoError(true)}
             alt="Easy Control Logo" 
             className="h-8 w-auto object-contain"
           />
