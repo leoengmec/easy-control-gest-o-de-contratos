@@ -47,9 +47,11 @@ export default function ContractFinancialOverview({ contrato }) {
   const pctPagoOrcado = orcadoFiltrado > 0 ? (totalPago / orcadoFiltrado) * 100 : 0;
   const pctAprovOrcado = orcadoFiltrado > 0 ? (totalAprov / orcadoFiltrado) * 100 : 0;
 
-  // Mapa para renomear os labels
+  // Mapa para renomear os labels (removendo "Serviços de")
   const NOME_MAP = {
-    "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Serviços de Deslocamentos Engenheiro",
+    "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento corretivo",
+    "SERVIÇOS DE DESLOCAMENTO PREVENTIVO": "Deslocamento Preventivo",
+    "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do engenheiro",
     "SERVIÇOS EVENTUAIS": "Serviços Eventuais",
     "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS": "Locações",
     "FORNECIMENTO DE MATERIAL": "Fornecimento de Materiais",
@@ -65,13 +67,14 @@ export default function ContractFinancialOverview({ contrato }) {
       titulo: "Serviços Fixos",
       cor: "text-blue-700",
       bg: "bg-blue-50",
-      itensOriginais: ["MOR Natal", "MOR Mossoró"],
+      itensOriginais: ["MOR Natal", "MOR Mossoró", "SERVIÇOS DE DESLOCAMENTO PREVENTIVO"],
     },
     {
       titulo: "Demandas Eventuais",
       cor: "text-amber-700",
       bg: "bg-amber-50",
       itensOriginais: [
+        "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
         "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
         "SERVIÇOS EVENTUAIS",
         "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS",
@@ -134,7 +137,7 @@ export default function ContractFinancialOverview({ contrato }) {
     }
   });
 
-  const temTabela = gruposComItens.length > 0;
+  const temTabela = gruposComItens.length > 0 || itensSemGrupoRows.length > 0;
 
   return (
     <Card className="border border-blue-100">
@@ -246,7 +249,40 @@ export default function ContractFinancialOverview({ contrato }) {
                     </React.Fragment>
                   ))}
 
-                  {/* Outros Itens removido */}
+                  {itensSemGrupoRows.length > 0 && (
+                    <>
+                      <tr className="bg-gray-100 border-b border-gray-200">
+                        <td colSpan={6} className="py-1.5 font-bold text-gray-600 uppercase tracking-wider">
+                          Outros Itens
+                        </td>
+                      </tr>
+                      {itensSemGrupoRows.map((item, i) => (
+                        <tr key={`other-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
+                          <td className="py-1.5 font-medium text-gray-700 pl-4">{item.label}</td>
+                          <td className="py-1.5 text-right text-blue-600">{fmt(item.orcado)}</td>
+                          <td className="py-1.5 text-right text-green-600 font-semibold">{fmt(item.pago)}</td>
+                          <td className="py-1.5 text-right text-amber-500">{fmt(item.aprov)}</td>
+                          <td className={`py-1.5 text-right font-bold ${item.saldo < 0 ? "text-red-500" : "text-[#1a2e4a]"}`}>
+                            {fmt(item.saldo)}
+                          </td>
+                          <td className="py-1.5 pl-3">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                                <div
+                                  className="h-1.5 rounded-full transition-all"
+                                  style={{
+                                    width: `${item.pct}%`,
+                                    backgroundColor: item.pct >= 90 ? "#ef4444" : item.pct >= 70 ? "#f59e0b" : "#22c55e"
+                                  }}
+                                />
+                              </div>
+                              <span className="text-gray-400 w-7 text-right">{item.pct.toFixed(0)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </>
+                  )}
                 </tbody>
               </table>
             </div>

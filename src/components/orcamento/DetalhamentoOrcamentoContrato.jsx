@@ -11,20 +11,20 @@ const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency:
 // Palavras-chave para identificar MOR Natal e MOR Mossoró
 const MOR_NATAL_KEYS = ["natal", "civil natal", "elétrica natal", "elétrico natal", "artífice natal", "auxiliar natal", "administrativo natal", "engenheiro"];
 const MOR_MOSSORO_KEYS = ["mossoró", "mossoro", "civil mossoró", "elétrica mossoró"];
-const DESL_ENGENHEIRO_KEYS = ["deslocamento engenheiro", "deslocamentos engenheiro"];
+const DESL_PREVENTIVO_KEYS = ["deslocamento preventivo"];
 const MATERIAL_KEYS = ["material", "fornecimento de material"];
 
-function isDeslEngenheiro(nome) {
-  const n = nome.toLowerCase();
-  return DESL_ENGENHEIRO_KEYS.some(k => n.includes(k));
-}
 function isMorNatal(nome) {
   const n = nome.toLowerCase();
-  return MOR_NATAL_KEYS.some(k => n.includes(k)) && !isMorMossoro(nome) && !isDeslEngenheiro(nome);
+  return MOR_NATAL_KEYS.some(k => n.includes(k)) && !isMorMossoro(nome);
 }
 function isMorMossoro(nome) {
   const n = nome.toLowerCase();
   return MOR_MOSSORO_KEYS.some(k => n.includes(k));
+}
+function isDeslPreventivo(nome) {
+  const n = nome.toLowerCase();
+  return DESL_PREVENTIVO_KEYS.some(k => n.includes(k));
 }
 function isMaterial(nome) {
   const n = nome.toLowerCase();
@@ -44,13 +44,13 @@ function distribuirOrcamento(itens, totalOrcado) {
   // Identifica grupos
   const morNatalItens = itens.filter(i => isMorNatal(i.nome) && !isMaterial(i.nome));
   const morMossoroItens = itens.filter(i => isMorMossoro(i.nome) && !isMaterial(i.nome));
-  const deslEngItens = itens.filter(i => isDeslEngenheiro(i.nome));
+  const deslPrevItens = itens.filter(i => isDeslPreventivo(i.nome));
   const materialItens = itens.filter(i => isMaterial(i.nome));
 
   const fixedIds = new Set([
     ...morNatalItens.map(i => i.id),
     ...morMossoroItens.map(i => i.id),
-    ...deslEngItens.map(i => i.id),
+    ...deslPrevItens.map(i => i.id),
     ...materialItens.map(i => i.id),
   ]);
 
@@ -59,11 +59,11 @@ function distribuirOrcamento(itens, totalOrcado) {
   // Calcula valor anual de cada grupo fixo
   const valMorNatal = morNatalItens.reduce((s, i) => s + calcularValorAnual(i), 0);
   const valMorMossoro = morMossoroItens.reduce((s, i) => s + calcularValorAnual(i), 0);
-  const valDeslEng = deslEngItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+  const valDeslPrev = deslPrevItens.reduce((s, i) => s + calcularValorAnual(i), 0);
   const valMaterial = materialItens.reduce((s, i) => s + calcularValorAnual(i), 0);
 
   // Valor restante para distribuição proporcional (material não entra no empenho de serviços)
-  const totalFixo = valMorNatal + valMorMossoro + valDeslEng;
+  const totalFixo = valMorNatal + valMorMossoro + valDeslPrev;
   const restante = totalOrcado - totalFixo - valMaterial;
 
   // Total anual contratado dos demais (para calcular proporção)
@@ -95,15 +95,15 @@ function distribuirOrcamento(itens, totalOrcado) {
     });
   }
 
-  if (deslEngItens.length > 0) {
+  if (deslPrevItens.length > 0) {
     linhas.push({
-      key: "DESL_ENGENHEIRO",
-      label: deslEngItens[0].nome,
-      item_contrato_id: deslEngItens[0].id,
-      valor_orcado: valDeslEng,
+      key: "DESL_PREV",
+      label: deslPrevItens[0].nome,
+      item_contrato_id: deslPrevItens[0].id,
+      valor_orcado: valDeslPrev,
       natureza_despesa: "servico",
       origem: "contratado",
-      valor_contratado_anual: valDeslEng,
+      valor_contratado_anual: valDeslPrev,
     });
   }
 
