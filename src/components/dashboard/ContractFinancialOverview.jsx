@@ -6,7 +6,48 @@ import GaugeChart from "./GaugeChart";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const ANOS = [2024, 2025, 2026, 2027];
-const getValorFinal = (l) => l.valor_pago_final !== undefined && l.valor_pago_final !== null ? l.valor_pago_final : (l.valor || 0);
+const getValorFinal = (l) => {
+  const val = l.valor_pago_final !== undefined && l.valor_pago_final !== null ? l.valor_pago_final : (l.valor || 0);
+  return Number(val) || 0;
+};
+
+// Mapa para renomear os labels (removendo "Serviços de")
+const NOME_MAP = {
+  "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento corretivo",
+  "SERVIÇOS DE DESLOCAMENTO PREVENTIVO": "Deslocamento Preventivo",
+  "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do engenheiro",
+  "SERVIÇOS EVENTUAIS": "Serviços Eventuais",
+  "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS": "Locações",
+  "FORNECIMENTO DE MATERIAL": "Fornecimento de Materiais",
+  "Fornecimento de Material": "Fornecimento de Materiais",
+  "FORNECIMENTO DE MATERIAIS": "Fornecimento de Materiais"
+};
+
+const mapName = (nome) => NOME_MAP[nome] || nome;
+
+// Ordem e agrupamento desejado
+const GRUPOS = [
+  {
+    titulo: "Serviços Fixos",
+    cor: "text-blue-700",
+    bg: "bg-blue-50",
+    itensOriginais: ["MOR Natal", "MOR Mossoró", "SERVIÇOS DE DESLOCAMENTO PREVENTIVO"],
+  },
+  {
+    titulo: "Demandas Eventuais",
+    cor: "text-amber-700",
+    bg: "bg-amber-50",
+    itensOriginais: [
+      "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
+      "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
+      "SERVIÇOS EVENTUAIS",
+      "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS",
+      "FORNECIMENTO DE MATERIAIS",
+      "Fornecimento de Material",
+      "FORNECIMENTO DE MATERIAL",
+    ],
+  },
+];
 
 export default function ContractFinancialOverview({ contrato }) {
   const [ano, setAno] = useState(new Date().getFullYear());
@@ -15,8 +56,10 @@ export default function ContractFinancialOverview({ contrato }) {
   const [lancamentos, setLancamentos] = useState([]);
   const [itensOrcados, setItensOrcados] = useState([]);
   const [itensContrato, setItensContrato] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setIsLoading(true);
     Promise.all([
       base44.entities.OrcamentoContratualAnual.filter({ contrato_id: contrato.id, ano }),
       base44.entities.LancamentoFinanceiro.filter({ contrato_id: contrato.id, ano }),
@@ -27,7 +70,7 @@ export default function ContractFinancialOverview({ contrato }) {
       setLancamentos(l);
       setItensOrcados(oi);
       setItensContrato(ic);
-    });
+    }).finally(() => setIsLoading(false));
   }, [contrato.id, ano]);
 
   const orcadoTotal = orcamentoAnual?.valor_orcado || 0;
@@ -35,109 +78,105 @@ export default function ContractFinancialOverview({ contrato }) {
 
   const lancsFiltrados = itemFiltro === "todos"
     ? lancamentos
-    : lancamentos.filter(l => l.item_label === itemFiltro);
+    : lancamentos.filter(l => mapName(l.item_label) === itemFiltro);
 
   const totalPago = lancsFiltrados.filter(l => l.status === "Pago" || l.status === "SOF").reduce((s, l) => s + getValorFinal(l), 0);
   const totalAprov = lancsFiltrados.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
 
   const orcadoFiltrado = itemFiltro === "todos"
     ? orcadoTotal
-    : (itensOrcados.find(i => i.item_label === itemFiltro)?.valor_orcado || 0);
+    : (itensOrcados.filter(i => mapName(i.item_label) === itemFiltro).reduce((s, i) => s + Number(i.valor_orcado || 0), 0));
 
   const pctPagoOrcado = orcadoFiltrado > 0 ? (totalPago / orcadoFiltrado) * 100 : 0;
   const pctAprovOrcado = orcadoFiltrado > 0 ? (totalAprov / orcadoFiltrado) * 100 : 0;
 
-  // Mapa para renomear os labels (removendo "Serviços de")
-  const NOME_MAP = {
-    "SERVIÇOS DE DESLOCAMENTO CORRETIVO": "Deslocamento corretivo",
-    "SERVIÇOS DE DESLOCAMENTO PREVENTIVO": "Deslocamento Preventivo",
-    "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO": "Deslocamento do engenheiro",
-    "SERVIÇOS EVENTUAIS": "Serviços Eventuais",
-    "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS": "Locações",
-    "FORNECIMENTO DE MATERIAL": "Fornecimento de Materiais",
-    "Fornecimento de Material": "Fornecimento de Materiais",
-    "FORNECIMENTO DE MATERIAIS": "Fornecimento de Materiais"
-  };
+  const { itensDisponiveis, gruposComItens, itensSemGrupoRows, temTabela } = React.useMemo(() => {
+    const todosItensBrutos = [
+      ...new Set([
+        ...lancamentos.map(l => l.item_label),
+        ...itensOrcados.map(i => i.item_label),
+      ].filter(Boolean)),
+    ];
 
-  const mapName = (nome) => NOME_MAP[nome] || nome;
+    const disponiveis = [...new Set(todosItensBrutos.map(mapName))].sort();
 
-  // Ordem e agrupamento desejado
-  const GRUPOS = [
-    {
-      titulo: "Serviços Fixos",
-      cor: "text-blue-700",
-      bg: "bg-blue-50",
-      itensOriginais: ["MOR Natal", "MOR Mossoró", "SERVIÇOS DE DESLOCAMENTO PREVENTIVO"],
-    },
-    {
-      titulo: "Demandas Eventuais",
-      cor: "text-amber-700",
-      bg: "bg-amber-50",
-      itensOriginais: [
-        "SERVIÇOS DE DESLOCAMENTO CORRETIVO",
-        "SERVIÇOS DE DESLOCAMENTO ENGENHEIRO",
-        "SERVIÇOS EVENTUAIS",
-        "SERVIÇOS DE LOCAÇÃO DE EQUIPAMENTOS",
-        "FORNECIMENTO DE MATERIAIS",
-        "Fornecimento de Material",
-        "FORNECIMENTO DE MATERIAL",
-      ],
-    },
-  ];
-
-  const todosItensBrutos = [
-    ...new Set([
-      ...lancamentos.map(l => l.item_label),
-      ...itensOrcados.map(i => i.item_label),
-    ].filter(Boolean)),
-  ];
-
-  const itensDisponiveis = [...new Set(todosItensBrutos.map(mapName))].sort();
-
-  const buildItem = (origNames) => {
-    let orcado = 0, pago = 0, aprov = 0;
-    origNames.forEach(orig => {
-      orcado += itensOrcados.find(i => i.item_label === orig)?.valor_orcado || 0;
-      pago += lancamentos.filter(l => l.item_label === orig && (l.status === "Pago" || l.status === "SOF")).reduce((s, l) => s + getValorFinal(l), 0);
-      aprov += lancamentos.filter(l => l.item_label === orig && l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
+    // Pré-agrupar totais por item_label (O(N)) para evitar O(N*M) no buildItem
+    const totaisPorLabel = {};
+    todosItensBrutos.forEach(label => {
+      totaisPorLabel[label] = { orcado: 0, pago: 0, aprov: 0 };
     });
-    const saldo = orcado - pago - aprov;
-    const pct = orcado > 0 ? Math.min((pago / orcado) * 100, 100) : 0;
-    return { orcado, pago, aprov, saldo, pct };
-  };
-
-  const gruposComItens = GRUPOS.map(g => {
-    const rows = [];
-    const nomesJaProcessados = new Set();
     
-    g.itensOriginais.forEach(orig => {
-      if (nomesJaProcessados.has(mapName(orig))) return;
-      const allOrigsOfSameMappedName = g.itensOriginais.filter(x => mapName(x) === mapName(orig));
-      const stats = buildItem(allOrigsOfSameMappedName);
-      if (stats.orcado > 0 || stats.pago > 0) {
-        rows.push({ label: mapName(orig), ...stats });
-        nomesJaProcessados.add(mapName(orig));
+    itensOrcados.forEach(i => {
+      if (i.item_label && totaisPorLabel[i.item_label]) {
+        totaisPorLabel[i.item_label].orcado += Number(i.valor_orcado || 0);
       }
     });
-    return { ...g, rows };
-  }).filter(g => g.rows.length > 0);
 
-  const itensNoGrupo = new Set(GRUPOS.flatMap(g => g.itensOriginais));
-  const itensSemGrupoOriginais = todosItensBrutos.filter(l => !itensNoGrupo.has(l));
+    lancamentos.forEach(l => {
+      if (l.item_label && totaisPorLabel[l.item_label]) {
+        const valorFinal = getValorFinal(l);
+        if (l.status === "Pago" || l.status === "SOF") {
+          totaisPorLabel[l.item_label].pago += valorFinal;
+        } else if (l.status === "Aprovisionado") {
+          totaisPorLabel[l.item_label].aprov += valorFinal;
+        }
+      }
+    });
 
-  const itensSemGrupoRows = [];
-  const nomesSemGrupoProcessados = new Set();
-  itensSemGrupoOriginais.forEach(orig => {
-    if (nomesSemGrupoProcessados.has(mapName(orig))) return;
-    const allOrigs = itensSemGrupoOriginais.filter(x => mapName(x) === mapName(orig));
-    const stats = buildItem(allOrigs);
-    if (stats.orcado > 0 || stats.pago > 0) {
-      itensSemGrupoRows.push({ label: mapName(orig), ...stats });
-      nomesSemGrupoProcessados.add(mapName(orig));
-    }
-  });
+    const buildItem = (origNames) => {
+      let orcado = 0, pago = 0, aprov = 0;
+      origNames.forEach(orig => {
+        if (totaisPorLabel[orig]) {
+          orcado += totaisPorLabel[orig].orcado;
+          pago += totaisPorLabel[orig].pago;
+          aprov += totaisPorLabel[orig].aprov;
+        }
+      });
+      const saldo = orcado - pago - aprov;
+      const pct = orcado > 0 ? Math.min((pago / orcado) * 100, 100) : 0;
+      return { orcado, pago, aprov, saldo, pct };
+    };
 
-  const temTabela = gruposComItens.length > 0 || itensSemGrupoRows.length > 0;
+    const grupos = GRUPOS.map(g => {
+      const rows = [];
+      const nomesJaProcessados = new Set();
+      
+      g.itensOriginais.forEach(orig => {
+        const mapped = mapName(orig);
+        if (nomesJaProcessados.has(mapped)) return;
+        const allOrigsOfSameMappedName = g.itensOriginais.filter(x => mapName(x) === mapped);
+        const stats = buildItem(allOrigsOfSameMappedName);
+        if (stats.orcado > 0 || stats.pago > 0) {
+          rows.push({ label: mapped, ...stats });
+          nomesJaProcessados.add(mapped);
+        }
+      });
+      return { ...g, rows };
+    }).filter(g => g.rows.length > 0);
+
+    const itensNoGrupo = new Set(GRUPOS.flatMap(g => g.itensOriginais));
+    const itensSemGrupoOriginais = todosItensBrutos.filter(l => !itensNoGrupo.has(l));
+
+    const semGrupoRows = [];
+    const nomesSemGrupoProcessados = new Set();
+    itensSemGrupoOriginais.forEach(orig => {
+      const mapped = mapName(orig);
+      if (nomesSemGrupoProcessados.has(mapped)) return;
+      const allOrigs = itensSemGrupoOriginais.filter(x => mapName(x) === mapped);
+      const stats = buildItem(allOrigs);
+      if (stats.orcado > 0 || stats.pago > 0) {
+        semGrupoRows.push({ label: mapped, ...stats });
+        nomesSemGrupoProcessados.add(mapped);
+      }
+    });
+
+    return {
+      itensDisponiveis: disponiveis,
+      gruposComItens: grupos,
+      itensSemGrupoRows: semGrupoRows,
+      temTabela: grupos.length > 0 || semGrupoRows.length > 0
+    };
+  }, [lancamentos, itensOrcados]);
 
   return (
     <Card className="border border-blue-100">
@@ -171,6 +210,13 @@ export default function ContractFinancialOverview({ contrato }) {
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4">
+        {isLoading && (
+          <div className="flex justify-center items-center py-8">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        {!isLoading && (
+          <>
         {/* Gauge Charts */}
         <div className="flex flex-wrap justify-around gap-4 py-2 mb-4">
           <div className="flex flex-col items-center">
@@ -205,12 +251,12 @@ export default function ContractFinancialOverview({ contrato }) {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b border-gray-100">
-                    <th className="text-left py-1.5 text-gray-500 font-medium">Item / Categoria</th>
-                    <th className="text-right py-1.5 text-gray-500 font-medium">Orçado</th>
-                    <th className="text-right py-1.5 text-gray-500 font-medium">Pago</th>
-                    <th className="text-right py-1.5 text-gray-500 font-medium">Aprovisionado</th>
-                    <th className="text-right py-1.5 text-gray-500 font-medium">Saldo</th>
-                    <th className="w-24 py-1.5 text-gray-500 font-medium pl-3">Execução</th>
+                    <th scope="col" className="text-left py-1.5 text-gray-500 font-medium">Item / Categoria</th>
+                    <th scope="col" className="text-right py-1.5 text-gray-500 font-medium">Orçado</th>
+                    <th scope="col" className="text-right py-1.5 text-gray-500 font-medium">Pago</th>
+                    <th scope="col" className="text-right py-1.5 text-gray-500 font-medium">Aprovisionado</th>
+                    <th scope="col" className="text-right py-1.5 text-gray-500 font-medium">Saldo</th>
+                    <th scope="col" className="w-24 py-1.5 text-gray-500 font-medium pl-3">Execução</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -232,7 +278,7 @@ export default function ContractFinancialOverview({ contrato }) {
                           </td>
                           <td className="py-1.5 pl-3">
                             <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                              <div className="flex-1 bg-gray-100 rounded-full h-1.5" role="progressbar" aria-valuenow={item.pct} aria-valuemin="0" aria-valuemax="100">
                                 <div
                                   className="h-1.5 rounded-full transition-all"
                                   style={{
@@ -267,7 +313,7 @@ export default function ContractFinancialOverview({ contrato }) {
                           </td>
                           <td className="py-1.5 pl-3">
                             <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                              <div className="flex-1 bg-gray-100 rounded-full h-1.5" role="progressbar" aria-valuenow={item.pct} aria-valuemin="0" aria-valuemax="100">
                                 <div
                                   className="h-1.5 rounded-full transition-all"
                                   style={{
@@ -290,6 +336,8 @@ export default function ContractFinancialOverview({ contrato }) {
         )}
         {!temTabela && (
           <div className="text-center text-xs text-gray-400 py-4">Sem dados orçamentários para {ano}</div>
+        )}
+          </>
         )}
       </CardContent>
     </Card>
