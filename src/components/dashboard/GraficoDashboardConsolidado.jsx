@@ -77,8 +77,7 @@ const PieTooltip = ({ active, payload }) => {
 };
 
 const CATEGORIAS = [
-  "Deslocamento Corretivo",
-  "Deslocamento Preventivo",
+  "Serviços de Deslocamentos Engenheiro",
   "Locações",
   "MOR",
   "Serviços eventuais",
@@ -87,13 +86,12 @@ const CATEGORIAS = [
 
 const GRUPOS = {
   "MOR": ["MOR Natal", "MOR Mossoró"],
-  "Serviços": ["Deslocamento Corretivo", "Deslocamento Preventivo", "Locações", "Serviços eventuais"],
+  "Serviços": ["Serviços de Deslocamentos Engenheiro", "Locações", "Serviços eventuais"],
   "Materiais": ["Fornecimento de Materiais"],
 };
 
 const CAT_CORES = {
-  "Deslocamento Corretivo": "#3b82f6",
-  "Deslocamento Preventivo": "#6366f1",
+  "Serviços de Deslocamentos Engenheiro": "#3b82f6",
   "Locações": "#8b5cf6",
   "MOR": "#f59e0b",
   "Serviços eventuais": "#ec4899",
@@ -107,10 +105,9 @@ const MOR_NATAL_KEYS = ["natal", "artífice natal", "auxiliar natal", "administr
 const MOR_MOSSORO_KEYS = ["mossoró", "mossoro"];
 
 function isMorMossoro(nome) { return MOR_MOSSORO_KEYS.some(k => nome.toLowerCase().includes(k)); }
-function isMorNatal(nome) { return MOR_NATAL_KEYS.some(k => nome.toLowerCase().includes(k)) && !isMorMossoro(nome); }
+function isDeslEngenheiro(nome) { return nome.toLowerCase().includes("deslocamento engenheiro") || nome.toLowerCase().includes("deslocamentos engenheiro"); }
+function isMorNatal(nome) { return MOR_NATAL_KEYS.some(k => nome.toLowerCase().includes(k)) && !isMorMossoro(nome) && !isDeslEngenheiro(nome); }
 function isMaterial(nome) { return ["material", "fornecimento de material"].some(k => nome.toLowerCase().includes(k)); }
-function isDeslPreventivo(nome) { return nome.toLowerCase().includes("deslocamento preventivo"); }
-function isDeslCorretivo(nome) { return nome.toLowerCase().includes("deslocamento corretivo"); }
 function isLocacao(nome) { return nome.toLowerCase().includes("locação") || nome.toLowerCase().includes("locacao"); }
 function isEventual(nome) { return nome.toLowerCase().includes("eventual"); }
 
@@ -123,31 +120,30 @@ function calcularValorAnual(item) {
 function calcularOrcadoPorCategoria(itens, totalOrcado) {
   const morNatalItens = itens.filter(i => isMorNatal(i.nome) && !isMaterial(i.nome));
   const morMossoroItens = itens.filter(i => isMorMossoro(i.nome) && !isMaterial(i.nome));
-  const deslPrevItens = itens.filter(i => isDeslPreventivo(i.nome));
+  const deslEngItens = itens.filter(i => isDeslEngenheiro(i.nome));
   const materialItens = itens.filter(i => isMaterial(i.nome));
 
   const fixedIds = new Set([
     ...morNatalItens.map(i => i.id),
     ...morMossoroItens.map(i => i.id),
-    ...deslPrevItens.map(i => i.id),
+    ...deslEngItens.map(i => i.id),
     ...materialItens.map(i => i.id),
   ]);
   const demaisItens = itens.filter(i => !fixedIds.has(i.id));
 
   const valMorNatal = morNatalItens.reduce((s, i) => s + calcularValorAnual(i), 0);
   const valMorMossoro = morMossoroItens.reduce((s, i) => s + calcularValorAnual(i), 0);
-  const valDeslPrev = deslPrevItens.reduce((s, i) => s + calcularValorAnual(i), 0);
+  const valDeslEng = deslEngItens.reduce((s, i) => s + calcularValorAnual(i), 0);
   const valMaterial = materialItens.reduce((s, i) => s + calcularValorAnual(i), 0);
 
-  const totalFixo = valMorNatal + valMorMossoro + valDeslPrev;
+  const totalFixo = valMorNatal + valMorMossoro + valDeslEng;
   const restante = totalOrcado - totalFixo - valMaterial;
   const totalDemaisContratado = demaisItens.reduce((s, i) => s + calcularValorAnual(i), 0);
 
   const result = {
     "MOR": valMorNatal + valMorMossoro,
-    "Deslocamento Preventivo": valDeslPrev,
+    "Serviços de Deslocamentos Engenheiro": valDeslEng,
     "Fornecimento de Materiais": valMaterial,
-    "Deslocamento Corretivo": 0,
     "Locações": 0,
     "Serviços eventuais": 0,
   };
@@ -156,8 +152,7 @@ function calcularOrcadoPorCategoria(itens, totalOrcado) {
     const valAnual = calcularValorAnual(item);
     const prop = totalDemaisContratado > 0 ? valAnual / totalDemaisContratado : 0;
     const valOrcado = restante > 0 ? prop * restante : 0;
-    if (isDeslCorretivo(item.nome)) result["Deslocamento Corretivo"] += valOrcado;
-    else if (isLocacao(item.nome)) result["Locações"] += valOrcado;
+    if (isLocacao(item.nome)) result["Locações"] += valOrcado;
     else if (isEventual(item.nome)) result["Serviços eventuais"] += valOrcado;
   });
 
