@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -90,7 +90,7 @@ export default function ContractFinancialOverview({ contrato }) {
   const pctPagoOrcado = orcadoFiltrado > 0 ? (totalPago / orcadoFiltrado) * 100 : 0;
   const pctAprovOrcado = orcadoFiltrado > 0 ? (totalAprov / orcadoFiltrado) * 100 : 0;
 
-  const { itensDisponiveis, gruposComItens, itensSemGrupoRows, temTabela } = React.useMemo(() => {
+  const { itensDisponiveis, gruposComItens, temTabela } = React.useMemo(() => {
     const todosItensBrutos = [
       ...new Set([
         ...lancamentos.map(l => l.item_label),
@@ -154,27 +154,10 @@ export default function ContractFinancialOverview({ contrato }) {
       return { ...g, rows };
     }).filter(g => g.rows.length > 0);
 
-    const itensNoGrupo = new Set(GRUPOS.flatMap(g => g.itensOriginais));
-    const itensSemGrupoOriginais = todosItensBrutos.filter(l => !itensNoGrupo.has(l));
-
-    const semGrupoRows = [];
-    const nomesSemGrupoProcessados = new Set();
-    itensSemGrupoOriginais.forEach(orig => {
-      const mapped = mapName(orig);
-      if (nomesSemGrupoProcessados.has(mapped)) return;
-      const allOrigs = itensSemGrupoOriginais.filter(x => mapName(x) === mapped);
-      const stats = buildItem(allOrigs);
-      if (stats.orcado > 0 || stats.pago > 0) {
-        semGrupoRows.push({ label: mapped, ...stats });
-        nomesSemGrupoProcessados.add(mapped);
-      }
-    });
-
     return {
       itensDisponiveis: disponiveis,
       gruposComItens: grupos,
-      itensSemGrupoRows: semGrupoRows,
-      temTabela: grupos.length > 0 || semGrupoRows.length > 0
+      temTabela: grupos.length > 0
     };
   }, [lancamentos, itensOrcados]);
 
@@ -295,40 +278,7 @@ export default function ContractFinancialOverview({ contrato }) {
                     </React.Fragment>
                   ))}
 
-                  {itensSemGrupoRows.length > 0 && (
-                    <>
-                      <tr className="bg-gray-100 border-b border-gray-200">
-                        <td colSpan={6} className="py-1.5 font-bold text-gray-600 uppercase tracking-wider">
-                          Outros Itens
-                        </td>
-                      </tr>
-                      {itensSemGrupoRows.map((item, i) => (
-                        <tr key={`other-${i}`} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="py-1.5 font-medium text-gray-700 pl-4">{item.label}</td>
-                          <td className="py-1.5 text-right text-blue-600">{fmt(item.orcado)}</td>
-                          <td className="py-1.5 text-right text-green-600 font-semibold">{fmt(item.pago)}</td>
-                          <td className="py-1.5 text-right text-amber-500">{fmt(item.aprov)}</td>
-                          <td className={`py-1.5 text-right font-bold ${item.saldo < 0 ? "text-red-500" : "text-[#1a2e4a]"}`}>
-                            {fmt(item.saldo)}
-                          </td>
-                          <td className="py-1.5 pl-3">
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 bg-gray-100 rounded-full h-1.5" role="progressbar" aria-valuenow={item.pct} aria-valuemin="0" aria-valuemax="100">
-                                <div
-                                  className="h-1.5 rounded-full transition-all"
-                                  style={{
-                                    width: `${item.pct}%`,
-                                    backgroundColor: item.pct >= 90 ? "#ef4444" : item.pct >= 70 ? "#f59e0b" : "#22c55e"
-                                  }}
-                                />
-                              </div>
-                              <span className="text-gray-400 w-7 text-right">{item.pct.toFixed(0)}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </>
-                  )}
+
                 </tbody>
               </table>
             </div>
