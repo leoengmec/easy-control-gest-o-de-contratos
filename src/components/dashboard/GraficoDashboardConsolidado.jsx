@@ -252,7 +252,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
 
   const getPagoCategoria = (cat, lancs) => {
     const cats = agrupamento === "grupo" ? (GRUPOS[cat] || [cat]) : [cat];
-    return lancs.filter(l => l.status === "Pago" && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + getValorFinal(l), 0);
+    return lancs.filter(l => (l.status === "Pago" || l.status === "SOF") && cats.some(c => l.item_label?.includes(c))).reduce((s, l) => s + getValorFinal(l), 0);
   };
 
   const getAprovCategoria = (cat, lancs) => {
@@ -321,9 +321,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   const dadosMensaisRaw = MESES_LABELS.map((name, i) => {
     const m = i + 1;
     const lancsM = lancsFiltro.filter(l => l.mes === m);
-    const pago = lancsM.filter(l => l.status === "Pago").reduce((s, l) => s + getValorFinal(l), 0);
+    const pago = lancsM.filter(l => l.status === "Pago" || l.status === "SOF").reduce((s, l) => s + getValorFinal(l), 0);
     const aprovisionado = lancsM.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
-    const instrucao = lancsM.filter(l => ["Em instrução","Em execução","SOF"].includes(l.status)).reduce((s, l) => s + getValorFinal(l), 0);
+    const instrucao = lancsM.filter(l => ["Em instrução","Em execução"].includes(l.status)).reduce((s, l) => s + getValorFinal(l), 0);
     const orcadoMes = orcadoTotal > 0 ? orcadoTotal / 12 : 0;
     return { name, Pago: pago, Aprovisionado: aprovisionado, "Em instrução": instrucao, "Orçado/Mês": orcadoMes };
   });
@@ -338,7 +338,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   // 4. Acumulado do ano
   const dadosAcumulados = MESES_LABELS.map((name, i) => {
     const m = i + 1;
-    const pagoAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Pago").reduce((s, l) => s + getValorFinal(l), 0);
+    const pagoAcum = lancsFiltro.filter(l => l.mes <= m && (l.status === "Pago" || l.status === "SOF")).reduce((s, l) => s + getValorFinal(l), 0);
     const aprovAcum = lancsFiltro.filter(l => l.mes <= m && l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
     const orcadoAcum = orcadoTotal > 0 ? orcadoTotal * (m / 12) : 0;
     return {
@@ -356,9 +356,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
       setContratoClicado({ mes: data.name, status, mesIndex });
       
       const statusMap = {
-        "Pago": ["Pago"],
+        "Pago": ["Pago", "SOF"],
         "Aprovisionado": ["Aprovisionado"],
-        "Em instrução": ["Em instrução", "Em execução", "SOF"]
+        "Em instrução": ["Em instrução", "Em execução"]
       };
       const lancs = lancsFiltro.filter(l => l.mes === mesIndex && statusMap[status].includes(l.status));
       const desc = lancs.map(l => {
@@ -381,7 +381,7 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
   const evolucaoOrcamento = anosDisponiveis.map(ano => {
     const totalOrcado = orcamentosAnuais.filter(o => o.ano === ano).reduce((s, o) => s + (o.valor_orcado || 0), 0);
     const empenhado = empenhos.filter(e => e.ano === ano).reduce((s, e) => s + (e.valor_total || 0), 0);
-    const pago = lancamentos.filter(l => l.ano === ano && l.status === "Pago").reduce((s, l) => s + getValorFinal(l), 0);
+    const pago = lancamentos.filter(l => l.ano === ano && (l.status === "Pago" || l.status === "SOF")).reduce((s, l) => s + getValorFinal(l), 0);
     return {
       name: String(ano),
       "Orçado": totalOrcado,
@@ -529,9 +529,9 @@ export default function GraficoDashboardConsolidado({ contratos, lancamentos, em
                   <div className="space-y-2">
                     {(() => {
                       const statusMap = {
-                        "Pago": ["Pago"],
+                        "Pago": ["Pago", "SOF"],
                         "Aprovisionado": ["Aprovisionado"],
-                        "Em instrução": ["Em instrução", "Em execução", "SOF"]
+                        "Em instrução": ["Em instrução", "Em execução"]
                       };
                       const lancsDetail = lancsFiltro.filter(l => 
                         l.mes === contratoClicado.mesIndex && 

@@ -6,6 +6,7 @@ import GaugeChart from "./GaugeChart";
 
 const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const ANOS = [2024, 2025, 2026, 2027];
+const getValorFinal = (l) => l.valor_pago_final !== undefined && l.valor_pago_final !== null ? l.valor_pago_final : (l.valor || 0);
 
 export default function ContractFinancialOverview({ contrato }) {
   const [ano, setAno] = useState(new Date().getFullYear());
@@ -36,8 +37,8 @@ export default function ContractFinancialOverview({ contrato }) {
     ? lancamentos
     : lancamentos.filter(l => l.item_label === itemFiltro);
 
-  const totalPago = lancsFiltrados.filter(l => l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-  const totalAprov = lancsFiltrados.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+  const totalPago = lancsFiltrados.filter(l => l.status === "Pago" || l.status === "SOF").reduce((s, l) => s + getValorFinal(l), 0);
+  const totalAprov = lancsFiltrados.filter(l => l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
 
   const orcadoFiltrado = itemFiltro === "todos"
     ? orcadoTotal
@@ -97,8 +98,8 @@ export default function ContractFinancialOverview({ contrato }) {
     let orcado = 0, pago = 0, aprov = 0;
     origNames.forEach(orig => {
       orcado += itensOrcados.find(i => i.item_label === orig)?.valor_orcado || 0;
-      pago += lancamentos.filter(l => l.item_label === orig && l.status === "Pago").reduce((s, l) => s + (l.valor || 0), 0);
-      aprov += lancamentos.filter(l => l.item_label === orig && l.status === "Aprovisionado").reduce((s, l) => s + (l.valor || 0), 0);
+      pago += lancamentos.filter(l => l.item_label === orig && (l.status === "Pago" || l.status === "SOF")).reduce((s, l) => s + getValorFinal(l), 0);
+      aprov += lancamentos.filter(l => l.item_label === orig && l.status === "Aprovisionado").reduce((s, l) => s + getValorFinal(l), 0);
     });
     const saldo = orcado - pago - aprov;
     const pct = orcado > 0 ? Math.min((pago / orcado) * 100, 100) : 0;
