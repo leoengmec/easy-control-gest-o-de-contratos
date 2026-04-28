@@ -200,18 +200,9 @@ export default function NovoContrato() {
               <FormField control={form.control} name="contratada" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Empresa Contratada *</FormLabel>
-                  {editando ? (
-                    <FormControl>
-                      <Input disabled value={field.value || ""} />
-                    </FormControl>
-                  ) : (
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {contratadas.map(c => <SelectItem key={c.id} value={c.razao_social}>{c.razao_social} - {c.cnpj}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <FormControl>
+                    <Input placeholder="Nome da empresa contratada" disabled={editando} {...field} value={field.value || ""} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
